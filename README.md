@@ -4,7 +4,7 @@ A modular and extensible simulation platform for studying evolutionary algorithm
 
 **CMPE 491/492 - Senior Design Project | TED University**
 
-🌐 **Website:** https://moon-aii.github.io/moonai/
+**Website:** https://moon-aii.github.io/moonai/
 
 ## Overview
 
