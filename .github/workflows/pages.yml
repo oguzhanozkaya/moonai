@@ -27,8 +27,8 @@ jobs:
         run: |
           mkdir -p _site
           cp -r web/. _site/
-          mkdir -p _site/documents
-          cp documents/*.pdf _site/documents/
+          mkdir -p _site/docs
+          cp docs/*.pdf _site/docs/
 
       - uses: actions/configure-pages@v5
 

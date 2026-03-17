@@ -333,7 +333,7 @@ moonai/
 │   └── gpu/                    # CUDA kernels (auto-detected; disabled at runtime by --no-gpu)
 ├── tests/                      # Google Test unit tests
 ├── analysis/                   # Python analysis scripts
-├── documents/                  # Project documents (PDFs + LLD LaTeX source)
+├── docs/                       # Project documents (PDFs + LLD LaTeX source)
 ├── web/                        # GitHub Pages website
 └── .github/workflows/          # CI/CD pipelines
 ```
