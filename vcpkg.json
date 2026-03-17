@@ -1,0 +1,14 @@
+{
+  "name": "moonai",
+  "version-string": "0.1.0",
+  "description": "Predator-prey simulation for evolutionary algorithm research",
+  "dependencies": [
+    "sfml",
+    "nlohmann-json",
+    "spdlog",
+    {
+      "name": "gtest",
+      "host": true
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Package Overview}
+\label{sec:packages}
+% ─────────────────────────────────────────────────────────────────────────────
+
+MoonAI is structured as six CMake static libraries under \texttt{src/}.  Each library
+corresponds to one architectural subsystem with a single, well-defined responsibility.
+Figure~\ref{fig:pkg} shows the package dependency graph.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.72\textwidth]{package_overview}
+  \caption{Package dependency diagram. All packages consume \texttt{moonai.core};
+           arrows denote \texttt{<<use>>} relationships.}
+  \label{fig:pkg}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Package summary}
+\label{tab:packages}
+\begin{tabularx}{\textwidth}{@{}lllX@{}}
+\toprule
+\textbf{Package} & \textbf{CMake library} & \textbf{Source path} & \textbf{Key classes / types} \\
+\midrule
+\texttt{moonai.core}           & \texttt{moonai\_core}           & \texttt{src/core/}           &
+  \texttt{Vec2}, \texttt{SimulationConfig}, \texttt{Random}, \texttt{CLIArgs}, \texttt{BoundaryMode} \\
+\texttt{moonai.simulation}     & \texttt{moonai\_simulation}     & \texttt{src/simulation/}     &
+  \texttt{Agent}, \texttt{Predator}, \texttt{Prey}, \texttt{Environment}, \texttt{SpatialGrid},
+  \texttt{Physics}, \texttt{SensorInput}, \texttt{SimulationManager} \\
+\texttt{moonai.evolution}      & \texttt{moonai\_evolution}      & \texttt{src/evolution/}      &
+  \texttt{Genome}, \texttt{NeuralNetwork}, \texttt{Species}, \texttt{InnovationTracker},
+  \texttt{Mutation}, \texttt{Crossover}, \texttt{EvolutionManager} \\
+\texttt{moonai.visualization}  & \texttt{moonai\_visualization}  & \texttt{src/visualization/}  &
+  \texttt{VisualizationManager}, \texttt{Renderer}, \texttt{UIOverlay}, \texttt{OverlayStats} \\
+\texttt{moonai.data}           & \texttt{moonai\_data}           & \texttt{src/data/}           &
+  \texttt{Logger}, \texttt{MetricsCollector}, \texttt{GenerationMetrics} \\
+\texttt{moonai.gpu}            & \texttt{moonai\_gpu}            & \texttt{src/gpu/}            &
+  \texttt{GpuBatch}, \texttt{GpuNetDesc}, \texttt{GpuAgentStats}, \texttt{GpuNetworkData} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Dependency Rules}
+
+\begin{itemize}
+  \item \textbf{\texttt{moonai.core}} has no internal dependencies.  It provides
+    primitive types (\texttt{Vec2}, \texttt{AgentId}), configuration (\texttt{SimulationConfig}),
+    and the seeded RNG (\texttt{Random}) consumed by every other package.
+  \item \textbf{\texttt{moonai.gpu}} depends only on \texttt{gpu\_types.hpp} from
+    \texttt{moonai.core}.  It has no link-time dependency on \texttt{moonai.evolution},
+    which prevents circular dependencies; the host-side packing of GPU network data
+    lives in \texttt{EvolutionManager}.
+  \item \textbf{\texttt{moonai.simulation}} depends on \texttt{moonai.core} only.
+    The simulation engine is deliberately unaware of NEAT to allow independent testing.
+  \item \textbf{\texttt{moonai.evolution}} depends on \texttt{moonai.core} and
+    \texttt{moonai.simulation} (for \texttt{SimulationManager} in
+    \texttt{evaluate\_generation}).
+  \item \textbf{\texttt{moonai.visualization}} and \textbf{\texttt{moonai.data}} are
+    leaf consumers: they depend on all domain packages but nothing depends on them.
+\end{itemize}

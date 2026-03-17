@@ -1,0 +1,118 @@
+\documentclass[12pt,a4paper]{article}
+
+% ── Encoding & fonts ────────────────────────────────────────────────────────
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[expansion=false]{microtype}
+
+% ── Page layout ─────────────────────────────────────────────────────────────
+\usepackage[top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm]{geometry}
+\usepackage{parskip}
+
+% ── Graphics & color ────────────────────────────────────────────────────────
+\usepackage{graphicx}
+\usepackage[table,xcdraw]{xcolor}
+\graphicspath{{img/}}
+
+% ── Tables ──────────────────────────────────────────────────────────────────
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{tabularx}
+
+% ── Code listings ───────────────────────────────────────────────────────────
+\usepackage{listings}
+\lstdefinestyle{cpp}{
+  language=C++,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{green!50!black}\itshape,
+  stringstyle=\color{red!60!black},
+  numberstyle=\tiny\color{gray},
+  numbers=left,
+  numbersep=6pt,
+  frame=single,
+  breaklines=true,
+  captionpos=b,
+  tabsize=4,
+  showstringspaces=false,
+  backgroundcolor=\color{gray!5}
+}
+\lstset{style=cpp}
+
+% ── Section formatting ───────────────────────────────────────────────────────
+\usepackage{titlesec}
+\titleformat{\section}{\large\bfseries}{}{0em}{\thesection\quad}
+\titleformat{\subsection}{\normalsize\bfseries}{}{0em}{\thesubsection\quad}
+\titleformat{\subsubsection}{\normalsize\itshape\bfseries}{}{0em}{\thesubsubsection\quad}
+
+% ── List formatting ──────────────────────────────────────────────────────────
+\usepackage{enumitem}
+
+% ── Captions ─────────────────────────────────────────────────────────────────
+\usepackage{caption}
+\usepackage{float}
+
+% ── Hyperlinks ────────────────────────────────────────────────────────────────
+\usepackage[colorlinks=true, linkcolor=blue!60!black, citecolor=green!50!black,
+            urlcolor=blue!70!black, bookmarksopen=true]{hyperref}
+
+% ── Math ─────────────────────────────────────────────────────────────────────
+\usepackage{amsmath}
+
+% ── Header / footer ──────────────────────────────────────────────────────────
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small MoonAI — Low-Level Design Report}
+\rhead{\small CMPE 492 — TED University, 2026}
+\cfoot{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{document}
+
+% ── Title page ────────────────────────────────────────────────────────────────
+\begin{titlepage}
+  \centering
+  \vspace*{2cm}
+  {\Huge\bfseries MoonAI\par}
+  \vspace{0.4cm}
+  {\Large Low-Level Design Report\par}
+  \vspace{0.8cm}
+  \rule{\textwidth}{1pt}
+  \vspace{0.4cm}
+  {\large CMPE 492 — Senior Project II\par}
+  {\large TED University, Department of Computer Engineering\par}
+  \vspace{1.2cm}
+  {\large
+    \textbf{Team:} Caner Aras \quad Emir Irkılata \quad Oğuzhan Özkaya\par
+    \vspace{0.3cm}
+    \textbf{Supervisor:} Ozan Zorlu\par
+  }
+  \vspace{1.2cm}
+  {\large Spring 2026\par}
+  \vfill
+  \rule{\textwidth}{0.4pt}
+  \vspace{0.3cm}
+  {\small Document version 1.0 — Prepared in accordance with IEEE~Std~1016-2009}
+\end{titlepage}
+
+% ── Table of contents ─────────────────────────────────────────────────────────
+\tableofcontents
+\newpage
+
+% ── Sections ──────────────────────────────────────────────────────────────────
+\input{sections/01_introduction}
+\input{sections/02_packages}
+\input{sections/03_core}
+\input{sections/04_simulation}
+\input{sections/05_evolution}
+\input{sections/06_visualization}
+\input{sections/07_data}
+\input{sections/08_gpu}
+\input{sections/09_glossary}
+\input{sections/10_references}
+
+\end{document}

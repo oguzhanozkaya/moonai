@@ -1,0 +1,102 @@
+#pragma once
+
+#include <string>
+#include <vector>
+#include <nlohmann/json.hpp>
+
+namespace moonai {
+
+enum class BoundaryMode { Clamp, Wrap };
+
+struct SimulationConfig {
+    // ── Environment ─────────────────────────────────────────────────────
+    int grid_width  = 800;           // World width in simulation units [100, 10000]
+    int grid_height = 600;           // World height in simulation units [100, 10000]
+    BoundaryMode boundary_mode = BoundaryMode::Wrap;  // "wrap" or "clamp"
+
+    // ── Population ──────────────────────────────────────────────────────
+    int predator_count = 50;         // Number of predator agents [1, ...]
+    int prey_count     = 150;        // Number of prey agents [1, ...]
+
+    // ── Agent Parameters ────────────────────────────────────────────────
+    float predator_speed = 3.0f;     // Predator max speed (units/tick) [> 0]
+    float prey_speed     = 3.5f;     // Prey max speed (units/tick); prey slightly faster [> 0]
+    float vision_range   = 100.0f;   // Radius each agent can see (units) [> 0]
+    float attack_range   = 15.0f;    // Predator kill radius (units) [> 0, < vision_range]
+    float initial_energy = 100.0f;   // Starting energy; death at <= 0 [> 0]
+    float energy_drain_per_tick  = 0.1f;   // Fixed energy cost per tick (living cost) [>= 0]
+    float energy_gain_from_kill  = 50.0f;  // Energy predator gains per successful kill
+    float energy_gain_from_food  = 30.0f;  // Energy prey gains per food pellet eaten
+    float food_pickup_range      = 10.0f;  // Prey food detection radius (units) [> 0]
+
+    // ── Food / Resources ────────────────────────────────────────────────
+    int   food_count        = 200;    // Food pellets to spawn at initialization [>= 0]
+    float food_respawn_rate = 0.05f;  // P(respawn per empty slot per tick) ∈ [0, 1]
+
+    // ── NEAT - Mutation (probabilities applied independently each generation) ──
+    float mutation_rate         = 0.3f;   // P(weight mutation per genome) ∈ [0, 1]
+    float crossover_rate        = 0.75f;  // P(use crossover vs clone) ∈ [0, 1]
+    float weight_mutation_power = 0.5f;   // Std dev for Gaussian weight perturbation [> 0]
+    float add_node_rate         = 0.03f;  // P(add node mutation per genome) ∈ [0, 1]
+    float add_connection_rate   = 0.05f;  // P(add connection mutation per genome) ∈ [0, 1]
+    int   max_hidden_nodes      = 50;     // Max hidden nodes per genome; 0 = unlimited [>= 0]
+    int   generation_ticks      = 500;    // Simulation steps per generation [>= 10]
+    int   max_generations       = 0;      // 0 = run indefinitely; otherwise stop after N
+
+    // ── NEAT - Speciation (Stanley 2002, Section 3.3) ───────────────────
+    float compatibility_threshold = 3.0f;  // δ_t: genomes within this distance → same species [> 0]
+    float c1_excess   = 1.0f;   // Coefficient for excess genes in δ formula
+    float c2_disjoint = 1.0f;   // Coefficient for disjoint genes in δ formula
+    float c3_weight   = 0.4f;   // Coefficient for avg weight diff in δ formula
+    int   stagnation_limit = 15; // Generations without improvement before species is culled [>= 1]
+
+    // ── Simulation ──────────────────────────────────────────────────────
+    int           target_fps = 60;   // Render/physics framerate cap (also sets dt) [1, 1000]
+    std::uint64_t seed       = 0;    // Master RNG seed; 0 = random from clock
+
+    // ── Data Logging ────────────────────────────────────────────────────
+    std::string output_dir  = "output";  // Directory for CSV/JSON run data
+    int         log_interval = 1;        // Log stats every N generations [>= 1]
+
+    // ── Fitness Weights (linear combination forming genome fitness) ──────
+    float fitness_survival_weight   = 1.0f;   // Reward for surviving (0 → 1 fraction of gen)
+    float fitness_kill_weight       = 5.0f;   // Reward per kill (predator) or food (prey)
+    float fitness_energy_weight     = 0.5f;   // Reward for remaining energy ratio
+    float fitness_distance_weight   = 0.1f;   // Reserved for future distance-traveled metric
+    float complexity_penalty_weight = 0.01f;  // Fitness penalty per node+connection [>= 0]
+
+    // ── Neural Network ───────────────────────────────────────────────────
+    std::string activation_function = "sigmoid";  // Activation fn: "sigmoid", "tanh", "relu"
+
+    // ── Per-Tick Logging (optional, high-volume) ─────────────────────────
+    bool tick_log_enabled  = false;  // Enable per-tick agent state logging
+    int  tick_log_interval = 10;     // Log agent states every N ticks [>= 1]
+};
+
+struct ConfigError {
+    std::string field;
+    std::string message;
+};
+
+SimulationConfig load_config(const std::string& filepath);
+void save_config(const SimulationConfig& config, const std::string& filepath);
+std::vector<ConfigError> validate_config(const SimulationConfig& config);
+
+struct CLIArgs {
+    std::string config_path = "config/default_config.json";
+    std::uint64_t seed_override = 0;  // 0 = use config seed
+    bool headless = false;
+    bool verbose = false;
+    bool help = false;
+    bool no_gpu = false;               // --no-gpu: skip CUDA even if available
+    int max_generations_override = 0;  // 0 = use config value
+    std::string resume_path = "";      // path to checkpoint JSON; "" = fresh start
+    int checkpoint_interval = 0;       // 0 = disabled; N = save every N generations
+    std::string compare_a = "";        // --compare: path to first genome JSON
+    std::string compare_b = "";        // --compare: path to second genome JSON
+};
+
+CLIArgs parse_args(int argc, char* argv[]);
+void print_usage(const char* program_name);
+
+} // namespace moonai
