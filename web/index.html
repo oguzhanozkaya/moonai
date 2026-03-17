@@ -119,7 +119,6 @@
                                 <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
                             </svg>
                         </a>
-                        <a href="#quick-start" class="btn btn-secondary">Quick Start</a>
                     </div>
                 </div>
             </section>
@@ -147,27 +146,8 @@
                         </div>
                     </div>
                     
-                    <div class="card grid-2" id="quick-start">
-                        <h2>Quick Start</h2>
-                        <div class="psection">
-                            <div class="code-block">
-                                <pre><code><span class="comment"># Clone the repository</span>
-git clone https://github.com/moon-aii/moonai.git
-cd moonai
-
-<span class="comment"># Build and run</span>
-just configure
-just build
-just run</code></pre>
-                            </div>
-                            <p class="note">
-                                <strong>Prerequisites:</strong> C++17 compiler, CMake 3.21+, vcpkg, CUDA Toolkit (optional)
-                            </p>
-                        </div>
-                    </div>
-                    
                     <div class="card grid-2">
-                        <h2>Team & Supervisor</h2>
+                        <h2>Team &amp; Supervisor</h2>
                         <div class="psection">
                             <h3>Team Members</h3>
                             <ul class="team-list">
@@ -178,20 +158,6 @@ just run</code></pre>
                             <h3>Supervisor</h3>
                             <ul>
                                 <li>Ayşenur Birtürk</li>
-                            </ul>
-                        </div>
-                    </div>
-                    
-                    <div class="card grid-2">
-                        <h2>Repositories</h2>
-                        <div class="psection">
-                            <ul class="repo-list">
-                                <li>
-                                    <a href="https://github.com/moon-aii/moonai" target="_blank" rel="noopener noreferrer" class="repo-link">
-                                        <span class="repo-name">moonai</span>
-                                        <span class="repo-desc">Main repository with source code, documentation, and analysis tools</span>
-                                    </a>
-                                </li>
                             </ul>
                         </div>
                     </div>
@@ -230,6 +196,82 @@ just run</code></pre>
                                 </a>
                             </li>
                         </ul>
+                    </div>
+                    
+                    <div class="card grid-full" id="technologies">
+                        <h2>Technologies Used</h2>
+                        <div class="tech-grid psection">
+                            <div class="tech-category">
+                                <h3>Core Languages</h3>
+                                <ul class="tech-list">
+                                    <li><span class="tech-tag">C++17</span></li>
+                                    <li><span class="tech-tag">Python 3.10+</span></li>
+                                </ul>
+                            </div>
+                            <div class="tech-category">
+                                <h3>Simulation & Graphics</h3>
+                                <ul class="tech-list">
+                                    <li><span class="tech-tag">SFML 3.x</span></li>
+                                </ul>
+                            </div>
+                            <div class="tech-category">
+                                <h3>AI & Compute</h3>
+                                <ul class="tech-list">
+                                    <li><span class="tech-tag">NVIDIA CUDA 11.0+</span></li>
+                                    <li><span class="tech-tag">NEAT Algorithm</span></li>
+                                </ul>
+                            </div>
+                            <div class="tech-category">
+                                <h3>Data Analysis</h3>
+                                <ul class="tech-list">
+                                    <li><span class="tech-tag">Pandas</span></li>
+                                    <li><span class="tech-tag">Matplotlib</span></li>
+                                    <li><span class="tech-tag">NetworkX</span></li>
+                                </ul>
+                            </div>
+                            <div class="tech-category">
+                                <h3>Configuration & Tools</h3>
+                                <ul class="tech-list">
+                                    <li><span class="tech-tag">JSON</span></li>
+                                    <li><span class="tech-tag">CMake 3.21+</span></li>
+                                    <li><span class="tech-tag">Git</span></li>
+                                    <li><span class="tech-tag">just</span></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card grid-2">
+                        <h2>Repository</h2>
+                        <div class="psection">
+                            <ul class="repo-list">
+                                <li>
+                                    <a href="https://github.com/moon-aii/moonai" target="_blank" rel="noopener noreferrer" class="repo-link">
+                                        <span class="repo-name">moonai</span>
+                                        <span class="repo-desc">Main repository with source code, documentation, and analysis tools</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="card grid-2" id="quick-start">
+                        <h2>Quick Start</h2>
+                        <div class="psection">
+                            <div class="code-block">
+                                <pre><code><span class="comment"># Clone the repository</span>
+git clone https://github.com/moon-aii/moonai.git
+cd moonai
+
+<span class="comment"># Build and run</span>
+just configure
+just build
+just run</code></pre>
+                            </div>
+                            <p class="note">
+                                <strong>Prerequisites:</strong> C++17 compiler, CMake 3.21+, vcpkg, CUDA Toolkit (optional)
+                            </p>
+                        </div>
                     </div>
                     
                     <div class="card grid-full">
@@ -304,49 +346,6 @@ just run</code></pre>
                                     and genome histories, exporting structured data for rigorous offline analysis using 
                                     Python-based tools.
                                 </p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="card grid-full" id="technologies">
-                        <h2>Technologies Used</h2>
-                        <div class="tech-grid psection">
-                            <div class="tech-category">
-                                <h3>Core Languages</h3>
-                                <ul class="tech-list">
-                                    <li><span class="tech-tag">C++17</span></li>
-                                    <li><span class="tech-tag">Python 3.10+</span></li>
-                                </ul>
-                            </div>
-                            <div class="tech-category">
-                                <h3>Simulation & Graphics</h3>
-                                <ul class="tech-list">
-                                    <li><span class="tech-tag">SFML 3.x</span></li>
-                                </ul>
-                            </div>
-                            <div class="tech-category">
-                                <h3>AI & Compute</h3>
-                                <ul class="tech-list">
-                                    <li><span class="tech-tag">NVIDIA CUDA 11.0+</span></li>
-                                    <li><span class="tech-tag">NEAT Algorithm</span></li>
-                                </ul>
-                            </div>
-                            <div class="tech-category">
-                                <h3>Data Analysis</h3>
-                                <ul class="tech-list">
-                                    <li><span class="tech-tag">Pandas</span></li>
-                                    <li><span class="tech-tag">Matplotlib</span></li>
-                                    <li><span class="tech-tag">NetworkX</span></li>
-                                </ul>
-                            </div>
-                            <div class="tech-category">
-                                <h3>Configuration & Tools</h3>
-                                <ul class="tech-list">
-                                    <li><span class="tech-tag">JSON</span></li>
-                                    <li><span class="tech-tag">CMake 3.21+</span></li>
-                                    <li><span class="tech-tag">Git</span></li>
-                                    <li><span class="tech-tag">just</span></li>
-                                </ul>
                             </div>
                         </div>
                     </div>
