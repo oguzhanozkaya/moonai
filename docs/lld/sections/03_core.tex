@@ -59,7 +59,7 @@ Controlled by the \texttt{"boundary\_mode"} field in \texttt{default\_config.jso
 
 Central parameter object.  Loaded from JSON; passed by value throughout the system.
 
-\begin{longtable}[l]{@{}llllp{5.2cm}@{}}
+\begin{longtable}[l]{@{}>{\ttfamily\small}p{3.2cm}>{\ttfamily\small}p{1.8cm}p{1.2cm}p{2cm}p{4.8cm}@{}}
 \caption{\texttt{SimulationConfig} fields (42 total)}
 \label{tab:config}\\
 \toprule
@@ -75,59 +75,59 @@ Central parameter object.  Loaded from JSON; passed by value throughout the syst
 \bottomrule
 \endlastfoot
 % Environment
-\texttt{grid\_width}            & \texttt{int}    & 800    & $>0$          & World width in pixels \\
-\texttt{grid\_height}           & \texttt{int}    & 600    & $>0$          & World height in pixels \\
-\texttt{boundary\_mode}         & \texttt{BoundaryMode} & Wrap & —           & Clamp or Wrap \\
+grid\_width            & int    & 800    & $>0$          & World width in pixels \\
+grid\_height           & int    & 600    & $>0$          & World height in pixels \\
+boundary\_mode         & BoundaryMode & Wrap & —           & Clamp or Wrap \\
 % Population
-\texttt{predator\_count}        & \texttt{int}    & 50     & $\ge 1$       & Number of predator agents \\
-\texttt{prey\_count}            & \texttt{int}    & 150    & $\ge 1$       & Number of prey agents \\
+predator\_count        & int    & 50     & $\ge 1$       & Number of predator agents \\
+prey\_count            & int    & 150    & $\ge 1$       & Number of prey agents \\
 % Agent
-\texttt{predator\_speed}        & \texttt{float}  & 3.0    & $>0$          & Max predator speed (px/tick) \\
-\texttt{prey\_speed}            & \texttt{float}  & 3.5    & $>0$          & Max prey speed (px/tick) \\
-\texttt{vision\_range}          & \texttt{float}  & 100.0  & $>0$          & Sensor vision radius (px) \\
-\texttt{attack\_range}          & \texttt{float}  & 15.0   & $>0$          & Predator kill radius (px) \\
-\texttt{initial\_energy}        & \texttt{float}  & 100.0  & $>0$          & Starting energy per agent \\
-\texttt{energy\_drain\_per\_tick}& \texttt{float} & 0.1    & $\ge 0$       & Energy lost each tick \\
-\texttt{energy\_gain\_from\_kill}& \texttt{float} & 50.0   & $\ge 0$       & Energy gained on kill \\
-\texttt{energy\_gain\_from\_food}& \texttt{float} & 30.0   & $\ge 0$       & Energy gained from food \\
-\texttt{food\_pickup\_range}    & \texttt{float}  & 10.0   & $>0$          & Food collection radius (px) \\
+predator\_speed        & float  & 3.0    & $>0$          & Max predator speed (px/tick) \\
+prey\_speed            & float  & 3.5    & $>0$          & Max prey speed (px/tick) \\
+vision\_range          & float  & 100.0  & $>0$          & Sensor vision radius (px) \\
+attack\_range          & float  & 15.0   & $>0$          & Predator kill radius (px) \\
+initial\_energy        & float  & 100.0  & $>0$          & Starting energy per agent \\
+energy\_drain\_per\_tick& float & 0.1    & $\ge 0$       & Energy lost each tick \\
+energy\_gain\_from\_kill& float & 50.0   & $\ge 0$       & Energy gained on kill \\
+energy\_gain\_from\_food& float & 30.0   & $\ge 0$       & Energy gained from food \\
+food\_pickup\_range    & float  & 10.0   & $>0$          & Food collection radius (px) \\
 % Food
-\texttt{food\_count}            & \texttt{int}    & 200    & $\ge 0$       & Maximum food items on map \\
-\texttt{food\_respawn\_rate}    & \texttt{float}  & 0.05   & $[0,1]$       & Probability each depleted food respawns per tick \\
+food\_count            & int    & 200    & $\ge 0$       & Maximum food items on map \\
+food\_respawn\_rate    & float  & 0.05   & $[0,1]$       & Probability each depleted food respawns per tick \\
 % NEAT mutation
-\texttt{mutation\_rate}         & \texttt{float}  & 0.3    & $[0,1]$       & Probability to apply weight mutation \\
-\texttt{crossover\_rate}        & \texttt{float}  & 0.75   & $[0,1]$       & Fraction of offspring produced by crossover \\
-\texttt{weight\_mutation\_power}& \texttt{float}  & 0.5    & $>0$          & Std-dev of Gaussian weight perturbation \\
-\texttt{add\_node\_rate}        & \texttt{float}  & 0.03   & $[0,1]$       & Probability of add-node structural mutation \\
-\texttt{add\_connection\_rate}  & \texttt{float}  & 0.05   & $[0,1]$       & Probability of add-connection mutation \\
-\texttt{max\_hidden\_nodes}     & \texttt{int}    & 50     & $\ge 0$       & Cap on hidden node additions \\
+mutation\_rate         & float  & 0.3    & $[0,1]$       & Probability to apply weight mutation \\
+crossover\_rate        & float  & 0.75   & $[0,1]$       & Fraction of offspring produced by crossover \\
+weight\_mutation\_power& float  & 0.5    & $>0$          & Std-dev of Gaussian weight perturbation \\
+add\_node\_rate        & float  & 0.03   & $[0,1]$       & Probability of add-node structural mutation \\
+add\_connection\_rate  & float  & 0.05   & $[0,1]$       & Probability of add-connection mutation \\
+max\_hidden\_nodes     & int    & 50     & $\ge 0$       & Cap on hidden node additions \\
 % Simulation loop
-\texttt{generation\_ticks}      & \texttt{int}    & 500    & $>0$          & Ticks per generation \\
-\texttt{max\_generations}       & \texttt{int}    & 0      & $\ge 0$       & Stop after N gens (0 = unlimited) \\
+generation\_ticks      & int    & 500    & $>0$          & Ticks per generation \\
+max\_generations       & int    & 0      & $\ge 0$       & Stop after N gens (0 = unlimited) \\
 % Speciation
-\texttt{compatibility\_threshold}& \texttt{float} & 3.0   & $>0$          & $\delta$ threshold for species assignment \\
-\texttt{c1\_excess}             & \texttt{float}  & 1.0    & $\ge 0$       & Excess gene coefficient ($c_1$) \\
-\texttt{c2\_disjoint}           & \texttt{float}  & 1.0    & $\ge 0$       & Disjoint gene coefficient ($c_2$) \\
-\texttt{c3\_weight}             & \texttt{float}  & 0.4    & $\ge 0$       & Weight difference coefficient ($c_3$) \\
-\texttt{stagnation\_limit}      & \texttt{int}    & 15     & $>0$          & Generations without improvement before species removal \\
+compatibility\_threshold& float & 3.0   & $>0$          & $\delta$ threshold for species assignment \\
+c1\_excess             & float  & 1.0    & $\ge 0$       & Excess gene coefficient ($c_1$) \\
+c2\_disjoint           & float  & 1.0    & $\ge 0$       & Disjoint gene coefficient ($c_2$) \\
+c3\_weight             & float  & 0.4    & $\ge 0$       & Weight difference coefficient ($c_3$) \\
+stagnation\_limit      & int    & 15     & $>0$          & Generations without improvement before species removal \\
 % Simulation misc
-\texttt{target\_fps}            & \texttt{int}    & 60     & $>0$          & SFML render target FPS \\
-\texttt{seed}                   & \texttt{uint64\_t} & 0   & —             & RNG seed (0 = random) \\
+target\_fps            & int    & 60     & $>0$          & SFML render target FPS \\
+seed                   & uint64\_t & 0   & —             & RNG seed (0 = random) \\
 % Data
-\texttt{output\_dir}            & \texttt{string} & \texttt{"output"} & — & Root directory for run output \\
-\texttt{log\_interval}          & \texttt{int}    & 1      & $\ge 1$       & Generations between CSV rows \\
-\texttt{checkpoint\_interval}   & \texttt{int}    & 0      & $\ge 0$       & Checkpoint every N gens (0=off) \\
+output\_dir            & string & "output" & — & Root directory for run output \\
+log\_interval          & int    & 1      & $\ge 1$       & Generations between CSV rows \\
+checkpoint\_interval   & int    & 0      & $\ge 0$       & Checkpoint every N gens (0=off) \\
 % Fitness
-\texttt{fitness\_survival\_weight}  & \texttt{float} & 1.0 & $\ge 0$  & Survival time coefficient \\
-\texttt{fitness\_kill\_weight}      & \texttt{float} & 5.0 & $\ge 0$  & Kill count coefficient \\
-\texttt{fitness\_energy\_weight}    & \texttt{float} & 0.5 & $\ge 0$  & Energy efficiency coefficient \\
-\texttt{fitness\_distance\_weight}  & \texttt{float} & 0.1 & $\ge 0$  & Distance traveled coefficient \\
-\texttt{complexity\_penalty\_weight}& \texttt{float} & 0.01& $\ge 0$  & Genome complexity penalty \\
+fitness\_survival\_weight  & float & 1.0 & $\ge 0$  & Survival time coefficient \\
+fitness\_kill\_weight      & float & 5.0 & $\ge 0$  & Kill count coefficient \\
+fitness\_energy\_weight    & float & 0.5 & $\ge 0$  & Energy efficiency coefficient \\
+fitness\_distance\_weight  & float & 0.1 & $\ge 0$  & Distance traveled coefficient \\
+complexity\_penalty\_weight& float & 0.01& $\ge 0$  & Genome complexity penalty \\
 % NN
-\texttt{activation\_function}   & \texttt{string} & \texttt{"sigmoid"} & sigmoid/tanh/relu & Activation function name \\
+activation\_function   & string & "sigmoid" & sigmoid/tanh/relu & Activation function name \\
 % Tick log
-\texttt{tick\_log\_enabled}     & \texttt{bool}   & false  & —             & Write per-tick agent state CSV \\
-\texttt{tick\_log\_interval}    & \texttt{int}    & 10     & $\ge 1$       & Log every N ticks (when enabled) \\
+tick\_log\_enabled     & bool   & false  & —             & Write per-tick agent state CSV \\
+tick\_log\_interval    & int    & 10     & $\ge 1$       & Log every N ticks (when enabled) \\
 \end{longtable}
 
 % ─────────────────────────────────────────────────────────────────────────────

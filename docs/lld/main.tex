@@ -23,6 +23,18 @@
 \usepackage{array}
 \usepackage{multirow}
 \usepackage{tabularx}
+\usepackage{ragged2e}
+
+% Breakable table columns
+\newcolumntype{L}{>{\RaggedRight\arraybackslash\ttfamily\small}X}
+\newcolumntype{C}{>{\centering\arraybackslash\ttfamily\small}p{2.5cm}}
+\newcolumntype{R}{>{\RaggedRight\arraybackslash}p{3.5cm}}
+
+% Reduce table font size globally
+\usepackage{etoolbox}
+\BeforeBeginEnvironment{tabular}{\small}
+\BeforeBeginEnvironment{tabularx}{\small}
+\BeforeBeginEnvironment{longtable}{\small}
 
 % ── Code listings ───────────────────────────────────────────────────────────
 \usepackage{listings}
@@ -78,6 +90,15 @@
 % ── Line spacing ─────────────────────────────────────────────────────────────
 \usepackage{setspace}
 \onehalfspacing
+
+% ── Overflow prevention ───────────────────────────────────────────────────────
+\sloppy                      % Very permissive line breaking (allow large spaces)
+\emergencystretch=4em        % Allow extra stretch before overfull
+\tolerance=9999              % Maximum tolerance for loose lines
+\hbadness=9999               % Suppress all overfull warnings
+\hyphenpenalty=0             % Always allow hyphenation
+\hfuzz=10pt                  % Ignore hboxes up to 10pt overfull
+\vfuzz=10pt                  % Ignore vboxes up to 10pt overfull
 
 % ─────────────────────────────────────────────────────────────────────────────
 \begin{document}
