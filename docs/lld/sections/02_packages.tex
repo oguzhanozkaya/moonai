@@ -17,29 +17,32 @@ Figure~\ref{fig:pkg} shows the package dependency graph.
 
 \begin{table}[H]
 \centering
+\small
 \caption{Package summary}
 \label{tab:packages}
-\begin{tabularx}{\textwidth}{@{}lllX@{}}
+\begin{tabularx}{\textwidth}{@{}>{\ttfamily\small}l>{\ttfamily\small}l>{\ttfamily\small}l@{}}
 \toprule
-\textbf{Package} & \textbf{CMake library} & \textbf{Source path} & \textbf{Key classes / types} \\
+\textbf{Package} & \textbf{CMake library} & \textbf{Source path} \\
 \midrule
-\texttt{moonai.core}           & \texttt{moonai\_core}           & \texttt{src/core/}           &
-  \texttt{Vec2}, \texttt{SimulationConfig}, \texttt{Random}, \texttt{CLIArgs}, \texttt{BoundaryMode} \\
-\texttt{moonai.simulation}     & \texttt{moonai\_simulation}     & \texttt{src/simulation/}     &
-  \texttt{Agent}, \texttt{Predator}, \texttt{Prey}, \texttt{Environment}, \texttt{SpatialGrid},
-  \texttt{Physics}, \texttt{SensorInput}, \texttt{SimulationManager} \\
-\texttt{moonai.evolution}      & \texttt{moonai\_evolution}      & \texttt{src/evolution/}      &
-  \texttt{Genome}, \texttt{NeuralNetwork}, \texttt{Species}, \texttt{InnovationTracker},
-  \texttt{Mutation}, \texttt{Crossover}, \texttt{EvolutionManager} \\
-\texttt{moonai.visualization}  & \texttt{moonai\_visualization}  & \texttt{src/visualization/}  &
-  \texttt{VisualizationManager}, \texttt{Renderer}, \texttt{UIOverlay}, \texttt{OverlayStats} \\
-\texttt{moonai.data}           & \texttt{moonai\_data}           & \texttt{src/data/}           &
-  \texttt{Logger}, \texttt{MetricsCollector}, \texttt{GenerationMetrics} \\
-\texttt{moonai.gpu}            & \texttt{moonai\_gpu}            & \texttt{src/gpu/}            &
-  \texttt{GpuBatch}, \texttt{GpuNetDesc}, \texttt{GpuAgentStats}, \texttt{GpuNetworkData} \\
+moonai.core & moonai\_core & src/core/ \\
+moonai.simulation & moonai\_simulation & src/simulation/ \\
+moonai.evolution & moonai\_evolution & src/evolution/ \\
+moonai.visualization & moonai\_visualization & src/visualization/ \\
+moonai.data & moonai\_data & src/data/ \\
+moonai.gpu & moonai\_gpu & src/gpu/ \\
 \bottomrule
 \end{tabularx}
 \end{table}
+
+\textbf{Key classes by package:}
+\begin{itemize}[nosep]
+  \item \texttt{moonai.core}: Vec2, SimulationConfig, Random, CLIArgs, BoundaryMode
+  \item \texttt{moonai.simulation}: Agent, Predator, Prey, Environment, SpatialGrid, Physics, SensorInput, SimulationManager
+  \item \texttt{moonai.evolution}: Genome, NeuralNetwork, Species, InnovationTracker, Mutation, Crossover, EvolutionManager
+  \item \texttt{moonai.visualization}: VisualizationManager, Renderer, UIOverlay, OverlayStats
+  \item \texttt{moonai.data}: Logger, MetricsCollector, GenerationMetrics
+  \item \texttt{moonai.gpu}: GpuBatch, GpuNetDesc, GpuAgentStats, GpuNetworkData
+\end{itemize}
 
 \subsection{Dependency Rules}
 

@@ -1,9 +1,12 @@
 \documentclass[12pt,a4paper]{article}
 
-% ── Encoding & fonts ────────────────────────────────────────────────────────
-\usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
+% ── Fonts (XeLaTeX) ──────────────────────────────────────────────────────────
+\usepackage{fontspec}
+\setmainfont{Times New Roman}
+\setmonofont{Courier New}
 \usepackage[expansion=false]{microtype}
+\usepackage[english]{babel}
+\addto\captionsenglish{\renewcommand{\contentsname}{Table of Contents}}
 
 % ── Page layout ─────────────────────────────────────────────────────────────
 \usepackage[top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm]{geometry}
@@ -12,7 +15,7 @@
 % ── Graphics & color ────────────────────────────────────────────────────────
 \usepackage{graphicx}
 \usepackage[table,xcdraw]{xcolor}
-\graphicspath{{img/}}
+\graphicspath{{img/}{img/generated/}}
 
 % ── Tables ──────────────────────────────────────────────────────────────────
 \usepackage{booktabs}
@@ -20,6 +23,18 @@
 \usepackage{array}
 \usepackage{multirow}
 \usepackage{tabularx}
+\usepackage{ragged2e}
+
+% Breakable table columns
+\newcolumntype{L}{>{\RaggedRight\arraybackslash\ttfamily\scriptsize}X}
+\newcolumntype{C}{>{\centering\arraybackslash\ttfamily\small}p{2.5cm}}
+\newcolumntype{R}{>{\RaggedRight\arraybackslash}p{3.5cm}}
+
+% Reduce table font size globally
+\usepackage{etoolbox}
+\BeforeBeginEnvironment{tabular}{\small}
+\BeforeBeginEnvironment{tabularx}{\small}
+\BeforeBeginEnvironment{longtable}{\small}
 
 % ── Code listings ───────────────────────────────────────────────────────────
 \usepackage{listings}
@@ -43,9 +58,11 @@
 
 % ── Section formatting ───────────────────────────────────────────────────────
 \usepackage{titlesec}
-\titleformat{\section}{\large\bfseries}{}{0em}{\thesection\quad}
+\titleformat{\section}{\large\bfseries}{\thesection}{0em}{\quad}
+\titleformat*{\section}{\large\bfseries}
 \titleformat{\subsection}{\normalsize\bfseries}{}{0em}{\thesubsection\quad}
-\titleformat{\subsubsection}{\normalsize\itshape\bfseries}{}{0em}{\thesubsubsection\quad}
+\titleformat{\subsubsection}{\normalsize\bfseries}{}{0em}{\thesubsubsection\quad}
+\titlespacing*{\section}{0pt}{12pt}{6pt}  % Reduce after-section spacing to 6pt
 
 % ── List formatting ──────────────────────────────────────────────────────────
 \usepackage{enumitem}
@@ -55,7 +72,7 @@
 \usepackage{float}
 
 % ── Hyperlinks ────────────────────────────────────────────────────────────────
-\usepackage[colorlinks=true, linkcolor=blue!60!black, citecolor=green!50!black,
+\usepackage[colorlinks=true, linkcolor=black, citecolor=green!50!black,
             urlcolor=blue!70!black, bookmarksopen=true]{hyperref}
 
 % ── Math ─────────────────────────────────────────────────────────────────────
@@ -63,6 +80,7 @@
 
 % ── Header / footer ──────────────────────────────────────────────────────────
 \usepackage{fancyhdr}
+\setlength{\headheight}{14pt}
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small MoonAI — Low-Level Design Report}
@@ -70,37 +88,67 @@
 \cfoot{\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
 
+% ── Line spacing ─────────────────────────────────────────────────────────────
+\usepackage{setspace}
+\onehalfspacing
+
+% ── Overflow prevention ───────────────────────────────────────────────────────
+\sloppy                      % Very permissive line breaking (allow large spaces)
+\emergencystretch=4em        % Allow extra stretch before overfull
+\tolerance=9999              % Maximum tolerance for loose lines
+\hbadness=9999               % Suppress all overfull warnings
+\hyphenpenalty=0             % Always allow hyphenation
+\hfuzz=10pt                  % Ignore hboxes up to 10pt overfull
+\vfuzz=10pt                  % Ignore vboxes up to 10pt overfull
+
+% ── Standardized Font Sizes ───────────────────────────────────────────────────
+\makeatletter
+% Redefine standard size commands to integer point sizes (academic standards)
+\renewcommand{\Huge}{\@setfontsize\Huge{18}{22}}        % Title: 18pt on 22pt leading
+\renewcommand{\LARGE}{\@setfontsize\LARGE{16}{19}}      % Institution: 16pt on 19pt
+\renewcommand{\Large}{\@setfontsize\Large{14}{17}}      % Sections: 14pt on 17pt
+\renewcommand{\normalsize}{\@setfontsize\normalsize{12}{14}} % Body: 12pt on 14pt (required)
+\renewcommand{\small}{\@setfontsize\small{10}{12}}      % Tables/captions: 10pt on 12pt
+\renewcommand{\footnotesize}{\@setfontsize\footnotesize{10}{12}} % Footnotes: 10pt
+\renewcommand{\scriptsize}{\@setfontsize\scriptsize{10}{12}} % Dense tables: 10pt (min)
+\renewcommand{\tiny}{\@setfontsize\tiny{8}{10}}         % Line numbers: 8pt on 10pt
+\makeatother
+
 % ─────────────────────────────────────────────────────────────────────────────
 \begin{document}
 
 % ── Title page ────────────────────────────────────────────────────────────────
+\begin{singlespace}
 \begin{titlepage}
   \centering
-  \vspace*{2cm}
-  {\Huge\bfseries MoonAI\par}
-  \vspace{0.4cm}
-  {\Large Low-Level Design Report\par}
+  \vspace*{1.2cm}
+  \includegraphics[width=5.4cm]{img/tedu_logo}\par
   \vspace{0.8cm}
-  \rule{\textwidth}{1pt}
-  \vspace{0.4cm}
+  {\LARGE\bfseries TED UNIVERSITY\par}
+  \vspace{0.3cm}
+  {\Large Department of Computer Engineering\par}
+  \vspace{2.0cm}
+  {\Huge\bfseries MoonAI\par}
+  \vspace{0.5cm}
+  {\LARGE Low-Level Design Report\par}
+  \vspace{1.5cm}
+  {\large\bfseries Team:\par}
+  \vspace{0.3cm}
+  {\large Caner Aras \quad Emir Irkılata \quad Oğuzhan Özkaya\par}
+  \vspace{0.6cm}
+  {\large\bfseries Supervisor:} {\large Ayşenur Birtürk\par}
+  \vspace{1.2cm}
   {\large CMPE 492 — Senior Project II\par}
-  {\large TED University, Department of Computer Engineering\par}
-  \vspace{1.2cm}
-  {\large
-    \textbf{Team:} Caner Aras \quad Emir Irkılata \quad Oğuzhan Özkaya\par
-    \vspace{0.3cm}
-    \textbf{Supervisor:} Ozan Zorlu\par
-  }
-  \vspace{1.2cm}
+  \vspace{0.4cm}
   {\large Spring 2026\par}
   \vfill
-  \rule{\textwidth}{0.4pt}
-  \vspace{0.3cm}
-  {\small Document version 1.0 — Prepared in accordance with IEEE~Std~1016-2009}
 \end{titlepage}
+\end{singlespace}
 
 % ── Table of contents ─────────────────────────────────────────────────────────
+\begin{singlespace}
 \tableofcontents
+\end{singlespace}
 \newpage
 
 % ── Sections ──────────────────────────────────────────────────────────────────

@@ -4,6 +4,8 @@ A modular and extensible simulation platform for studying evolutionary algorithm
 
 **CMPE 491/492 - Senior Design Project | TED University**
 
+**Website:** https://moon-aii.github.io/moonai/
+
 ## Overview
 
 MoonAI uses a simplified predator-prey environment as a synthetic benchmark to evaluate evolutionary computation methods. Agents (predators and prey) are controlled by neural networks whose structure and weights evolve over generations using the **NeuroEvolution of Augmenting Topologies (NEAT)** algorithm.
@@ -331,7 +333,7 @@ moonai/
 │   └── gpu/                    # CUDA kernels (auto-detected; disabled at runtime by --no-gpu)
 ├── tests/                      # Google Test unit tests
 ├── analysis/                   # Python analysis scripts
-├── documents/                  # Project documents (PDFs + LLD LaTeX source)
+├── docs/                       # Project documents (PDFs + LLD LaTeX source)
 ├── web/                        # GitHub Pages website
 └── .github/workflows/          # CI/CD pipelines
 ```
@@ -367,7 +369,7 @@ Each run writes to `output/[YYYYMMDD_HHMMSS_seedN]/`:
 | **Emir Irkılata** | Developer |
 | **Oğuzhan Özkaya** | Developer |
 
-**Supervisor:** Ozan Zorlu
+**Supervisor:** Ayşenur Birtürk
 **Jury Members:** Deniz Canturk, Mehmet Evren Coskun
 
 ## License
