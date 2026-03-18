@@ -62,6 +62,7 @@
 \titleformat*{\section}{\large\bfseries}
 \titleformat{\subsection}{\normalsize\bfseries}{}{0em}{\thesubsection\quad}
 \titleformat{\subsubsection}{\normalsize\bfseries}{}{0em}{\thesubsubsection\quad}
+\titlespacing*{\section}{0pt}{12pt}{6pt}  % Reduce after-section spacing to 6pt
 
 % ── List formatting ──────────────────────────────────────────────────────────
 \usepackage{enumitem}
@@ -100,6 +101,19 @@
 \hfuzz=10pt                  % Ignore hboxes up to 10pt overfull
 \vfuzz=10pt                  % Ignore vboxes up to 10pt overfull
 
+% ── Standardized Font Sizes ───────────────────────────────────────────────────
+\makeatletter
+% Redefine standard size commands to integer point sizes (academic standards)
+\renewcommand{\Huge}{\@setfontsize\Huge{18}{22}}        % Title: 18pt on 22pt leading
+\renewcommand{\LARGE}{\@setfontsize\LARGE{16}{19}}      % Institution: 16pt on 19pt
+\renewcommand{\Large}{\@setfontsize\Large{14}{17}}      % Sections: 14pt on 17pt
+\renewcommand{\normalsize}{\@setfontsize\normalsize{12}{14}} % Body: 12pt on 14pt (required)
+\renewcommand{\small}{\@setfontsize\small{10}{12}}      % Tables/captions: 10pt on 12pt
+\renewcommand{\footnotesize}{\@setfontsize\footnotesize{10}{12}} % Footnotes: 10pt
+\renewcommand{\scriptsize}{\@setfontsize\scriptsize{10}{12}} % Dense tables: 10pt (min)
+\renewcommand{\tiny}{\@setfontsize\tiny{8}{10}}         % Line numbers: 8pt on 10pt
+\makeatother
+
 % ─────────────────────────────────────────────────────────────────────────────
 \begin{document}
 
@@ -107,27 +121,25 @@
 \begin{singlespace}
 \begin{titlepage}
   \centering
-  \vspace*{1cm}
-  \includegraphics[width=5cm]{img/tedu_logo}\par
-  \vspace{0.5cm}
-  {\Large\bfseries TED UNIVERSITY\par}
-  \vspace{0.2cm}
-  {\large Department of Computer Engineering\par}
-  \vspace{1.5cm}
+  \vspace*{1.2cm}
+  \includegraphics[width=5.4cm]{img/tedu_logo}\par
+  \vspace{0.8cm}
+  {\LARGE\bfseries TED UNIVERSITY\par}
+  \vspace{0.3cm}
+  {\Large Department of Computer Engineering\par}
+  \vspace{2.0cm}
   {\Huge\bfseries MoonAI\par}
-  \vspace{0.4cm}
-  {\Large Low-Level Design Report\par}
-  \vspace{1.5cm}
-  {\large
-    \textbf{Team:}\par
-    \vspace{0.2em}%
-    Caner Aras \quad Emir Irkılata \quad Oğuzhan Özkaya\par
-    \vspace{0.5cm}
-    \textbf{Supervisor:} Ayşenur Birtürk\par
-  }
-  \vspace{1.5cm}
-  {\large CMPE 492 — Senior Project II\par}
   \vspace{0.5cm}
+  {\LARGE Low-Level Design Report\par}
+  \vspace{1.5cm}
+  {\large\bfseries Team:\par}
+  \vspace{0.3cm}
+  {\large Caner Aras \quad Emir Irkılata \quad Oğuzhan Özkaya\par}
+  \vspace{0.6cm}
+  {\large\bfseries Supervisor:} {\large Ayşenur Birtürk\par}
+  \vspace{1.2cm}
+  {\large CMPE 492 — Senior Project II\par}
+  \vspace{0.4cm}
   {\large Spring 2026\par}
   \vfill
 \end{titlepage}
