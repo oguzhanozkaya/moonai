@@ -33,19 +33,19 @@ The system follows a modular architecture with four primary subsystems, each bui
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Visualization (SFML)                      │
-│              Renders agents, grid, UI overlays               │
+│                    Visualization (SFML)                     │
+│              Renders agents, grid, UI overlays              │
 └──────────────────────────┬──────────────────────────────────┘
                            │ Observes State
 ┌──────────────────────────┴──────────────────────────────────┐
-│                    Simulation Engine                         │
-│         Physics loop, agent management, environment          │
+│                    Simulation Engine                        │
+│         Physics loop, agent management, environment         │
 └─────────┬──────────────────────────────────┬────────────────┘
           │ Queries Actions (GPU)            │ Exports Metrics
 ┌─────────┴────────────────┐    ┌────────────┴────────────────┐
-│    Evolution Core (NEAT)  │    │     Data Management         │
+│    Evolution Core (NEAT) │    │     Data Management         │
 │ Genome, NN, Species,     │    │  Logger (CSV), Metrics,     │
-│ Mutation, Crossover       │    │  Config (JSON)              │
+│ Mutation, Crossover      │    │  Config (JSON)              │
 └──────────────────────────┘    └─────────────────────────────┘
 ```
 
