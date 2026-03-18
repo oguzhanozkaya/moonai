@@ -120,9 +120,11 @@ Layout:
     in intermediate columns ordered by their position in \texttt{eval\_order}.
   \item For each node, draw a circle coloured by activation value:
     \[
-      v \le -1 \Rightarrow \text{blue}(30,30,200); \quad
-      v = 0   \Rightarrow \text{gray}(180,180,180); \quad
-      v \ge 1 \Rightarrow \text{orange}(220,120,20)
+      \begin{aligned}
+        v \le -1 &\Rightarrow \text{blue}(30,30,200); \\
+        v = 0   &\Rightarrow \text{gray}(180,180,180); \\
+        v \ge 1 &\Rightarrow \text{orange}(220,120,20)
+      \end{aligned}
     \]
     Intermediate values interpolated via \texttt{std::clamp}.
   \item Draw enabled connections as lines; weight modulates line thickness.

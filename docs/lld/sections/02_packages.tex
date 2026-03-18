@@ -17,28 +17,32 @@ Figure~\ref{fig:pkg} shows the package dependency graph.
 
 \begin{table}[H]
 \centering
-\footnotesize
+\small
 \caption{Package summary}
 \label{tab:packages}
-\begin{tabularx}{\textwidth}{@{}>{\ttfamily\footnotesize}p{4.2cm}p{2.0cm}p{1.6cm}L@{}}
+\begin{tabularx}{\textwidth}{@{}>{\ttfamily\small}l>{\ttfamily\small}l>{\ttfamily\small}l@{}}
 \toprule
-\textbf{Package} & \textbf{CMake library} & \textbf{Source path} & \textbf{Key classes / types} \\
+\textbf{Package} & \textbf{CMake library} & \textbf{Source path} \\
 \midrule
-moonai.core & moonai\_core & src/core/ &
-  Vec2, SimulationConfig, Random, CLIArgs, BoundaryMode \\
-moonai.simulation & moonai\_simulation & src/simulation/ &
-  Agent, Predator, Prey, Environment, SpatialGrid, Physics, SensorInput, SimulationManager \\
-moonai.evolution & moonai\_evolution & src/evolution/ &
-  Genome, NeuralNetwork, Species, InnovationTracker, Mutation, Crossover, EvolutionManager \\
-moonai.visualization & moonai\_visualization & src/visualization/ &
-  VisualizationManager, Renderer, UIOverlay, OverlayStats \\
-moonai.data & moonai\_data & src/data/ &
-  Logger, MetricsCollector, GenerationMetrics \\
-moonai.gpu & moonai\_gpu & src/gpu/ &
-  GpuBatch, GpuNetDesc, GpuAgentStats, GpuNetworkData \\
+moonai.core & moonai\_core & src/core/ \\
+moonai.simulation & moonai\_simulation & src/simulation/ \\
+moonai.evolution & moonai\_evolution & src/evolution/ \\
+moonai.visualization & moonai\_visualization & src/visualization/ \\
+moonai.data & moonai\_data & src/data/ \\
+moonai.gpu & moonai\_gpu & src/gpu/ \\
 \bottomrule
 \end{tabularx}
 \end{table}
+
+\textbf{Key classes by package:}
+\begin{itemize}[nosep]
+  \item \texttt{moonai.core}: Vec2, SimulationConfig, Random, CLIArgs, BoundaryMode
+  \item \texttt{moonai.simulation}: Agent, Predator, Prey, Environment, SpatialGrid, Physics, SensorInput, SimulationManager
+  \item \texttt{moonai.evolution}: Genome, NeuralNetwork, Species, InnovationTracker, Mutation, Crossover, EvolutionManager
+  \item \texttt{moonai.visualization}: VisualizationManager, Renderer, UIOverlay, OverlayStats
+  \item \texttt{moonai.data}: Logger, MetricsCollector, GenerationMetrics
+  \item \texttt{moonai.gpu}: GpuBatch, GpuNetDesc, GpuAgentStats, GpuNetworkData
+\end{itemize}
 
 \subsection{Dependency Rules}
 

@@ -10,7 +10,7 @@ falls back to the CPU path transparently.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.78\textwidth]{gpu_classes}
+  \includegraphics[width=0.60\textwidth]{gpu_classes}
   \caption{GPU package class diagram.}
   \label{fig:gpu}
 \end{figure}
@@ -46,8 +46,8 @@ Each agent $i$ is packed contiguously.  Figure~\ref{fig:csr} illustrates the lay
 
 \begin{figure}[H]
 \centering
-\small
-\resizebox{\textwidth}{!}{%
+\scriptsize
+\scalebox{0.98}{%
 \begin{tabular}{|c|c|c|c|c|c|c|}
 \hline
 \multicolumn{3}{|c|}{Agent 0} & \multicolumn{4}{c|}{Agent 1} \\
@@ -211,11 +211,10 @@ Launch configuration: one thread per agent.
   \item Read \texttt{GpuAgentStats s = d\_agent\_stats[agent\_id]}.
   \item Compute:
     \[
-      f = w_s \cdot s.\mathit{age\_ratio}
-        + w_k \cdot s.\mathit{kills\_or\_food}
-        + w_e \cdot s.\mathit{energy\_ratio}
-        + w_d \cdot s.\mathit{dist\_ratio}
-        - w_c \cdot s.\mathit{complexity}
+      \begin{aligned}
+        f &= w_s \cdot s.\mathit{age\_ratio} + w_k \cdot s.\mathit{kills\_or\_food} \\
+          &\quad + w_e \cdot s.\mathit{energy\_ratio} + w_d \cdot s.\mathit{dist\_ratio} - w_c \cdot s.\mathit{complexity}
+      \end{aligned}
     \]
   \item Write to \texttt{d\_fitness\_out[agent\_id]}.
 \end{enumerate}
