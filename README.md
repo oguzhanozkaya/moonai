@@ -350,6 +350,17 @@ Each run writes to `output/[YYYYMMDD_HHMMSS_seedN]/`:
 | `genomes.json` | Best genome snapshots (nodes + connections JSON) |
 | `ticks.csv` | Per-tick agent states (only when `tick_log_enabled: true`) |
 
+### Project Documents
+
+| Document | Description |
+|----------|-------------|
+| `docs/ProjectProposal.pdf` | Initial project proposal |
+| `docs/ProjectSpecification.pdf` | Detailed project specifications |
+| `docs/AnalysisReport.pdf` | Requirements analysis |
+| `docs/HighLevelDesignReport.pdf` | System architecture and design |
+| `docs/LowLevelDesignReport.pdf` | Detailed component design |
+| `docs/Poster.pdf` | Conference poster presentation |
+
 ## C++ Code Style
 
 | Convention | Rule |
