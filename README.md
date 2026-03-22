@@ -358,8 +358,8 @@ Each run writes to `output/[YYYYMMDD_HHMMSS_seedN]/`:
 | `docs/ProjectSpecification.pdf` | Detailed project specifications |
 | `docs/AnalysisReport.pdf` | Requirements analysis |
 | `docs/HighLevelDesignReport.pdf` | System architecture and design |
-| `docs/LowLevelDesignReport.pdf` | Detailed component design |
 | `docs/Poster.pdf` | Conference poster presentation |
+| `docs/LowLevelDesignReport.pdf` | Detailed component design |
 
 ## C++ Code Style
 
