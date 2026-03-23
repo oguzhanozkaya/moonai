@@ -180,8 +180,8 @@ void EvolutionManager::enable_gpu(bool use_gpu) {
 #ifdef MOONAI_ENABLE_CUDA
     if (use_gpu_) {
         int total_agents = config_.predator_count + config_.prey_count;
-        if (total_agents < 1000) {
-            spdlog::info("GPU disabled: population {} < 1000 threshold "
+        if (total_agents < 500) {
+            spdlog::info("GPU disabled: population {} < 500 threshold "
                          "(kernel launch overhead exceeds computation)",
                          total_agents);
             use_gpu_ = false;
@@ -209,6 +209,12 @@ void EvolutionManager::evaluate_generation(SimulationManager& sim) {
 
         int agent_count = static_cast<int>(
             std::min(sim.agents().size(), networks_.size()));
+
+        if (num_outputs_ < 2) {
+            spdlog::error("GPU path requires num_outputs >= 2, got {}", num_outputs_);
+            return;
+        }
+
         int in_count  = agent_count * num_inputs_;
         int out_count = agent_count * num_outputs_;
 
@@ -217,26 +223,24 @@ void EvolutionManager::evaluate_generation(SimulationManager& sim) {
         std::vector<float> flat_out(out_count);
 
         for (int tick = 0; tick < config_.generation_ticks; ++tick) {
-            int buf = tick & 1;  // alternate between stream 0 and 1
-
             // Pack sensor inputs for all agents into flat buffer
             for (int i = 0; i < agent_count; ++i) {
                 sim.get_sensors(static_cast<size_t>(i))
                     .write_to(flat_in.data() + i * num_inputs_);
             }
 
-            // Async pipeline: H2D → kernel → D2H on stream[buf]
-            gpu_batch_->pack_inputs_async(flat_in.data(), in_count, buf);
-            gpu_batch_->launch_inference_async(buf);
-            gpu_batch_->start_unpack_async(buf);
-            gpu_batch_->finish_unpack(flat_out.data(), out_count, buf);
+            // Async pipeline: H2D → kernel → D2H
+            gpu_batch_->pack_inputs_async(flat_in.data(), in_count);
+            gpu_batch_->launch_inference_async();
+            gpu_batch_->start_unpack_async();
+            gpu_batch_->finish_unpack(flat_out.data(), out_count);
 
             // Apply actions from GPU outputs
             for (int i = 0; i < agent_count; ++i) {
                 if (!sim.agents()[i]->alive()) continue;
                 Vec2 direction{
-                    flat_out[i * 2 + 0] * 2.0f - 1.0f,
-                    flat_out[i * 2 + 1] * 2.0f - 1.0f
+                    flat_out[i * num_outputs_ + 0] * 2.0f - 1.0f,
+                    flat_out[i * num_outputs_ + 1] * 2.0f - 1.0f
                 };
                 sim.apply_action(static_cast<size_t>(i), direction, dt);
             }

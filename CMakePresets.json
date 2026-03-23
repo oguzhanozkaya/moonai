@@ -18,7 +18,8 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/linux-debug",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CUDA_COMPILER": "/opt/cuda/bin/nvcc"
       },
       "condition": {
         "type": "equals",
@@ -33,7 +34,8 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/linux-release",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CUDA_COMPILER": "/opt/cuda/bin/nvcc"
       },
       "condition": {
         "type": "equals",

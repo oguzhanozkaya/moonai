@@ -10,10 +10,10 @@ using namespace moonai;
 TEST(ConfigTest, DefaultValues) {
     SimulationConfig config;
 
-    EXPECT_EQ(config.grid_width, 1920);
-    EXPECT_EQ(config.grid_height, 1080);
-    EXPECT_EQ(config.predator_count, 100);
-    EXPECT_EQ(config.prey_count, 300);
+    EXPECT_EQ(config.grid_width, 4300);
+    EXPECT_EQ(config.grid_height, 2400);
+    EXPECT_EQ(config.predator_count, 500);
+    EXPECT_EQ(config.prey_count, 1500);
     EXPECT_GT(config.mutation_rate, 0.0f);
     EXPECT_EQ(config.boundary_mode, BoundaryMode::Wrap);
     EXPECT_EQ(config.max_generations, 0);
@@ -35,7 +35,7 @@ TEST(ConfigTest, LoadLuaSingleNamedConfig) {
     EXPECT_EQ(config.prey_count, 200);
     EXPECT_EQ(config.boundary_mode, BoundaryMode::Clamp);
     // Unspecified fields keep defaults
-    EXPECT_EQ(config.predator_count, 100);
+    EXPECT_EQ(config.predator_count, 500);
 
     std::filesystem::remove(path);
 }
@@ -73,7 +73,7 @@ TEST(ConfigTest, LoadLuaNamedMapWithCustomName) {
     EXPECT_TRUE(configs.count("my_run"));
     EXPECT_EQ(configs["my_run"].grid_width, 999);
     // Unspecified fields keep defaults
-    EXPECT_EQ(configs["my_run"].predator_count, 100);
+    EXPECT_EQ(configs["my_run"].predator_count, 500);
 
     std::filesystem::remove(path);
 }

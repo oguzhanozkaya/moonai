@@ -12,18 +12,18 @@ enum class BoundaryMode { Clamp, Wrap };
 
 struct SimulationConfig {
     // ── Environment ─────────────────────────────────────────────────────
-    int grid_width  = 1920;          // World width in simulation units [100, 10000]
-    int grid_height = 1080;          // World height in simulation units [100, 10000]
+    int grid_width  = 4300;          // World width in simulation units [100, 20000]
+    int grid_height = 2400;          // World height in simulation units [100, 20000]
     BoundaryMode boundary_mode = BoundaryMode::Wrap;  // "wrap" or "clamp"
 
     // ── Population ──────────────────────────────────────────────────────
-    int predator_count = 100;        // Number of predator agents [1, ...]
-    int prey_count     = 300;        // Number of prey agents [1, ...]
+    int predator_count = 500;        // Number of predator agents [1, ...]
+    int prey_count     = 1500;       // Number of prey agents [1, ...]
 
     // ── Agent Parameters ────────────────────────────────────────────────
     float predator_speed = 4.0f;     // Predator max speed (units/tick) [> 0]
     float prey_speed     = 4.5f;     // Prey max speed (units/tick); prey slightly faster [> 0]
-    float vision_range   = 150.0f;   // Radius each agent can see (units) [> 0]
+    float vision_range   = 200.0f;   // Radius each agent can see (units) [> 0]
     float attack_range   = 20.0f;    // Predator kill radius (units) [> 0, < vision_range]
     float initial_energy = 150.0f;   // Starting energy; death at <= 0 [> 0]
     float energy_drain_per_tick  = 0.08f;  // Fixed energy cost per tick (living cost) [>= 0]
@@ -32,7 +32,7 @@ struct SimulationConfig {
     float food_pickup_range      = 12.0f;  // Prey food detection radius (units) [> 0]
 
     // ── Food / Resources ────────────────────────────────────────────────
-    int   food_count        = 500;    // Food pellets to spawn at initialization [>= 0]
+    int   food_count        = 2500;   // Food pellets to spawn at initialization [>= 0]
     float food_respawn_rate = 0.02f;  // P(respawn per empty slot per tick) ∈ [0, 1]
 
     // ── NEAT - Mutation (probabilities applied independently each generation) ──
@@ -43,7 +43,7 @@ struct SimulationConfig {
     float add_connection_rate   = 0.05f;  // P(add connection mutation per genome) ∈ [0, 1]
     float delete_connection_rate = 0.01f; // P(delete connection mutation per genome) ∈ [0, 1]
     int   max_hidden_nodes      = 100;    // Max hidden nodes per genome; 0 = unlimited [>= 0]
-    int   generation_ticks      = 1000;   // Simulation steps per generation [>= 10]
+    int   generation_ticks      = 1500;   // Simulation steps per generation [>= 10]
     int   max_generations       = 0;      // 0 = run indefinitely; otherwise stop after N
 
     // ── NEAT - Speciation (Stanley 2002, Section 3.3) ───────────────────

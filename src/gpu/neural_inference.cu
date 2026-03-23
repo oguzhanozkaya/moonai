@@ -76,41 +76,13 @@ __global__ void neural_forward_kernel(
     }
 }
 
-// Synchronous: launches on default stream and waits for completion.
+// Launches kernel on the batch's stream.
 void batch_neural_inference(GpuBatch& batch) {
     int n = batch.num_agents();
     constexpr int kBlockSize = 256;
     int grid_size = (n + kBlockSize - 1) / kBlockSize;
 
-    neural_forward_kernel<<<grid_size, kBlockSize>>>(
-        batch.d_descs(),
-        batch.d_node_vals(),
-        batch.d_node_types(),
-        batch.d_eval_order(),
-        batch.d_conn_ptr(),
-        batch.d_in_count(),
-        batch.d_conn_from(),
-        batch.d_conn_w(),
-        batch.d_out_indices(),
-        batch.d_inputs(),
-        batch.d_outputs(),
-        n,
-        batch.num_inputs(),
-        batch.activation_fn_id()
-    );
-
-    CUDA_CHECK(cudaGetLastError());
-    CUDA_CHECK(cudaDeviceSynchronize());
-}
-
-// Async: launches on stream[buf] using double-buffered device arrays.
-// Caller is responsible for synchronization via GpuBatch::sync_stream().
-void batch_neural_inference(GpuBatch& batch, int buf) {
-    int n = batch.num_agents();
-    constexpr int kBlockSize = 256;
-    int grid_size = (n + kBlockSize - 1) / kBlockSize;
-
-    cudaStream_t stream = static_cast<cudaStream_t>(batch.stream_handle(buf));
+    cudaStream_t stream = static_cast<cudaStream_t>(batch.stream_handle());
 
     neural_forward_kernel<<<grid_size, kBlockSize, 0, stream>>>(
         batch.d_descs(),
@@ -122,8 +94,8 @@ void batch_neural_inference(GpuBatch& batch, int buf) {
         batch.d_conn_from(),
         batch.d_conn_w(),
         batch.d_out_indices(),
-        batch.d_inputs_buf(buf),
-        batch.d_outputs_buf(buf),
+        batch.d_inputs(),
+        batch.d_outputs(),
         n,
         batch.num_inputs(),
         batch.activation_fn_id()

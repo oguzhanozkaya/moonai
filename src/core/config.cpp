@@ -257,15 +257,15 @@ std::vector<ConfigError> validate_config(const SimulationConfig& config) {
 
     // Environment
     check(config.grid_width >= 100, "grid_width", "must be >= 100");
-    check(config.grid_width <= 10000, "grid_width", "must be <= 10000");
+    check(config.grid_width <= 20000, "grid_width", "must be <= 20000");
     check(config.grid_height >= 100, "grid_height", "must be >= 100");
-    check(config.grid_height <= 10000, "grid_height", "must be <= 10000");
+    check(config.grid_height <= 20000, "grid_height", "must be <= 20000");
 
     // Population
     check(config.predator_count >= 1, "predator_count", "must be >= 1");
     check(config.prey_count >= 1, "prey_count", "must be >= 1");
-    check(config.predator_count + config.prey_count <= 10000,
-          "population", "total population must be <= 10000");
+    check(config.predator_count + config.prey_count <= 50000,
+          "population", "total population must be <= 50000");
 
     // Agent
     check(config.predator_speed > 0.0f, "predator_speed", "must be > 0");

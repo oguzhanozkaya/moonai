@@ -30,6 +30,8 @@ struct GpuNetworkData {
 // RAII wrapper owning all device memory for a generation's batch inference.
 // Fixed-size arrays (inputs, outputs, descs) are allocated in the constructor.
 // Topology arrays are freed and reallocated each generation by upload_network_data().
+//
+// Uses a single CUDA stream with pinned host memory for async H2D/D2H transfers.
 class GpuBatch {
 public:
     GpuBatch(int num_agents, int num_inputs, int num_outputs);
@@ -42,23 +44,15 @@ public:
     // Accepts pre-extracted network data (built by caller) and uploads to GPU.
     void upload_network_data(const GpuNetworkData& data);
 
-    // ── Per-tick I/O (synchronous — simple, correct baseline) ────────────
-    // flat_inputs: size == num_agents * num_inputs (agent-major order)
-    void pack_inputs(const std::vector<float>& flat_inputs);
-    // flat_out: size == num_agents * num_outputs
-    void unpack_outputs(std::vector<float>& flat_out) const;
-
-    // ── Per-tick I/O (async — uses pinned memory + CUDA streams) ───────
-    // Copy flat_inputs into pinned host buffer, then async H2D on stream[buf].
-    void pack_inputs_async(const float* flat_inputs, int count, int buf);
-    // Launch kernel on stream[buf].
-    void launch_inference_async(int buf);
-    // Async D2H into pinned host buffer on stream[buf].
-    void start_unpack_async(int buf);
-    // Block until stream[buf] completes, then copy from pinned buffer to dst.
-    void finish_unpack(float* dst, int count, int buf);
-    // Block until stream[buf] completes all queued work.
-    void sync_stream(int buf);
+    // ── Per-tick I/O (async — uses pinned memory + single CUDA stream) ──
+    // Copy flat_inputs into pinned host buffer, then async H2D.
+    void pack_inputs_async(const float* flat_inputs, int count);
+    // Launch kernel on the stream.
+    void launch_inference_async();
+    // Async D2H into pinned host buffer.
+    void start_unpack_async();
+    // Block until stream completes, then copy from pinned buffer to dst.
+    void finish_unpack(float* dst, int count);
 
     // ── Kernel-facing accessors (device pointers) ────────────────────────
     const GpuNetDesc* d_descs()       const { return d_descs_; }
@@ -70,13 +64,9 @@ public:
     const int*        d_conn_from()   const { return d_conn_from_; }
     const float*      d_conn_w()      const { return d_conn_w_; }
     const int*        d_out_indices() const { return d_out_indices_; }
-    const float*      d_inputs()      const { return d_inputs_; }
+    float*            d_inputs()            { return d_inputs_; }
     float*            d_outputs()           { return d_outputs_; }
-
-    // Double-buffered accessors (for async kernel launch in neural_inference.cu)
-    float*            d_inputs_buf(int buf)        { return d_inputs_db_[buf]; }
-    float*            d_outputs_buf(int buf)       { return d_outputs_db_[buf]; }
-    void*             stream_handle(int buf) const { return streams_[buf]; }
+    void*             stream_handle() const { return stream_; }
 
     int num_agents()       const { return num_agents_; }
     int num_inputs()       const { return num_inputs_; }
@@ -84,23 +74,17 @@ public:
     int activation_fn_id() const { return activation_fn_id_; }
 
 private:
-    static constexpr int kNumBuffers = 2;
-
-    // Fixed-size device arrays (allocated in constructor, freed in destructor)
+    // Device arrays (allocated in constructor, freed in destructor)
     GpuNetDesc*    d_descs_     = nullptr;  // [num_agents]
-    float*         d_inputs_    = nullptr;  // [num_agents * num_inputs]   (sync path)
-    float*         d_outputs_   = nullptr;  // [num_agents * num_outputs]  (sync path)
-
-    // Double-buffered device arrays for async path
-    float*         d_inputs_db_[kNumBuffers]  = {};  // [num_agents * num_inputs]  per buffer
-    float*         d_outputs_db_[kNumBuffers] = {};  // [num_agents * num_outputs] per buffer
+    float*         d_inputs_    = nullptr;  // [num_agents * num_inputs]
+    float*         d_outputs_   = nullptr;  // [num_agents * num_outputs]
 
     // Pinned host memory (required for cudaMemcpyAsync)
-    float*         h_pinned_in_[kNumBuffers]  = {};
-    float*         h_pinned_out_[kNumBuffers] = {};
+    float*         h_pinned_in_  = nullptr;
+    float*         h_pinned_out_ = nullptr;
 
-    // CUDA streams (stored as void* to keep CUDA types out of header)
-    void*          streams_[kNumBuffers] = {};
+    // Single CUDA stream (stored as void* to keep CUDA types out of header)
+    void*          stream_ = nullptr;
 
     // Topology arrays (reallocated each generation by upload_network_data)
     float*   d_node_vals_   = nullptr;  // [Σ num_nodes]   — scratch per tick
@@ -112,6 +96,12 @@ private:
     float*   d_conn_w_      = nullptr;  // [Σ total_conn]  — edge weight
     int*     d_out_indices_ = nullptr;  // [Σ num_outputs] — output node positions
 
+    // Topology capacity tracking (avoid reallocation when sizes fit)
+    int capacity_nodes_ = 0;
+    int capacity_eval_  = 0;
+    int capacity_conn_  = 0;
+    int capacity_out_   = 0;
+
     int num_agents_;
     int num_inputs_;
     int num_outputs_;
@@ -119,8 +109,7 @@ private:
 };
 
 // ── Free functions (implemented in neural_inference.cu / gpu_batch.cu) ────
-void batch_neural_inference(GpuBatch& batch);                     // sync (default stream)
-void batch_neural_inference(GpuBatch& batch, int buf);            // async (on stream[buf])
+void batch_neural_inference(GpuBatch& batch);  // launches on batch's stream
 bool init_cuda();
 void print_device_info();
 
