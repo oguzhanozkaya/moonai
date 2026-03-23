@@ -128,6 +128,7 @@ There is one build type — it always bundles SFML visualization and auto-detect
 | `just release` | Optimized release build |
 
 CUDA is compiled in automatically when `nvcc` is found. On machines without the CUDA Toolkit, the build succeeds and uses the CPU path.
+Official GitHub releases are CPU-only; CUDA support is available from source builds on CUDA-capable machines.
 
 ### CMake Options
 
@@ -472,9 +473,6 @@ just compdb
 # Format code
 just format
 
-# Run only CUDA tests
-just test-gpu
-
 # Run static analysis (cppcheck)
 just lint
 
@@ -489,6 +487,9 @@ just profile
 
 # Build with AddressSanitizer + UBSan and run 5 headless generations
 just check-memory
+
+# Run GPU tests locally (requires CUDA)
+just test-gpu
 ```
 
 ## Project Structure
