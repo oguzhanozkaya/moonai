@@ -153,29 +153,18 @@ run-experiment name: release
 
 # ─── Analysis ───────────────────────────────────────────────────────────────
 
-# Plot fitness curves from a run directory
+# Generate the full analysis bundle from output/
 [group('analysis')]
-plot run_dir="output":
-    cd analysis && uv run python cli.py plot {{justfile_directory()}}/{{run_dir}}
-
-# Plot fitness and save to file
-[group('analysis')]
-plot-save run_dir="output" output_path="analysis/output/fitness_plot.png":
-    cd analysis && uv run python cli.py plot {{justfile_directory()}}/{{run_dir}} \
-        -o {{justfile_directory()}}/{{output_path}}
-
-# Generate all plots and print results summary (single post-run step)
-[group('analysis')]
-report:
-    cd analysis && uv run python cli.py report
+analyse:
+    cd analysis && uv run moonai-analysis
 
 # Full experiment pipeline: run all experiments → generate report
 [group('experiment')]
-experiment-pipeline: experiments report
+experiment-pipeline: experiments analyse
 
 # Validate GPU/CPU output parity: same stats.csv results with and without GPU
-[group('analysis')]
-cuda-validate:
+[group('gpu')]
+gpu-validate:
     #!/usr/bin/env bash
     set -e
     just build-type=release configure
@@ -190,8 +179,8 @@ cuda-validate:
       && echo "MATCH" || echo "DIFFER (float rounding expected between GPU/CPU paths)"
 
 # Benchmark GPU vs CPU wall-clock time on the large-population condition
-[group('analysis')]
-cuda-bench:
+[group('gpu')]
+gpu-bench:
     #!/usr/bin/env bash
     just build-type=release configure
     just build-type=release build

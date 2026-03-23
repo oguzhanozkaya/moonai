@@ -307,33 +307,42 @@ just experiments            # 66 conditions × 5 seeds × 200 generations → ou
 just run-experiment baseline_seed42
 ```
 
-**4. Set up Python and generate report**
+**4. Set up Python and generate analysis**
 ```bash
-just setup-python           # installs pandas, matplotlib, networkx via uv
-just report                 # reads output/, writes analysis/output/*.png + summary.md
+just setup-python           # installs Python analysis dependencies via uv
+just analyse                # reads output/, generates the full analysis bundle
 ```
 
-### Analysis CLI (`analysis/cli.py`)
+### Analysis
 
-All analysis is accessed through a single entry point (`analysis/` contains its own `pyproject.toml`):
+The Python analysis tool has a single mode: it always generates the complete post-processing output for all qualifying runs in `output/`.
 
 ```bash
-cd analysis && uv run python cli.py <command> [options]
+just analyse
 ```
 
-| Command | Description |
-|---------|-------------|
-| `plot <run_dir>` | Fitness and complexity curves for one run |
-| `population <run_dir>` | Predator/prey counts over generations |
-| `species <run_dir>` | Species count and size distribution |
-| `complexity <run_dir>` | Genome node/connection count over generations |
-| `compare <run_dirs...>` | Overlay one metric across multiple runs (`--metric`, `--smooth`) |
-| `genome <run_dir>` | Neural network topology of the best genome (`-g` for generation) |
-| `report` | Generate complete report: all plots + summary table |
+Internally this runs the packaged analysis entry point from `analysis/`:
 
-All commands accept `-o <path>` to save as PNG instead of displaying interactively. Run `cd analysis && uv run python cli.py <command> --help` for full options.
+```bash
+cd analysis && uv run moonai-analysis
+```
 
-The library modules (`plot_fitness.py`, `plot_population.py`, `plot_species.py`, `plot_complexity.py`, `compare_experiments.py`, `analyze_genome.py`, `report.py`) expose their functions for import — all shared utilities live in `utils.py`.
+The analysis step is non-interactive and always writes the full bundle to `analysis/output/`, including:
+
+- per-condition plots for fitness, population, species, complexity, and best-genome topology
+- cross-condition comparison plots using seed-aggregated statistics
+- `summary.md` with grouped metrics at the final sampled generation
+- `skipped_runs.md` for incomplete or invalid runs that were excluded
+- `index.md` linking the generated outputs for easier navigation
+
+The analysis code is structured as a small package under `analysis/moonai_analysis/`:
+
+- `pipeline.py` orchestrates the full analysis run
+- `io.py` discovers runs and loads CSV/JSON data
+- `labels.py` groups runs into experiment conditions
+- `plots.py` generates all per-condition and comparison figures
+- `genome.py` renders best-genome topology diagrams
+- `summary.py` writes markdown summaries and output indexes
 
 ### Experiment conditions
 
@@ -510,7 +519,7 @@ moonai/
 │   ├── data/                   # CSV/JSON logger, metrics collector
 │   └── gpu/                    # CUDA kernels (auto-detected; disabled at runtime by --no-gpu)
 ├── tests/                      # Google Test unit tests
-├── analysis/                   # Python analysis (self-contained: pyproject.toml + cli.py entry point)
+├── analysis/                   # Python analysis package and generated report output
 ├── docs/                       # Project documents (PDFs + LLD LaTeX source)
 ├── web/                        # GitHub Pages website
 └── .github/workflows/          # CI/CD pipelines
