@@ -106,11 +106,13 @@ TEST(ConfigTest, SaveAndReloadJSON) {
     save_config(original, path);
 
     // Verify the JSON is parseable and correct
-    std::ifstream f(path);
-    auto j = nlohmann::json::parse(f);
-    EXPECT_EQ(j["grid_width"].get<int>(), 1234);
-    EXPECT_EQ(j["seed"].get<std::uint64_t>(), 42u);
-    EXPECT_EQ(j["boundary_mode"].get<std::string>(), "clamp");
+    {
+        std::ifstream f(path);
+        auto j = nlohmann::json::parse(f);
+        EXPECT_EQ(j["grid_width"].get<int>(), 1234);
+        EXPECT_EQ(j["seed"].get<std::uint64_t>(), 42u);
+        EXPECT_EQ(j["boundary_mode"].get<std::string>(), "clamp");
+    }
 
     std::filesystem::remove(path);
 }
