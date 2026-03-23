@@ -53,6 +53,7 @@ public:
     void start_unpack_async();
     // Block until stream completes, then copy from pinned buffer to dst.
     void finish_unpack(float* dst, int count);
+    bool ok() const { return !had_error_; }
 
     // ── Kernel-facing accessors (device pointers) ────────────────────────
     const GpuNetDesc* d_descs()       const { return d_descs_; }
@@ -97,15 +98,20 @@ private:
     int*     d_out_indices_ = nullptr;  // [Σ num_outputs] — output node positions
 
     // Topology capacity tracking (avoid reallocation when sizes fit)
-    int capacity_nodes_ = 0;
-    int capacity_eval_  = 0;
-    int capacity_conn_  = 0;
-    int capacity_out_   = 0;
+    int capacity_node_vals_   = 0;
+    int capacity_node_types_  = 0;
+    int capacity_eval_order_  = 0;
+    int capacity_conn_ptr_    = 0;
+    int capacity_in_count_    = 0;
+    int capacity_conn_from_   = 0;
+    int capacity_conn_w_      = 0;
+    int capacity_out_indices_ = 0;
 
     int num_agents_;
     int num_inputs_;
     int num_outputs_;
     int activation_fn_id_ = 0;  // 0=sigmoid, 1=tanh, 2=relu
+    bool had_error_ = false;
 };
 
 // ── Free functions (implemented in neural_inference.cu / gpu_batch.cu) ────

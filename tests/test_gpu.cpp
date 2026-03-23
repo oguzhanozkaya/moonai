@@ -141,6 +141,15 @@ protected:
 };
 bool GpuTest::gpu_available_ = false;
 
+static void run_gpu_inference(GpuBatch& batch, const float* inputs, int input_count,
+                              float* outputs, int output_count) {
+    batch.pack_inputs_async(inputs, input_count);
+    batch.launch_inference_async();
+    batch.start_unpack_async();
+    batch.finish_unpack(outputs, output_count);
+    ASSERT_TRUE(batch.ok()) << "GPU batch reported a CUDA failure";
+}
+
 // Test 1: CPU vs GPU output comparison with known topology
 TEST_F(GpuTest, CpuGpuOutputsMatch) {
     constexpr int kInputs = 3;
@@ -160,12 +169,10 @@ TEST_F(GpuTest, CpuGpuOutputsMatch) {
     GpuBatch batch(1, kInputs, kOutputs);
     auto data = build_test_network_data(nets, "sigmoid");
     batch.upload_network_data(data);
+    ASSERT_TRUE(batch.ok()) << "GPU upload failed";
 
     float gpu_out[kOutputs] = {};
-    batch.pack_inputs_async(cpu_in, kInputs);
-    batch.launch_inference_async();
-    batch.start_unpack_async();
-    batch.finish_unpack(gpu_out, kOutputs);
+    run_gpu_inference(batch, cpu_in, kInputs, gpu_out, kOutputs);
 
     for (int i = 0; i < kOutputs; ++i) {
         EXPECT_NEAR(cpu_out[i], gpu_out[i], 1e-5f)
@@ -189,6 +196,7 @@ TEST_F(GpuTest, BatchConsistency) {
     GpuBatch batch(kBatch, kInputs, kOutputs);
     auto data = build_test_network_data(nets, "sigmoid");
     batch.upload_network_data(data);
+    ASSERT_TRUE(batch.ok()) << "GPU upload failed";
 
     // All agents get same inputs
     std::vector<float> flat_in(kBatch * kInputs);
@@ -199,10 +207,17 @@ TEST_F(GpuTest, BatchConsistency) {
     }
 
     std::vector<float> flat_out(kBatch * kOutputs);
-    batch.pack_inputs_async(flat_in.data(), kBatch * kInputs);
-    batch.launch_inference_async();
-    batch.start_unpack_async();
-    batch.finish_unpack(flat_out.data(), kBatch * kOutputs);
+    run_gpu_inference(batch, flat_in.data(), kBatch * kInputs, flat_out.data(), kBatch * kOutputs);
+
+    float cpu_out[kOutputs] = {};
+    float cpu_in[kInputs] = {1.0f, 0.5f, -0.3f};
+    nets[0]->activate_into(cpu_in, kInputs, cpu_out, kOutputs);
+
+    for (int j = 0; j < kOutputs; ++j) {
+        EXPECT_NEAR(cpu_out[j], flat_out[j], 1e-5f)
+            << "Agent 0 output " << j << " mismatch: CPU=" << cpu_out[j]
+            << " GPU=" << flat_out[j];
+    }
 
     // All outputs should be identical
     for (int i = 1; i < kBatch; ++i) {
@@ -228,14 +243,12 @@ TEST_F(GpuTest, VariedOutputCount) {
         GpuBatch batch(kBatch, kInputs, n_out);
         auto data = build_test_network_data(nets, "sigmoid");
         batch.upload_network_data(data);
+        ASSERT_TRUE(batch.ok()) << "GPU upload failed";
 
         std::vector<float> flat_in(kBatch * kInputs, 0.5f);
         std::vector<float> flat_out(kBatch * n_out);
 
-        batch.pack_inputs_async(flat_in.data(), kBatch * kInputs);
-        batch.launch_inference_async();
-        batch.start_unpack_async();
-        batch.finish_unpack(flat_out.data(), kBatch * n_out);
+        run_gpu_inference(batch, flat_in.data(), kBatch * kInputs, flat_out.data(), kBatch * n_out);
 
         // CPU reference for agent 0
         float cpu_out[4] = {};
@@ -263,14 +276,12 @@ TEST_F(GpuTest, ZeroConnectionNetwork) {
     GpuBatch batch(1, kInputs, kOutputs);
     auto data = build_test_network_data(nets, "sigmoid");
     batch.upload_network_data(data);
+    ASSERT_TRUE(batch.ok()) << "GPU upload failed";
 
     float in_data[kInputs] = {1.0f, 0.5f, -1.0f};
     float out_data[kOutputs] = {};
 
-    batch.pack_inputs_async(in_data, kInputs);
-    batch.launch_inference_async();
-    batch.start_unpack_async();
-    batch.finish_unpack(out_data, kOutputs);
+    run_gpu_inference(batch, in_data, kInputs, out_data, kOutputs);
 
     // With no connections, outputs should be 0 (initialized) or sigmoid(0)
     // depending on whether output nodes are in eval_order with 0 incoming
@@ -295,6 +306,7 @@ TEST_F(GpuTest, LargeBatch) {
     GpuBatch batch(kBatch, kInputs, kOutputs);
     auto data = build_test_network_data(nets, "sigmoid");
     batch.upload_network_data(data);
+    ASSERT_TRUE(batch.ok()) << "GPU upload failed";
 
     std::vector<float> flat_in(kBatch * kInputs);
     for (int i = 0; i < kBatch * kInputs; ++i) {
@@ -302,10 +314,18 @@ TEST_F(GpuTest, LargeBatch) {
     }
 
     std::vector<float> flat_out(kBatch * kOutputs);
-    batch.pack_inputs_async(flat_in.data(), kBatch * kInputs);
-    batch.launch_inference_async();
-    batch.start_unpack_async();
-    batch.finish_unpack(flat_out.data(), kBatch * kOutputs);
+    run_gpu_inference(batch, flat_in.data(), kBatch * kInputs, flat_out.data(), kBatch * kOutputs);
+
+    for (int agent = 0; agent < kBatch; agent += 997) {
+        float cpu_out[kOutputs] = {};
+        nets[agent]->activate_into(flat_in.data() + agent * kInputs, kInputs, cpu_out, kOutputs);
+        for (int j = 0; j < kOutputs; ++j) {
+            EXPECT_NEAR(cpu_out[j], flat_out[agent * kOutputs + j], 1e-5f)
+                << "Agent " << agent << " output " << j
+                << " mismatch: CPU=" << cpu_out[j]
+                << " GPU=" << flat_out[agent * kOutputs + j];
+        }
+    }
 
     for (int i = 0; i < kBatch * kOutputs; ++i) {
         EXPECT_TRUE(std::isfinite(flat_out[i]))
@@ -326,16 +346,14 @@ TEST_F(GpuTest, ActivationFunctions) {
         GpuBatch batch(1, kInputs, kOutputs);
         auto data = build_test_network_data(nets, fn);
         batch.upload_network_data(data);
+        ASSERT_TRUE(batch.ok()) << "GPU upload failed";
 
         float in_data[kInputs] = {1.0f, -0.5f, 0.3f};
         float cpu_out[kOutputs] = {};
         nets[0]->activate_into(in_data, kInputs, cpu_out, kOutputs);
 
         float gpu_out[kOutputs] = {};
-        batch.pack_inputs_async(in_data, kInputs);
-        batch.launch_inference_async();
-        batch.start_unpack_async();
-        batch.finish_unpack(gpu_out, kOutputs);
+        run_gpu_inference(batch, in_data, kInputs, gpu_out, kOutputs);
 
         for (int i = 0; i < kOutputs; ++i) {
             EXPECT_NEAR(cpu_out[i], gpu_out[i], 1e-5f)

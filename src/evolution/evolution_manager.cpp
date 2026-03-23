@@ -206,6 +206,10 @@ void EvolutionManager::evaluate_generation(SimulationManager& sim) {
     if (use_gpu_ && gpu_batch_) {
         gpu_batch_->upload_network_data(
             build_gpu_network_data(networks_, config_.activation_function));
+        if (!gpu_batch_->ok()) {
+            spdlog::error("GPU network upload failed; aborting GPU evaluation for this generation");
+            return;
+        }
 
         int agent_count = static_cast<int>(
             std::min(sim.agents().size(), networks_.size()));
@@ -234,6 +238,10 @@ void EvolutionManager::evaluate_generation(SimulationManager& sim) {
             gpu_batch_->launch_inference_async();
             gpu_batch_->start_unpack_async();
             gpu_batch_->finish_unpack(flat_out.data(), out_count);
+            if (!gpu_batch_->ok()) {
+                spdlog::error("GPU inference failed at tick {}; aborting GPU evaluation for this generation", tick);
+                return;
+            }
 
             // Apply actions from GPU outputs
             for (int i = 0; i < agent_count; ++i) {

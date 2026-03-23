@@ -5,6 +5,28 @@
 
 namespace moonai::gpu {
 
+namespace {
+
+bool check_cuda(cudaError_t err, const char* file, int line) {
+    if (err != cudaSuccess) {
+        fprintf(stderr, "CUDA error at %s:%d: %s\n", file, line,
+                cudaGetErrorString(err));
+        return false;
+    }
+    return true;
+}
+
+bool memcpy_async_checked(void* dst, const void* src, size_t bytes,
+                         cudaMemcpyKind kind, cudaStream_t stream,
+                         const char* file, int line) {
+    if (bytes == 0) {
+        return true;
+    }
+    return check_cuda(cudaMemcpyAsync(dst, src, bytes, kind, stream), file, line);
+}
+
+} // namespace
+
 // ── Constructor / Destructor ─────────────────────────────────────────────────
 
 GpuBatch::GpuBatch(int num_agents, int num_inputs, int num_outputs)
@@ -56,6 +78,7 @@ GpuBatch::~GpuBatch() {
 // ── upload_network_data ───────────────────────────────────────────────────────
 
 void GpuBatch::upload_network_data(const GpuNetworkData& data) {
+    had_error_ = false;
     activation_fn_id_ = data.activation_fn_id;
 
     int n            = num_agents_;
@@ -75,69 +98,81 @@ void GpuBatch::upload_network_data(const GpuNetworkData& data) {
         }
     };
 
-    realloc_if_needed(&d_node_vals_,  total_nodes, capacity_nodes_, sizeof(float));
-    realloc_if_needed(&d_node_types_, total_nodes, capacity_nodes_, sizeof(uint8_t));
-    realloc_if_needed(&d_eval_order_, total_eval,  capacity_eval_,  sizeof(int));
-    realloc_if_needed(&d_conn_ptr_,   total_eval,  capacity_eval_,  sizeof(int));
-    realloc_if_needed(&d_in_count_,   total_eval,  capacity_eval_,  sizeof(int));
+    realloc_if_needed(&d_node_vals_,  total_nodes, capacity_node_vals_, sizeof(float));
+    realloc_if_needed(&d_node_types_, total_nodes, capacity_node_types_, sizeof(uint8_t));
+    realloc_if_needed(&d_eval_order_, total_eval,  capacity_eval_order_, sizeof(int));
+    realloc_if_needed(&d_conn_ptr_,   total_eval,  capacity_conn_ptr_, sizeof(int));
+    realloc_if_needed(&d_in_count_,   total_eval,  capacity_in_count_, sizeof(int));
     if (total_conn > 0) {
-        realloc_if_needed(&d_conn_from_, total_conn, capacity_conn_, sizeof(int));
-        realloc_if_needed(&d_conn_w_,    total_conn, capacity_conn_, sizeof(float));
+        realloc_if_needed(&d_conn_from_, total_conn, capacity_conn_from_, sizeof(int));
+        realloc_if_needed(&d_conn_w_,    total_conn, capacity_conn_w_, sizeof(float));
     }
     if (total_out > 0) {
-        realloc_if_needed(&d_out_indices_, total_out, capacity_out_, sizeof(int));
+        realloc_if_needed(&d_out_indices_, total_out, capacity_out_indices_, sizeof(int));
     }
 
     // ── Upload to device (async on batch stream) ──────────────────────
-    CUDA_CHECK(cudaMemcpyAsync(d_descs_, data.descs.data(),
-        n * sizeof(GpuNetDesc), cudaMemcpyHostToDevice, s));
-    CUDA_CHECK(cudaMemcpyAsync(d_node_types_, data.node_types.data(),
-        total_nodes * sizeof(uint8_t), cudaMemcpyHostToDevice, s));
-    CUDA_CHECK(cudaMemcpyAsync(d_eval_order_, data.eval_order.data(),
-        total_eval * sizeof(int), cudaMemcpyHostToDevice, s));
-    CUDA_CHECK(cudaMemcpyAsync(d_conn_ptr_, data.conn_ptr.data(),
-        total_eval * sizeof(int), cudaMemcpyHostToDevice, s));
-    CUDA_CHECK(cudaMemcpyAsync(d_in_count_, data.in_count.data(),
-        total_eval * sizeof(int), cudaMemcpyHostToDevice, s));
+    had_error_ |= !memcpy_async_checked(d_descs_, data.descs.data(),
+        n * sizeof(GpuNetDesc), cudaMemcpyHostToDevice, s, __FILE__, __LINE__);
+    had_error_ |= !memcpy_async_checked(d_node_types_, data.node_types.data(),
+        total_nodes * sizeof(uint8_t), cudaMemcpyHostToDevice, s, __FILE__, __LINE__);
+    had_error_ |= !memcpy_async_checked(d_eval_order_, data.eval_order.data(),
+        total_eval * sizeof(int), cudaMemcpyHostToDevice, s, __FILE__, __LINE__);
+    had_error_ |= !memcpy_async_checked(d_conn_ptr_, data.conn_ptr.data(),
+        total_eval * sizeof(int), cudaMemcpyHostToDevice, s, __FILE__, __LINE__);
+    had_error_ |= !memcpy_async_checked(d_in_count_, data.in_count.data(),
+        total_eval * sizeof(int), cudaMemcpyHostToDevice, s, __FILE__, __LINE__);
     if (total_conn > 0) {
-        CUDA_CHECK(cudaMemcpyAsync(d_conn_from_, data.conn_from.data(),
-            total_conn * sizeof(int), cudaMemcpyHostToDevice, s));
-        CUDA_CHECK(cudaMemcpyAsync(d_conn_w_, data.conn_w.data(),
-            total_conn * sizeof(float), cudaMemcpyHostToDevice, s));
+        had_error_ |= !memcpy_async_checked(d_conn_from_, data.conn_from.data(),
+            total_conn * sizeof(int), cudaMemcpyHostToDevice, s, __FILE__, __LINE__);
+        had_error_ |= !memcpy_async_checked(d_conn_w_, data.conn_w.data(),
+            total_conn * sizeof(float), cudaMemcpyHostToDevice, s, __FILE__, __LINE__);
     }
     if (total_out > 0) {
-        CUDA_CHECK(cudaMemcpyAsync(d_out_indices_, data.out_indices.data(),
-            total_out * sizeof(int), cudaMemcpyHostToDevice, s));
+        had_error_ |= !memcpy_async_checked(d_out_indices_, data.out_indices.data(),
+            total_out * sizeof(int), cudaMemcpyHostToDevice, s, __FILE__, __LINE__);
     }
 
     // Ensure upload completes before first inference tick
-    CUDA_CHECK(cudaStreamSynchronize(s));
+    had_error_ |= !check_cuda(cudaStreamSynchronize(s), __FILE__, __LINE__);
 }
 
 // ── Per-tick I/O ─────────────────────────────────────────────────────────────
 
 void GpuBatch::pack_inputs_async(const float* flat_inputs, int count) {
+    if (had_error_) {
+        return;
+    }
     size_t bytes = count * sizeof(float);
     memcpy(h_pinned_in_, flat_inputs, bytes);
     cudaStream_t s = static_cast<cudaStream_t>(stream_);
-    CUDA_CHECK(cudaMemcpyAsync(d_inputs_, h_pinned_in_,
-        bytes, cudaMemcpyHostToDevice, s));
+    had_error_ |= !memcpy_async_checked(d_inputs_, h_pinned_in_,
+        bytes, cudaMemcpyHostToDevice, s, __FILE__, __LINE__);
 }
 
 void GpuBatch::launch_inference_async() {
+    if (had_error_) {
+        return;
+    }
     batch_neural_inference(*this);
 }
 
 void GpuBatch::start_unpack_async() {
+    if (had_error_) {
+        return;
+    }
     size_t bytes = num_agents_ * num_outputs_ * sizeof(float);
     cudaStream_t s = static_cast<cudaStream_t>(stream_);
-    CUDA_CHECK(cudaMemcpyAsync(h_pinned_out_, d_outputs_,
-        bytes, cudaMemcpyDeviceToHost, s));
+    had_error_ |= !memcpy_async_checked(h_pinned_out_, d_outputs_,
+        bytes, cudaMemcpyDeviceToHost, s, __FILE__, __LINE__);
 }
 
 void GpuBatch::finish_unpack(float* dst, int count) {
     cudaStream_t s = static_cast<cudaStream_t>(stream_);
-    CUDA_CHECK(cudaStreamSynchronize(s));
+    had_error_ |= !check_cuda(cudaStreamSynchronize(s), __FILE__, __LINE__);
+    if (had_error_) {
+        return;
+    }
     memcpy(dst, h_pinned_out_, count * sizeof(float));
 }
 
