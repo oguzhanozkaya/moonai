@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <cmath>
 #include "evolution/genome.hpp"
 #include "evolution/neural_network.hpp"
 #include "gpu/gpu_batch.hpp"
