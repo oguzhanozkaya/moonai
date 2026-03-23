@@ -15,7 +15,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(
         prog="moonai-analysis",
-        description="Generate the full MoonAI analysis bundle.",
+        description="Generate a self-contained MoonAI HTML analysis report.",
     )
     parser.add_argument(
         "--input-dir",

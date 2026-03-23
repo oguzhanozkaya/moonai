@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import io
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -25,7 +27,7 @@ def load_latest_genome(run_dir: Path) -> dict | None:
     return genomes[-1]
 
 
-def save_genome_plot(genome: dict, destination: Path, title: str) -> None:
+def render_genome_plot(genome: dict, title: str) -> str:
     graph = nx.DiGraph()
     node_types: dict[int, int] = {}
 
@@ -103,10 +105,12 @@ def save_genome_plot(genome: dict, destination: Path, title: str) -> None:
 
     axis.set_title(title)
     axis.axis("off")
+    buffer = io.BytesIO()
     figure.tight_layout()
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    figure.savefig(destination, dpi=150, bbox_inches="tight")
+    figure.savefig(buffer, format="png", dpi=150, bbox_inches="tight")
     plt.close(figure)
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
 
 
 def _build_layout(node_types: dict[int, int]) -> dict[int, tuple[float, float]]:

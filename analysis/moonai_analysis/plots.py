@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import base64
+import io
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -44,6 +47,13 @@ class ConditionAggregate:
     representative_run: RunData
 
 
+@dataclass(frozen=True)
+class EmbeddedChart:
+    title: str
+    image_uri: str
+    caption: str
+
+
 def build_condition_aggregate(label: str, runs: list[RunData]) -> ConditionAggregate:
     generation_frames = []
     for run in runs:
@@ -77,30 +87,20 @@ def build_condition_aggregate(label: str, runs: list[RunData]) -> ConditionAggre
     )
 
 
-def save_condition_plots(
-    aggregate: ConditionAggregate, destination_dir: Path
-) -> list[Path]:
-    destination_dir.mkdir(parents=True, exist_ok=True)
-    outputs = [
-        save_fitness_plot(aggregate, destination_dir / "fitness.png"),
-        save_population_plot(aggregate, destination_dir / "population.png"),
-        save_species_plot(
-            aggregate.representative_run,
-            destination_dir / "species.png",
-            aggregate.label,
-        ),
-        save_complexity_plot(aggregate, destination_dir / "complexity.png"),
+def render_condition_charts(aggregate: ConditionAggregate) -> list[EmbeddedChart]:
+    return [
+        render_fitness_chart(aggregate),
+        render_population_chart(aggregate),
+        render_species_chart(aggregate.representative_run, aggregate.label),
+        render_complexity_chart(aggregate),
     ]
-    return outputs
 
 
-def save_comparison_plots(
-    aggregates: list[ConditionAggregate], destination_dir: Path
-) -> list[Path]:
-    destination_dir.mkdir(parents=True, exist_ok=True)
-    outputs: list[Path] = []
+def render_comparison_charts(
+    aggregates: list[ConditionAggregate],
+) -> list[EmbeddedChart]:
+    charts: list[EmbeddedChart] = []
     for metric in COMPARISON_METRICS:
-        path = destination_dir / f"{metric}.png"
         figure, axis = plt.subplots(figsize=(12, 6))
         for aggregate in aggregates:
             frame = aggregate.summary_frame
@@ -114,14 +114,17 @@ def save_comparison_plots(
         axis.set_title(f"{metric.replace('_', ' ').title()} by Condition")
         axis.grid(True, alpha=0.3)
         axis.legend(loc="best", fontsize=8)
-        figure.tight_layout()
-        figure.savefig(path, dpi=150, bbox_inches="tight")
-        plt.close(figure)
-        outputs.append(path)
-    return outputs
+        charts.append(
+            EmbeddedChart(
+                title=metric.replace("_", " ").title(),
+                image_uri=_figure_to_data_uri(figure),
+                caption="Mean curve with one standard deviation band across runs.",
+            )
+        )
+    return charts
 
 
-def save_fitness_plot(aggregate: ConditionAggregate, destination: Path) -> Path:
+def render_fitness_chart(aggregate: ConditionAggregate) -> EmbeddedChart:
     frame = aggregate.summary_frame
     figure, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
 
@@ -147,13 +150,14 @@ def save_fitness_plot(aggregate: ConditionAggregate, destination: Path) -> Path:
     axes[1].legend(loc="upper left")
     axes[1].grid(True, alpha=0.3)
 
-    figure.tight_layout()
-    figure.savefig(destination, dpi=150, bbox_inches="tight")
-    plt.close(figure)
-    return destination
+    return EmbeddedChart(
+        title="Fitness",
+        image_uri=_figure_to_data_uri(figure),
+        caption=f"{aggregate.label} mean fitness and complexity across {len(aggregate.runs)} runs.",
+    )
 
 
-def save_population_plot(aggregate: ConditionAggregate, destination: Path) -> Path:
+def render_population_chart(aggregate: ConditionAggregate) -> EmbeddedChart:
     frame = aggregate.summary_frame
     figure, axis = plt.subplots(figsize=(12, 6))
     _plot_mean_std(axis, frame, "predator_count", "Predators", STYLE["predator_count"])
@@ -165,13 +169,14 @@ def save_population_plot(aggregate: ConditionAggregate, destination: Path) -> Pa
     )
     axis.legend(loc="best")
     axis.grid(True, alpha=0.3)
-    figure.tight_layout()
-    figure.savefig(destination, dpi=150, bbox_inches="tight")
-    plt.close(figure)
-    return destination
+    return EmbeddedChart(
+        title="Population",
+        image_uri=_figure_to_data_uri(figure),
+        caption=f"{aggregate.label} predator and prey population trends across {len(aggregate.runs)} runs.",
+    )
 
 
-def save_species_plot(run: RunData, destination: Path, label: str) -> Path:
+def render_species_chart(run: RunData, label: str) -> EmbeddedChart:
     species_path = run.path / "species.csv"
     species_frame = load_optional_csv(
         species_path, required_columns=["generation", "species_id", "size"]
@@ -221,13 +226,14 @@ def save_species_plot(run: RunData, destination: Path, label: str) -> Path:
         if len(pivot.columns) <= 15:
             axes[1].legend(loc="upper right", fontsize=8, ncol=3)
 
-    figure.tight_layout()
-    figure.savefig(destination, dpi=150, bbox_inches="tight")
-    plt.close(figure)
-    return destination
+    return EmbeddedChart(
+        title="Species",
+        image_uri=_figure_to_data_uri(figure),
+        caption=f"Representative run `{run.name}` species count and size distribution for {label}.",
+    )
 
 
-def save_complexity_plot(aggregate: ConditionAggregate, destination: Path) -> Path:
+def render_complexity_chart(aggregate: ConditionAggregate) -> EmbeddedChart:
     frame = aggregate.summary_frame
     figure, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
 
@@ -270,10 +276,11 @@ def save_complexity_plot(aggregate: ConditionAggregate, destination: Path) -> Pa
         axes[1].legend(loc="upper left")
         axes[1].grid(True, alpha=0.3)
 
-    figure.tight_layout()
-    figure.savefig(destination, dpi=150, bbox_inches="tight")
-    plt.close(figure)
-    return destination
+    return EmbeddedChart(
+        title="Complexity",
+        image_uri=_figure_to_data_uri(figure),
+        caption=f"{aggregate.label} aggregate complexity plus representative best-genome structure history.",
+    )
 
 
 def _plot_mean_std(
@@ -290,8 +297,6 @@ def _plot_mean_std(
 def _load_genome_counts(path: Path) -> pd.DataFrame | None:
     if not path.is_file():
         return None
-    import json
-
     with path.open(encoding="utf-8") as handle:
         genomes = json.load(handle)
     if not genomes:
@@ -303,3 +308,12 @@ def _load_genome_counts(path: Path) -> pd.DataFrame | None:
             "num_connections": [entry["num_connections"] for entry in genomes],
         }
     )
+
+
+def _figure_to_data_uri(figure: plt.Figure) -> str:
+    buffer = io.BytesIO()
+    figure.tight_layout()
+    figure.savefig(buffer, format="png", dpi=150, bbox_inches="tight")
+    plt.close(figure)
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"

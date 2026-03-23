@@ -153,7 +153,7 @@ run-experiment name: release
 
 # ─── Analysis ───────────────────────────────────────────────────────────────
 
-# Generate the full analysis bundle from output/
+# Generate the self-contained HTML analysis report from output/
 [group('analysis')]
 analyse:
     cd analysis && uv run moonai-analysis

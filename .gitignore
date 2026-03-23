@@ -37,6 +37,7 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
+.ruff_cache/
 
 # Simulation output data
 output/

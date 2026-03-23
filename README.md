@@ -310,12 +310,12 @@ just run-experiment baseline_seed42
 **4. Set up Python and generate analysis**
 ```bash
 just setup-python           # installs Python analysis dependencies via uv
-just analyse                # reads output/, generates the full analysis bundle
+just analyse                # reads output/, writes a self-contained HTML report
 ```
 
 ### Analysis
 
-The Python analysis tool has a single mode: it always generates the complete post-processing output for all qualifying runs in `output/`.
+The Python analysis tool has a single mode: it always generates one self-contained HTML report for all qualifying runs in `output/`.
 
 ```bash
 just analyse
@@ -327,22 +327,26 @@ Internally this runs the packaged analysis entry point from `analysis/`:
 cd analysis && uv run moonai-analysis
 ```
 
-The analysis step is non-interactive and always writes the full bundle to `analysis/output/`, including:
+The analysis step is non-interactive and always writes a timestamped report to `analysis/output/`, for example `report_20260324_154233.html`.
+
+The generated HTML is fully self-contained: it embeds all plots and report data directly into a single file, including:
 
 - per-condition plots for fitness, population, species, complexity, and best-genome topology
 - cross-condition comparison plots using seed-aggregated statistics
-- `summary.md` with grouped metrics at the final sampled generation
-- `skipped_runs.md` for incomplete or invalid runs that were excluded
-- `index.md` linking the generated outputs for easier navigation
+- the grouped summary table at the final sampled generation
+- skipped-run information for incomplete or invalid runs
+- inline styling and navigation so the report opens directly in a browser without side files
 
 The analysis code is structured as a small package under `analysis/moonai_analysis/`:
 
 - `pipeline.py` orchestrates the full analysis run
 - `io.py` discovers runs and loads CSV/JSON data
 - `labels.py` groups runs into experiment conditions
-- `plots.py` generates all per-condition and comparison figures
-- `genome.py` renders best-genome topology diagrams
-- `summary.py` writes markdown summaries and output indexes
+- `plots.py` generates embedded per-condition and comparison figures
+- `genome.py` renders embedded best-genome topology diagrams
+- `summary.py` prepares structured summary data for the report
+- `html_report.py` renders the final self-contained HTML document
+- `templates/report.html.j2` defines the HTML report layout
 
 ### Experiment conditions
 
