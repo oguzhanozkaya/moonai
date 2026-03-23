@@ -75,6 +75,8 @@ private:
     void speciate();
     void reproduce();
     void remove_stagnant_species();
+    float default_fitness(float age_ratio, float kills_or_food, float energy_ratio,
+                          float alive_bonus, float dist_ratio, float complexity) const;
 
     SimulationConfig config_;
     Random& rng_;

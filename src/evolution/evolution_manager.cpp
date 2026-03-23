@@ -385,18 +385,23 @@ void EvolutionManager::compute_fitness(const SimulationManager& sim) {
                 age_ratio, kills_or_food, energy_ratio,
                 alive_bonus, dist_ratio, complexity, config_);
         } else {
-            // Default C++ fitness formula
-            fitness = config_.fitness_survival_weight * age_ratio
-                    + config_.fitness_kill_weight * kills_or_food
-                    + config_.fitness_energy_weight * energy_ratio
-                    + alive_bonus
-                    + config_.fitness_distance_weight * dist_ratio
-                    - config_.complexity_penalty_weight * complexity;
-            fitness = std::max(0.0f, fitness);
+            fitness = default_fitness(age_ratio, kills_or_food, energy_ratio,
+                                      alive_bonus, dist_ratio, complexity);
         }
 
         population_[i].set_fitness(fitness);
     }
+}
+
+float EvolutionManager::default_fitness(float age_ratio, float kills_or_food,
+    float energy_ratio, float alive_bonus, float dist_ratio, float complexity) const {
+    float f = config_.fitness_survival_weight * age_ratio
+            + config_.fitness_kill_weight     * kills_or_food
+            + config_.fitness_energy_weight   * energy_ratio
+            + alive_bonus
+            + config_.fitness_distance_weight * dist_ratio
+            - config_.complexity_penalty_weight * complexity;
+    return std::max(0.0f, f);
 }
 
 void EvolutionManager::speciate() {

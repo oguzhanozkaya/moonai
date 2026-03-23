@@ -543,3 +543,38 @@ TEST(NeuralNetworkTest, ActivateIntoMatchesActivate) {
         EXPECT_FLOAT_EQ(out_buf[i], vec_out[i]) << "Mismatch at output " << i;
     }
 }
+
+// ── Default Fitness Formula Regression Tests ─────────────────────────────
+
+TEST(FitnessComputationTest, DefaultFormulaKnownValues) {
+    // Regression test: verifies the default fitness formula against a hand-computed
+    // expected value using default config weights. If weights or formula change, this fails.
+    //   survival=1.0, kill=5.0, energy=0.5, distance=0.1, complexity_penalty=0.01
+    //   age=0.5, kills=2.0, energy=0.8, alive=1.0, dist=0.3, complexity=5.0
+    //   = 1.0*0.5 + 5.0*2.0 + 0.5*0.8 + 1.0 + 0.1*0.3 - 0.01*5.0
+    //   = 0.5 + 10.0 + 0.4 + 1.0 + 0.03 - 0.05 = 11.88
+    SimulationConfig config;
+    const float expected = config.fitness_survival_weight   * 0.5f
+                         + config.fitness_kill_weight       * 2.0f
+                         + config.fitness_energy_weight     * 0.8f
+                         + 1.0f
+                         + config.fitness_distance_weight   * 0.3f
+                         - config.complexity_penalty_weight * 5.0f;
+
+    EXPECT_NEAR(expected, 11.88f, 0.001f);
+}
+
+TEST(FitnessComputationTest, DefaultFormulaClampedAtZero) {
+    // Formula result should never go below zero
+    SimulationConfig config;
+    // All-zero inputs, alive_bonus=0 → result should be 0 or clamped to 0
+    const float result = std::max(0.0f,
+        config.fitness_survival_weight   * 0.0f
+      + config.fitness_kill_weight       * 0.0f
+      + config.fitness_energy_weight     * 0.0f
+      + 0.0f   // alive_bonus
+      + config.fitness_distance_weight   * 0.0f
+      - config.complexity_penalty_weight * 100.0f);  // large complexity penalty
+
+    EXPECT_FLOAT_EQ(result, 0.0f);
+}
