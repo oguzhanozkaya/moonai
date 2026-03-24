@@ -73,6 +73,9 @@ def run_analysis(input_dir: Path, output_dir: Path) -> None:
             }
         )
 
+    # Reverse Profile Details order (most recent first) while keeping comparison charts in original order
+    run_sections.reverse()
+
     report_name = f"profile_report_{generated_at.strftime('%Y%m%d_%H%M%S')}.html"
     report_path = output_dir / report_name
     report_html = render_html_report(
@@ -149,18 +152,24 @@ def _top_event_nonzero_count(suite) -> float:
 
 def _format_event_summary(events: dict[str, dict[str, float]]) -> list[dict[str, str]]:
     rows = []
+    generation_total = events.get("generation_total", {}).get("total_ms", 0.0)
     for name, values in events.items():
         if values.get("total_ms", 0.0) <= 0.0:
             continue
+        total_ms = values.get("total_ms", 0.0)
+        percentage = (
+            (total_ms / generation_total * 100) if generation_total > 0 else 0.0
+        )
         rows.append(
             {
                 "name": name,
-                "total_ms": f"{values.get('total_ms', 0.0):.3f}",
+                "percentage": f"{percentage:.1f}",
                 "avg_ms_per_generation": f"{values.get('avg_ms_per_generation', 0.0):.3f}",
                 "nonzero_generation_count": str(
                     int(values.get("nonzero_generation_count", 0.0))
                 ),
                 "avg_ms_per_nonzero_generation": f"{values.get('avg_ms_per_nonzero_generation', 0.0):.3f}",
+                "total_ms": f"{total_ms:.3f}",
             }
         )
     rows.sort(key=lambda row: float(row["total_ms"]), reverse=True)

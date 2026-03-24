@@ -438,20 +438,22 @@
           <thead>
             <tr>
               <th>Event</th>
-              <th>Total (ms)</th>
+              <th>%</th>
               <th>Avg / Generation</th>
               <th>Nonzero Generations</th>
               <th>Avg / Nonzero Generation</th>
+              <th>Total (ms)</th>
             </tr>
           </thead>
           <tbody>
             {% for row in run.summary_events %}
             <tr>
               <td>{{ row.name }}</td>
-              <td>{{ row.total_ms }}</td>
+              <td>{{ row.percentage }}</td>
               <td>{{ row.avg_ms_per_generation }}</td>
               <td>{{ row.nonzero_generation_count }}</td>
               <td>{{ row.avg_ms_per_nonzero_generation }}</td>
+              <td>{{ row.total_ms }}</td>
             </tr>
             {% endfor %}
           </tbody>

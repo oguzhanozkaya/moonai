@@ -122,10 +122,13 @@ def _render_cross_run_generation_lines(suites: list[ProfileSuite]) -> Chart:
         )
 
     if has_data:
-        ax.legend(fontsize=7, ncol=2, loc="upper right")
+        ax.legend(fontsize=7, ncol=2, loc="lower left")
     ax.set_xlabel("Generation")
     ax.set_ylabel("Generation time (ms)")
     ax.set_title("Per-Suite Generation Time Lines")
+    ax.set_xlim(left=0)
+    ax.margins(x=0)
+    ax.set_ylim(bottom=0)
     ax.grid(alpha=0.25)
     fig.tight_layout()
     return Chart(
