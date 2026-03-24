@@ -1,6 +1,8 @@
 add_library(moonai_gpu STATIC
     neural_inference.cu
     gpu_batch.cu
+    sensor_kernel.cu
+    gpu_simulation.cu
 )
 
 target_include_directories(moonai_gpu PUBLIC ${CMAKE_SOURCE_DIR}/src)

@@ -391,116 +391,15 @@ The profiler package lives under `profiler/moonai_profiler/` and includes:
 
 The default baseline is 2000 agents (500 predators, 1500 prey) on a 4300×2400 world with 1500 ticks/generation. Scaled experiments use `scale_base()` to maintain agent density by proportionally adjusting world size and food count. GPU is auto-enabled for populations >= 1000.
 
-#### Group A — Baseline sweeps (2K agents)
-
-| Condition | Override |
-|-----------|----------|
-| `baseline` | — (unmodified defaults) |
-| `mut_low` | `mutation_rate: 0.1` |
-| `mut_high` | `mutation_rate: 0.5` |
-| `mut_very_low` | `mutation_rate: 0.05` |
-| `mut_very_high` | `mutation_rate: 0.8` |
-| `pop_small` | 100 pred + 300 prey (400 total, scaled world) |
-| `pop_medium` | 250 pred + 750 prey (1K total, scaled world) |
-| `pop_large` | 1250 pred + 3750 prey (5K total, scaled world) |
-| `pop_huge` | 2500 pred + 7500 prey (10K total, scaled world) |
-| `pop_massive` | 5000 pred + 15000 prey (20K total, scaled world) |
-| `no_speciation` | `compatibility_threshold: 100` |
-| `tight_speciation` | `compatibility_threshold: 1.0` |
-| `tanh` | `activation_function: "tanh"` |
-| `relu` | `activation_function: "relu"` |
-| `crossover_low` | `crossover_rate: 0.25` |
-| `crossover_none` | `crossover_rate: 0.0` |
-
-#### Group B — Scale experiments (proportional world)
-
-| Condition | Total Agents | World (approx) |
-|-----------|-------------|-----------------|
-| `scale_1k` | 1,000 | 3040×1700 |
-| `scale_3k` | 3,000 | 5270×2940 |
-| `scale_5k` | 5,000 | 6800×3800 |
-| `scale_8k` | 8,000 | 8600×4800 |
-| `scale_10k` | 10,000 | 9600×5400 |
-| `scale_15k` | 15,000 | 11760×6615 |
-| `scale_20k` | 20,000 | 13580×7640 |
-
-#### Group C — Parameter sweeps at 5K
-
-| Condition | Override |
-|-----------|----------|
-| `s5k_mut_low` | `mutation_rate: 0.1` |
-| `s5k_mut_high` | `mutation_rate: 0.5` |
-| `s5k_mut_very_high` | `mutation_rate: 0.8` |
-| `s5k_tanh` | `activation_function: "tanh"` |
-| `s5k_relu` | `activation_function: "relu"` |
-| `s5k_no_spec` | `compatibility_threshold: 100` |
-| `s5k_tight_spec` | `compatibility_threshold: 1.0` |
-| `s5k_crossover_low` | `crossover_rate: 0.25` |
-| `s5k_crossover_none` | `crossover_rate: 0.0` |
-
-#### Group D — Parameter sweeps at 10K
-
-| Condition | Override |
-|-----------|----------|
-| `s10k_mut_low` | `mutation_rate: 0.1` |
-| `s10k_mut_high` | `mutation_rate: 0.5` |
-| `s10k_tanh` | `activation_function: "tanh"` |
-| `s10k_relu` | `activation_function: "relu"` |
-| `s10k_no_spec` | `compatibility_threshold: 100` |
-| `s10k_crossover_low` | `crossover_rate: 0.25` |
-
-#### Group E — World density (5K agents, varying world size)
-
-| Condition | World | Density |
-|-----------|-------|---------|
-| `dense_5k` | 3000×1700 | Very high — constant encounters |
-| `normal_5k` | 6800×3800 | Proportional (same as scale_5k) |
-| `sparse_5k` | 12000×6750 | Low — agents rarely meet |
-| `vast_5k` | 15000×8400 | Extremely sparse |
-
-#### Group F — Generation length
-
-| Condition | Base | Ticks |
-|-----------|------|-------|
-| `ticks_500_2k` | 2K | 500 |
-| `ticks_2000_2k` | 2K | 2000 |
-| `ticks_3000_2k` | 2K | 3000 |
-| `ticks_500_5k` | 5K | 500 |
-| `ticks_2000_5k` | 5K | 2000 |
-| `ticks_3000_5k` | 5K | 3000 |
-
-#### Group G — Energy / resource dynamics
-
-| Condition | Base | Override |
-|-----------|------|----------|
-| `energy_scarce_2k` | 2K | `initial_energy: 75, food_respawn_rate: 0.01` |
-| `energy_abundant_2k` | 2K | `initial_energy: 300, food_respawn_rate: 0.05` |
-| `energy_scarce_5k` | 5K | `initial_energy: 75, food_respawn_rate: 0.01` |
-| `energy_abundant_5k` | 5K | `initial_energy: 300, food_respawn_rate: 0.05` |
-| `energy_extreme_5k` | 5K | `initial_energy: 50, food_respawn_rate: 0.005, energy_drain: 0.15` |
-| `energy_rich_5k` | 5K | `initial_energy: 500, food_respawn_rate: 0.08, energy_drain: 0.03` |
-
-#### Group H — Agent speed / interaction range (5K)
-
-| Condition | Override |
-|-----------|----------|
-| `fast_agents_5k` | `predator_speed: 6.0, prey_speed: 7.0` |
-| `slow_agents_5k` | `predator_speed: 2.5, prey_speed: 3.0` |
-| `wide_vision_5k` | `vision_range: 300` |
-| `narrow_vision_5k` | `vision_range: 80` |
-| `long_attack_5k` | `attack_range: 40` |
-| `short_attack_5k` | `attack_range: 10` |
-
-#### Group I — Topology complexity
-
-| Condition | Base | Override |
-|-----------|------|----------|
-| `high_complexity_5k` | 5K | `add_node_rate: 0.1, add_connection_rate: 0.15` |
-| `low_complexity_5k` | 5K | `add_node_rate: 0.01, add_connection_rate: 0.02` |
-| `no_growth_5k` | 5K | `add_node_rate: 0.0, add_connection_rate: 0.0` |
-| `high_complexity_10k` | 10K | `add_node_rate: 0.1, add_connection_rate: 0.15` |
-| `max_hidden_small_5k` | 5K | `max_hidden_nodes: 10` |
-| `max_hidden_large_5k` | 5K | `max_hidden_nodes: 50` |
+- Group A — Baseline sweeps (2K agents)
+- Group B — Scale experiments (proportional world)
+- Group C — Parameter sweeps at 5K
+- Group D — Parameter sweeps at 10K
+- Group E — World density (5K agents, varying world size)
+- Group F — Generation length
+- Group G — Energy / resource dynamics
+- Group H — Agent speed / interaction range (5K)
+- Group I — Topology complexity
 
 ### Large-scale experiments
 

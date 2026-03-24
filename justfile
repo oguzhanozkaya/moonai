@@ -242,7 +242,7 @@ bench-nn: release
 [group('dev')]
 profile: release
     ./build/linux-release/moonai config.lua \
-        --experiment baseline_seed42 --headless -g 12 --profile \
+        --experiment baseline_seed42 --headless -g 24 --profile \
         --profile-output output/profiles
 
 # Full profiler pipeline: run profiler -> generate profiler report

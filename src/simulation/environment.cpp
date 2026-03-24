@@ -1,5 +1,7 @@
 #include "simulation/environment.hpp"
 
+#include "core/deterministic_respawn.hpp"
+
 #include <algorithm>
 #include <cmath>
 
@@ -43,12 +45,36 @@ void Environment::initialize_food(Random& rng, int count) {
 }
 
 void Environment::tick_food(Random& rng, float respawn_rate) {
+    std::vector<AgentId> ignored;
+    tick_food(rng, respawn_rate, ignored);
+}
+
+void Environment::tick_food(Random& rng, float respawn_rate, std::vector<AgentId>& respawned_ids) {
+    respawned_ids.clear();
     for (auto& f : food_) {
         if (!f.active && rng.next_bool(respawn_rate)) {
             f.position = {rng.next_float(0, static_cast<float>(width_)),
                           rng.next_float(0, static_cast<float>(height_))};
             f.active = true;
+            respawned_ids.push_back(static_cast<AgentId>(&f - food_.data()));
         }
+    }
+}
+
+void Environment::tick_food_deterministic(std::uint64_t seed, int tick_index, float respawn_rate,
+                                          std::vector<AgentId>& respawned_ids) {
+    respawned_ids.clear();
+    for (std::uint32_t i = 0; i < food_.size(); ++i) {
+        auto& f = food_[i];
+        if (f.active || !respawn::should_respawn(seed, tick_index, i, respawn_rate)) {
+            continue;
+        }
+        f.position = {
+            respawn::respawn_x(seed, tick_index, i, static_cast<float>(width_)),
+            respawn::respawn_y(seed, tick_index, i, static_cast<float>(height_))
+        };
+        f.active = true;
+        respawned_ids.push_back(i);
     }
 }
 

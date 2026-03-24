@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <memory>
+#include <cstddef>
 
 namespace moonai {
 
@@ -49,6 +50,16 @@ struct Food;
 class Physics {
 public:
     // Build sensor inputs for one agent
+    static SensorInput build_sensors_from_candidates(
+        const Agent& agent,
+        const std::vector<std::unique_ptr<Agent>>& agents,
+        const std::vector<Food>& food,
+        const std::vector<AgentId>& nearby_agent_ids,
+        const std::vector<AgentId>& nearby_food_ids,
+        float world_width, float world_height,
+        float max_energy,
+        bool has_walls);
+
     static SensorInput build_sensors(
         const Agent& agent,
         const std::vector<std::unique_ptr<Agent>>& agents,
@@ -65,6 +76,12 @@ public:
     static std::vector<KillEvent> process_attacks(
         std::vector<std::unique_ptr<Agent>>& agents,
         const SpatialGrid& grid,
+        float attack_range);
+
+    static std::vector<KillEvent> process_attacks_from_candidates(
+        std::vector<std::unique_ptr<Agent>>& agents,
+        const std::vector<std::vector<AgentId>>& nearby_agent_ids,
+        const std::vector<std::size_t>& predator_indices,
         float attack_range);
 };
 

@@ -65,8 +65,10 @@ const char* profile_event_measurement(ProfileEvent event) {
         case ProfileEvent::BuildNetworks:
         case ProfileEvent::PrepareGpuGeneration:
         case ProfileEvent::GpuSensorFlatten:
+        case ProfileEvent::GpuResidentSensorBuild:
         case ProfileEvent::GpuPackInputs:
         case ProfileEvent::GpuLaunch:
+        case ProfileEvent::GpuResidentTick:
         case ProfileEvent::GpuStartUnpack:
         case ProfileEvent::GpuFinishUnpack:
         case ProfileEvent::GpuOutputConvert:
@@ -105,9 +107,11 @@ const char* profile_event_description(ProfileEvent event) {
         case ProfileEvent::GenerationTotal: return "Wall-clock generation duration measured in headless mode.";
         case ProfileEvent::BuildNetworks: return "Time spent rebuilding neural networks from genomes.";
         case ProfileEvent::PrepareGpuGeneration: return "Time spent uploading GPU network state before a generation.";
-        case ProfileEvent::GpuSensorFlatten: return "Time spent flattening sensor inputs for GPU inference.";
+        case ProfileEvent::GpuSensorFlatten: return "Time spent preparing CPU-side sensor input buffers for the legacy GPU inference path.";
+        case ProfileEvent::GpuResidentSensorBuild: return "Time spent building resident GPU-side sensor inputs from GPU-resident world state.";
         case ProfileEvent::GpuPackInputs: return "Time spent packing flattened inputs into GPU buffers.";
-        case ProfileEvent::GpuLaunch: return "Time spent launching GPU inference kernels.";
+        case ProfileEvent::GpuLaunch: return "Time spent running GPU neural inference for the legacy hybrid path.";
+        case ProfileEvent::GpuResidentTick: return "Time spent running the resident GPU simulation tick after inference.";
         case ProfileEvent::GpuStartUnpack: return "Time spent starting GPU output unpacking.";
         case ProfileEvent::GpuFinishUnpack: return "Time spent waiting for GPU output unpacking to finish.";
         case ProfileEvent::GpuOutputConvert: return "Time spent converting GPU outputs into agent actions.";
@@ -480,8 +484,10 @@ const char* profile_event_name(ProfileEvent event) {
         case ProfileEvent::BuildNetworks: return "build_networks";
         case ProfileEvent::PrepareGpuGeneration: return "prepare_gpu_generation";
         case ProfileEvent::GpuSensorFlatten: return "gpu_sensor_flatten";
+        case ProfileEvent::GpuResidentSensorBuild: return "gpu_resident_sensor_build";
         case ProfileEvent::GpuPackInputs: return "gpu_pack_inputs";
         case ProfileEvent::GpuLaunch: return "gpu_launch";
+        case ProfileEvent::GpuResidentTick: return "gpu_resident_tick";
         case ProfileEvent::GpuStartUnpack: return "gpu_start_unpack";
         case ProfileEvent::GpuFinishUnpack: return "gpu_finish_unpack";
         case ProfileEvent::GpuOutputConvert: return "gpu_output_convert";
