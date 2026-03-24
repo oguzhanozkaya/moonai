@@ -92,9 +92,6 @@ const char* profile_event_measurement(ProfileEvent event) {
         case ProfileEvent::Reproduce:
         case ProfileEvent::Logging:
         case ProfileEvent::TickCallback:
-        case ProfileEvent::CompatibilityDistance:
-        case ProfileEvent::PhysicsBuildSensors:
-        case ProfileEvent::SpatialQueryRadius:
             return "accumulated";
         case ProfileEvent::Count:
             return "unknown";
@@ -135,9 +132,6 @@ const char* profile_event_description(ProfileEvent event) {
         case ProfileEvent::Reproduce: return "Time spent producing the next generation population.";
         case ProfileEvent::Logging: return "Time spent writing generation logs.";
         case ProfileEvent::TickCallback: return "Time spent executing optional tick callbacks.";
-        case ProfileEvent::CompatibilityDistance: return "Accumulated time spent in genome compatibility distance checks.";
-        case ProfileEvent::PhysicsBuildSensors: return "Accumulated time spent building sensor values per agent.";
-        case ProfileEvent::SpatialQueryRadius: return "Accumulated time spent in spatial radius queries.";
         case ProfileEvent::Count: return "";
     }
     return "";
@@ -510,9 +504,6 @@ const char* profile_event_name(ProfileEvent event) {
         case ProfileEvent::Reproduce: return "reproduce";
         case ProfileEvent::Logging: return "logging";
         case ProfileEvent::TickCallback: return "tick_callback";
-        case ProfileEvent::CompatibilityDistance: return "compatibility_distance_accumulated";
-        case ProfileEvent::PhysicsBuildSensors: return "physics_build_sensors_accumulated";
-        case ProfileEvent::SpatialQueryRadius: return "spatial_query_radius_accumulated";
         case ProfileEvent::Count: return "count";
     }
     return "unknown";

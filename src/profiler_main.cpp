@@ -464,6 +464,8 @@ void write_suite_manifest(const std::filesystem::path& suite_dir,
     manifest["runs"] = nlohmann::json::array();
     for (std::size_t index = 0; index < ordered_runs.size(); ++index) {
         const auto& run = ordered_runs[index];
+        const std::filesystem::path run_dir = std::filesystem::path(run.run_dir);
+        const std::filesystem::path profile_path = std::filesystem::path(run.profile_path);
         std::string disposition = "kept";
         if (index == 0) {
             disposition = "dropped_fastest";
@@ -472,8 +474,8 @@ void write_suite_manifest(const std::filesystem::path& suite_dir,
         }
         manifest["runs"].push_back({
             {"seed", run.seed},
-            {"run_dir", run.run_dir},
-            {"profile_path", run.profile_path},
+            {"run_dir", std::filesystem::relative(run_dir, suite_dir).generic_string()},
+            {"profile_path", std::filesystem::relative(profile_path, suite_dir).generic_string()},
             {"avg_generation_ms", run.avg_generation_ms},
             {"run_total_ms", run.run_total_ms},
             {"generation_count", run.generation_count},

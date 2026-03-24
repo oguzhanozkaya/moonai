@@ -42,9 +42,6 @@ enum class ProfileEvent : std::size_t {
     Reproduce,
     Logging,
     TickCallback,
-    CompatibilityDistance,
-    PhysicsBuildSensors,
-    SpatialQueryRadius,
     Count
 };
 

@@ -88,7 +88,7 @@ def _build_profile_suite(path: Path, payload: dict) -> ProfileSuite:
             generation_count=int(run.get("generation_count", 0)),
             disposition=str(run.get("disposition", "kept")),
             generation_times_ms=_load_generation_times(
-                path.parent / str(run.get("profile_path", ""))
+                _resolve_profile_path(path.parent, str(run.get("profile_path", "")))
             ),
         )
         for run in runs
@@ -146,3 +146,12 @@ def _load_generation_times(profile_path: Path) -> list[float]:
             continue
         values.append(float(events.get("generation_total", 0.0)))
     return values
+
+
+def _resolve_profile_path(suite_dir: Path, profile_path: str) -> Path:
+    candidate = Path(profile_path)
+    if candidate.is_absolute():
+        return candidate
+    if candidate.exists():
+        return candidate
+    return suite_dir / candidate

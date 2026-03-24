@@ -150,6 +150,8 @@ def _top_event_nonzero_count(suite) -> float:
 def _format_event_summary(events: dict[str, dict[str, float]]) -> list[dict[str, str]]:
     rows = []
     for name, values in events.items():
+        if values.get("total_ms", 0.0) <= 0.0:
+            continue
         rows.append(
             {
                 "name": name,
@@ -170,6 +172,8 @@ def _format_counter_summary(
 ) -> list[dict[str, str]]:
     rows = []
     for name, values in counters.items():
+        if values.get("total", 0.0) <= 0.0:
+            continue
         rows.append(
             {
                 "name": name,

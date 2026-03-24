@@ -1,4 +1,3 @@
---[[
 Profiler Improvement Plan
 
 Goal
@@ -266,4 +265,3 @@ Success Criteria
 - Normal builds carry no profiler instrumentation overhead.
 - Profiler overhead in the profiler build stays low enough to keep timings clear.
 - Profiler reports become easier to interpret and compare.
-]]
