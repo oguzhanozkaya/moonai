@@ -425,11 +425,8 @@ Experiments with 5K+ agents require significant compute. Recommendations:
 # Generate compile_commands.json for your IDE/LSP
 just compdb
 
-# Format code
-just format
-
-# Run static analysis (cppcheck)
-just lint
+# Format code and run static analysis (requires clang-format and cppcheck)
+just check
 
 # Benchmark NN forward-pass timing (requires release build)
 just bench-nn

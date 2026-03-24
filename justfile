@@ -38,30 +38,11 @@ setup-vcpkg:
         "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
     fi
 
-# Install system dependencies (Arch Linux)
-[group('setup')]
-setup-arch:
-    sudo pacman -S --needed cmake ninja gcc sfml cuda python-pandas python-matplotlib
-
-# Install system dependencies (Ubuntu/Debian)
-[group('setup')]
-setup-ubuntu:
-    sudo apt-get update && sudo apt-get install -y \
-        cmake ninja-build g++ \
-        libsfml-dev \
-        nvidia-cuda-toolkit \
-        python3-pandas python3-matplotlib
-
 # Set up Python environments for simulation and profiler analysis
 [group('setup')]
 setup-python:
     cd analysis && uv sync
     cd profiler && uv sync
-
-# Full first-time setup
-[group('setup')]
-setup: setup-vcpkg
-    @echo "Setup complete. Run 'just configure' next."
 
 # ─── Build ──────────────────────────────────────────────────────────────────
 
@@ -168,35 +149,6 @@ analyse-profile:
 [group('experiment')]
 experiment-pipeline: experiments analyse
 
-# Validate GPU/CPU output parity: same stats.csv results with and without GPU
-[group('gpu')]
-gpu-validate:
-    #!/usr/bin/env bash
-    set -e
-    just build-type=release configure
-    just build-type=release build
-    echo "Running with GPU..."
-    ./build/linux-release/moonai config.lua --experiment default --headless -g 5 --seed 42 > /tmp/gpu_run.txt 2>&1
-    echo "Running with CPU (--no-gpu)..."
-    ./build/linux-release/moonai config.lua --experiment default --headless --no-gpu -g 5 --seed 42 > /tmp/cpu_run.txt 2>&1
-    echo "Results match check (stats.csv comparison):"
-    diff <(ls -t output/ | head -2 | tail -1 | xargs -I{} cat "output/{}/stats.csv") \
-         <(ls -t output/ | head -1 | xargs -I{} cat "output/{}/stats.csv") \
-      && echo "MATCH" || echo "DIFFER (float rounding expected between GPU/CPU paths)"
-
-# Benchmark GPU vs CPU wall-clock time on the large-population condition
-[group('gpu')]
-gpu-bench:
-    #!/usr/bin/env bash
-    just build-type=release configure
-    just build-type=release build
-    echo "=== GPU path (pop_large) ==="
-    time ./build/linux-release/moonai config.lua \
-        --experiment pop_large_seed42 --headless -g 20
-    echo "=== CPU path (pop_large) ==="
-    time ./build/linux-release/moonai config.lua \
-        --experiment pop_large_seed42 --headless --no-gpu -g 20
-
 # ─── Clean ──────────────────────────────────────────────────────────────────
 
 
@@ -214,21 +166,19 @@ clean-all: clean
 
 # ─── Development ────────────────────────────────────────────────────────────
 
-# Format all C++ source files (requires clang-format)
-[group('dev')]
-format:
-    find src tests -name '*.cpp' -o -name '*.hpp' -o -name '*.cu' -o -name '*.cuh' | \
-        xargs clang-format -i --style=file
-
 # Generate compile_commands.json for IDE/LSP integration
 [group('dev')]
 compdb:
     cmake --preset {{preset}} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
     ln -sf {{build-dir}}/compile_commands.json compile_commands.json
 
-# Check for common issues (requires cppcheck)
+# Format code and run static analysis (requires clang-format and cppcheck)
 [group('dev')]
-lint:
+check:
+    @echo "==> Formatting C++ source files..."
+    find src tests -name '*.cpp' -o -name '*.hpp' -o -name '*.cu' -o -name '*.cuh' | \
+        xargs clang-format -i --style=file
+    @echo "==> Running static analysis..."
     cppcheck --enable=warning,style,performance --std=c++17 \
         --suppress=missingInclude --quiet src/
 
