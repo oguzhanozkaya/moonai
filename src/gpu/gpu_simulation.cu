@@ -82,8 +82,9 @@ __global__ void bin_agents_kernel(const float* pos_x, const float* pos_y,
     if (idx >= num_agents || alive[idx] == 0U) {
         return;
     }
-    const int cx = sensor_clamp_index(static_cast<int>(pos_x[idx] / cell_size), 0, cols - 1);
-    const int cy = sensor_clamp_index(static_cast<int>(pos_y[idx] / cell_size), 0, rows - 1);
+    const float inv_cell_size = 1.0f / cell_size;
+    const int cx = sensor_clamp_index(static_cast<int>(pos_x[idx] * inv_cell_size), 0, cols - 1);
+    const int cy = sensor_clamp_index(static_cast<int>(pos_y[idx] * inv_cell_size), 0, rows - 1);
     const int cell = cy * cols + cx;
     atomicAdd(&cell_counts[cell], 1);
 }
@@ -96,8 +97,9 @@ __global__ void bin_prey_kernel(const float* pos_x, const float* pos_y,
     if (idx >= num_agents || alive[idx] == 0U || types[idx] != 1U) {
         return;
     }
-    const int cx = sensor_clamp_index(static_cast<int>(pos_x[idx] / cell_size), 0, cols - 1);
-    const int cy = sensor_clamp_index(static_cast<int>(pos_y[idx] / cell_size), 0, rows - 1);
+    const float inv_cell_size = 1.0f / cell_size;
+    const int cx = sensor_clamp_index(static_cast<int>(pos_x[idx] * inv_cell_size), 0, cols - 1);
+    const int cy = sensor_clamp_index(static_cast<int>(pos_y[idx] * inv_cell_size), 0, rows - 1);
     const int cell = cy * cols + cx;
     atomicAdd(&cell_counts[cell], 1);
 }
@@ -110,8 +112,9 @@ __global__ void bin_food_kernel(const float* pos_x, const float* pos_y,
     if (idx >= food_count || active[idx] == 0U) {
         return;
     }
-    const int cx = sensor_clamp_index(static_cast<int>(pos_x[idx] / cell_size), 0, cols - 1);
-    const int cy = sensor_clamp_index(static_cast<int>(pos_y[idx] / cell_size), 0, rows - 1);
+    const float inv_cell_size = 1.0f / cell_size;
+    const int cx = sensor_clamp_index(static_cast<int>(pos_x[idx] * inv_cell_size), 0, cols - 1);
+    const int cy = sensor_clamp_index(static_cast<int>(pos_y[idx] * inv_cell_size), 0, rows - 1);
     const int cell = cy * cols + cx;
     atomicAdd(&cell_counts[cell], 1);
 }
@@ -125,8 +128,9 @@ __global__ void scatter_agents_kernel(const float* pos_x, const float* pos_y,
     if (idx >= num_agents || alive[idx] == 0U) {
         return;
     }
-    const int cx = sensor_clamp_index(static_cast<int>(pos_x[idx] / cell_size), 0, cols - 1);
-    const int cy = sensor_clamp_index(static_cast<int>(pos_y[idx] / cell_size), 0, rows - 1);
+    const float inv_cell_size = 1.0f / cell_size;
+    const int cx = sensor_clamp_index(static_cast<int>(pos_x[idx] * inv_cell_size), 0, cols - 1);
+    const int cy = sensor_clamp_index(static_cast<int>(pos_y[idx] * inv_cell_size), 0, rows - 1);
     const int cell = cy * cols + cx;
     const int slot = atomicAdd(&cell_write_counts[cell], 1);
     cell_ids[cell_offsets[cell] + slot] = static_cast<unsigned int>(idx);
@@ -141,8 +145,9 @@ __global__ void scatter_prey_kernel(const float* pos_x, const float* pos_y,
     if (idx >= num_agents || alive[idx] == 0U || types[idx] != 1U) {
         return;
     }
-    const int cx = sensor_clamp_index(static_cast<int>(pos_x[idx] / cell_size), 0, cols - 1);
-    const int cy = sensor_clamp_index(static_cast<int>(pos_y[idx] / cell_size), 0, rows - 1);
+    const float inv_cell_size = 1.0f / cell_size;
+    const int cx = sensor_clamp_index(static_cast<int>(pos_x[idx] * inv_cell_size), 0, cols - 1);
+    const int cy = sensor_clamp_index(static_cast<int>(pos_y[idx] * inv_cell_size), 0, rows - 1);
     const int cell = cy * cols + cx;
     const int slot = atomicAdd(&cell_write_counts[cell], 1);
     cell_ids[cell_offsets[cell] + slot] = static_cast<unsigned int>(idx);
@@ -157,8 +162,9 @@ __global__ void scatter_food_kernel(const float* pos_x, const float* pos_y,
     if (idx >= food_count || active[idx] == 0U) {
         return;
     }
-    const int cx = sensor_clamp_index(static_cast<int>(pos_x[idx] / cell_size), 0, cols - 1);
-    const int cy = sensor_clamp_index(static_cast<int>(pos_y[idx] / cell_size), 0, rows - 1);
+    const float inv_cell_size = 1.0f / cell_size;
+    const int cx = sensor_clamp_index(static_cast<int>(pos_x[idx] * inv_cell_size), 0, cols - 1);
+    const int cy = sensor_clamp_index(static_cast<int>(pos_y[idx] * inv_cell_size), 0, rows - 1);
     const int cell = cy * cols + cx;
     const int slot = atomicAdd(&cell_write_counts[cell], 1);
     cell_ids[cell_offsets[cell] + slot] = static_cast<unsigned int>(idx);
