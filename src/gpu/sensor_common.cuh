@@ -116,17 +116,29 @@ __device__ __forceinline__ void build_sensor_inputs_for_agent(const SensorBuildV
     const unsigned int* agent_types = view.agent_types;
     const float* food_pos_x = view.food_pos_x;
     const float* food_pos_y = view.food_pos_y;
+    const int* agent_cell_offsets = view.agent_cell_offsets;
+    const unsigned int* agent_cell_ids = view.agent_cell_ids;
+    const int* food_cell_offsets = view.food_cell_offsets;
+    const unsigned int* food_cell_ids = view.food_cell_ids;
+    const int agent_cols = view.agent_cols;
+    const int agent_rows = view.agent_rows;
+    const int food_cols = view.food_cols;
+    const int food_rows = view.food_rows;
+    const float agent_cell_size = view.agent_cell_size;
+    const float food_cell_size = view.food_cell_size;
+    const float world_width = view.world_width;
+    const float world_height = view.world_height;
     const float self_x = agent_pos_x[agent_idx];
     const float self_y = agent_pos_y[agent_idx];
     const float self_vision = view.agent_vision[agent_idx];
     const float vision_sq = self_vision * self_vision;
     const float inv_vision = self_vision > 0.0f ? 1.0f / self_vision : 0.0f;
-    const int agent_cells_to_check = static_cast<int>(self_vision / view.agent_cell_size) + 1;
-    const int food_cells_to_check = static_cast<int>(self_vision / view.food_cell_size) + 1;
-    const int agent_cx = sensor_clamp_index(static_cast<int>(self_x / view.agent_cell_size), 0, view.agent_cols - 1);
-    const int agent_cy = sensor_clamp_index(static_cast<int>(self_y / view.agent_cell_size), 0, view.agent_rows - 1);
-    const int food_cx = sensor_clamp_index(static_cast<int>(self_x / view.food_cell_size), 0, view.food_cols - 1);
-    const int food_cy = sensor_clamp_index(static_cast<int>(self_y / view.food_cell_size), 0, view.food_rows - 1);
+    const int agent_cells_to_check = static_cast<int>(self_vision / agent_cell_size) + 1;
+    const int food_cells_to_check = static_cast<int>(self_vision / food_cell_size) + 1;
+    const int agent_cx = sensor_clamp_index(static_cast<int>(self_x / agent_cell_size), 0, agent_cols - 1);
+    const int agent_cy = sensor_clamp_index(static_cast<int>(self_y / agent_cell_size), 0, agent_rows - 1);
+    const int food_cx = sensor_clamp_index(static_cast<int>(self_x / food_cell_size), 0, food_cols - 1);
+    const int food_cy = sensor_clamp_index(static_cast<int>(self_y / food_cell_size), 0, food_rows - 1);
 
     float nearest_pred_dist_sq = INFINITY;
     float nearest_prey_dist_sq = INFINITY;
@@ -141,27 +153,31 @@ __device__ __forceinline__ void build_sensor_inputs_for_agent(const SensorBuildV
     int local_prey = 0;
 
     for (int dy_cell = -agent_cells_to_check; dy_cell <= agent_cells_to_check; ++dy_cell) {
+        const int ny = agent_cy + dy_cell;
+        if (ny < 0 || ny >= agent_rows) {
+            continue;
+        }
+        const int row_base = ny * agent_cols;
         for (int dx_cell = -agent_cells_to_check; dx_cell <= agent_cells_to_check; ++dx_cell) {
             const int nx = agent_cx + dx_cell;
-            const int ny = agent_cy + dy_cell;
-            if (nx < 0 || nx >= view.agent_cols || ny < 0 || ny >= view.agent_rows) {
+            if (nx < 0 || nx >= agent_cols) {
                 continue;
             }
-            if (!cell_may_intersect_radius<HasWalls>(nx, ny, view.agent_cell_size, self_x, self_y,
-                                                     self_vision, view.world_width, view.world_height)) {
+            if (!cell_may_intersect_radius<HasWalls>(nx, ny, agent_cell_size, self_x, self_y,
+                                                     self_vision, world_width, world_height)) {
                 continue;
             }
-            const int cell = ny * view.agent_cols + nx;
-            const int start = view.agent_cell_offsets[cell];
-            const int end = view.agent_cell_offsets[cell + 1];
+            const int cell = row_base + nx;
+            const int start = agent_cell_offsets[cell];
+            const int end = agent_cell_offsets[cell + 1];
             for (int slot = start; slot < end; ++slot) {
-                const unsigned int other_idx = view.agent_cell_ids[slot];
+                const unsigned int other_idx = agent_cell_ids[slot];
                 if (other_idx == static_cast<unsigned int>(agent_idx)) {
                     continue;
                 }
                 float dx = agent_pos_x[other_idx] - self_x;
                 float dy = agent_pos_y[other_idx] - self_y;
-                sensor_apply_wrap<HasWalls>(dx, dy, view.world_width, view.world_height);
+                sensor_apply_wrap<HasWalls>(dx, dy, world_width, world_height);
                 const float dist_sq = dx * dx + dy * dy;
                 if (dist_sq > vision_sq) {
                     continue;
@@ -186,24 +202,28 @@ __device__ __forceinline__ void build_sensor_inputs_for_agent(const SensorBuildV
     }
 
     for (int dy_cell = -food_cells_to_check; dy_cell <= food_cells_to_check; ++dy_cell) {
+        const int ny = food_cy + dy_cell;
+        if (ny < 0 || ny >= food_rows) {
+            continue;
+        }
+        const int row_base = ny * food_cols;
         for (int dx_cell = -food_cells_to_check; dx_cell <= food_cells_to_check; ++dx_cell) {
             const int nx = food_cx + dx_cell;
-            const int ny = food_cy + dy_cell;
-            if (nx < 0 || nx >= view.food_cols || ny < 0 || ny >= view.food_rows) {
+            if (nx < 0 || nx >= food_cols) {
                 continue;
             }
-            if (!cell_may_intersect_radius<HasWalls>(nx, ny, view.food_cell_size, self_x, self_y,
-                                                     self_vision, view.world_width, view.world_height)) {
+            if (!cell_may_intersect_radius<HasWalls>(nx, ny, food_cell_size, self_x, self_y,
+                                                     self_vision, world_width, world_height)) {
                 continue;
             }
-            const int cell = ny * view.food_cols + nx;
-            const int start = view.food_cell_offsets[cell];
-            const int end = view.food_cell_offsets[cell + 1];
+            const int cell = row_base + nx;
+            const int start = food_cell_offsets[cell];
+            const int end = food_cell_offsets[cell + 1];
             for (int slot = start; slot < end; ++slot) {
-                const unsigned int food_idx = view.food_cell_ids[slot];
+                const unsigned int food_idx = food_cell_ids[slot];
                 float dx = food_pos_x[food_idx] - self_x;
                 float dy = food_pos_y[food_idx] - self_y;
-                sensor_apply_wrap<HasWalls>(dx, dy, view.world_width, view.world_height);
+                sensor_apply_wrap<HasWalls>(dx, dy, world_width, world_height);
                 const float dist_sq = dx * dx + dy * dy;
                 if (dist_sq > vision_sq) {
                     continue;
