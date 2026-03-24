@@ -534,7 +534,7 @@ wheels = [
 ]
 
 [[package]]
-name = "moonai-profile-analysis"
+name = "moonai-profiler"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
