@@ -19,9 +19,9 @@ struct SensorBuildView {
     const float* food_pos_y;
     const unsigned int* food_active;
     const int* agent_cell_offsets;
-    const unsigned int* agent_cell_ids;
+    const GpuSensorAgentEntry* agent_entries;
     const int* food_cell_offsets;
-    const unsigned int* food_cell_ids;
+    const GpuSensorFoodEntry* food_entries;
     float* inputs;
     int num_agents;
     int food_count;
@@ -113,13 +113,10 @@ __device__ __forceinline__ void build_sensor_inputs_for_agent(const SensorBuildV
 
     const float* agent_pos_x = view.agent_pos_x;
     const float* agent_pos_y = view.agent_pos_y;
-    const unsigned int* agent_types = view.agent_types;
-    const float* food_pos_x = view.food_pos_x;
-    const float* food_pos_y = view.food_pos_y;
     const int* agent_cell_offsets = view.agent_cell_offsets;
-    const unsigned int* agent_cell_ids = view.agent_cell_ids;
+    const GpuSensorAgentEntry* agent_entries = view.agent_entries;
     const int* food_cell_offsets = view.food_cell_offsets;
-    const unsigned int* food_cell_ids = view.food_cell_ids;
+    const GpuSensorFoodEntry* food_entries = view.food_entries;
     const int agent_cols = view.agent_cols;
     const int agent_rows = view.agent_rows;
     const int food_cols = view.food_cols;
@@ -171,18 +168,18 @@ __device__ __forceinline__ void build_sensor_inputs_for_agent(const SensorBuildV
             const int start = agent_cell_offsets[cell];
             const int end = agent_cell_offsets[cell + 1];
             for (int slot = start; slot < end; ++slot) {
-                const unsigned int other_idx = agent_cell_ids[slot];
-                if (other_idx == static_cast<unsigned int>(agent_idx)) {
+                const GpuSensorAgentEntry entry = agent_entries[slot];
+                if (entry.id == static_cast<unsigned int>(agent_idx)) {
                     continue;
                 }
-                float dx = agent_pos_x[other_idx] - self_x;
-                float dy = agent_pos_y[other_idx] - self_y;
+                float dx = entry.pos_x - self_x;
+                float dy = entry.pos_y - self_y;
                 sensor_apply_wrap<HasWalls>(dx, dy, world_width, world_height);
                 const float dist_sq = dx * dx + dy * dy;
                 if (dist_sq > vision_sq) {
                     continue;
                 }
-                if (agent_types[other_idx] == 0U) {
+                if (entry.type == 0U) {
                     ++local_predators;
                     if (dist_sq < nearest_pred_dist_sq) {
                         nearest_pred_dist_sq = dist_sq;
@@ -220,9 +217,9 @@ __device__ __forceinline__ void build_sensor_inputs_for_agent(const SensorBuildV
             const int start = food_cell_offsets[cell];
             const int end = food_cell_offsets[cell + 1];
             for (int slot = start; slot < end; ++slot) {
-                const unsigned int food_idx = food_cell_ids[slot];
-                float dx = food_pos_x[food_idx] - self_x;
-                float dy = food_pos_y[food_idx] - self_y;
+                const GpuSensorFoodEntry entry = food_entries[slot];
+                float dx = entry.pos_x - self_x;
+                float dy = entry.pos_y - self_y;
                 sensor_apply_wrap<HasWalls>(dx, dy, world_width, world_height);
                 const float dist_sq = dx * dx + dy * dy;
                 if (dist_sq > vision_sq) {

@@ -120,10 +120,11 @@ __global__ void bin_food_kernel(const float* pos_x, const float* pos_y,
 }
 
 __global__ void scatter_agents_kernel(const float* pos_x, const float* pos_y,
-                                      const unsigned int* alive, int num_agents,
+                                      const unsigned int* types, const unsigned int* alive, int num_agents,
                                       int cols, int rows, float cell_size,
                                       const int* cell_offsets, int* cell_write_counts,
-                                      unsigned int* cell_ids) {
+                                      unsigned int* cell_ids,
+                                      GpuSensorAgentEntry* sensor_entries) {
     const int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= num_agents || alive[idx] == 0U) {
         return;
@@ -133,7 +134,14 @@ __global__ void scatter_agents_kernel(const float* pos_x, const float* pos_y,
     const int cy = sensor_clamp_index(static_cast<int>(pos_y[idx] * inv_cell_size), 0, rows - 1);
     const int cell = cy * cols + cx;
     const int slot = atomicAdd(&cell_write_counts[cell], 1);
-    cell_ids[cell_offsets[cell] + slot] = static_cast<unsigned int>(idx);
+    const int write_index = cell_offsets[cell] + slot;
+    cell_ids[write_index] = static_cast<unsigned int>(idx);
+    sensor_entries[write_index] = GpuSensorAgentEntry{
+        static_cast<unsigned int>(idx),
+        types[idx],
+        pos_x[idx],
+        pos_y[idx],
+    };
 }
 
 __global__ void scatter_prey_kernel(const float* pos_x, const float* pos_y,
@@ -157,7 +165,8 @@ __global__ void scatter_food_kernel(const float* pos_x, const float* pos_y,
                                     const unsigned int* active, int food_count,
                                     int cols, int rows, float cell_size,
                                     const int* cell_offsets, int* cell_write_counts,
-                                    unsigned int* cell_ids) {
+                                    unsigned int* cell_ids,
+                                    GpuSensorFoodEntry* sensor_entries) {
     const int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= food_count || active[idx] == 0U) {
         return;
@@ -167,7 +176,9 @@ __global__ void scatter_food_kernel(const float* pos_x, const float* pos_y,
     const int cy = sensor_clamp_index(static_cast<int>(pos_y[idx] * inv_cell_size), 0, rows - 1);
     const int cell = cy * cols + cx;
     const int slot = atomicAdd(&cell_write_counts[cell], 1);
-    cell_ids[cell_offsets[cell] + slot] = static_cast<unsigned int>(idx);
+    const int write_index = cell_offsets[cell] + slot;
+    cell_ids[write_index] = static_cast<unsigned int>(idx);
+    sensor_entries[write_index] = GpuSensorFoodEntry{pos_x[idx], pos_y[idx]};
 }
 
 template<bool HasWalls>
@@ -410,9 +421,10 @@ void rebuild_agent_bins(GpuBatch& batch, cudaStream_t stream, AgentBinMode mode)
 
     if (mode == AgentBinMode::AllAgents) {
         scatter_agents_kernel<<<agent_grid, kBlockSize, 0, stream>>>(
-            batch.d_agent_pos_x(), batch.d_agent_pos_y(), batch.d_agent_alive(),
+            batch.d_agent_pos_x(), batch.d_agent_pos_y(), batch.d_agent_types(), batch.d_agent_alive(),
             batch.num_agents(), batch.agent_cols(), batch.agent_rows(), batch.agent_cell_size(),
-            batch.d_agent_cell_offsets(), batch.d_agent_cell_write_counts(), batch.d_agent_cell_ids());
+            batch.d_agent_cell_offsets(), batch.d_agent_cell_write_counts(), batch.d_agent_cell_ids(),
+            batch.d_sensor_agent_entries());
     } else {
         scatter_prey_kernel<<<agent_grid, kBlockSize, 0, stream>>>(
             batch.d_agent_pos_x(), batch.d_agent_pos_y(), batch.d_agent_types(), batch.d_agent_alive(),
@@ -440,7 +452,8 @@ void rebuild_food_bins(GpuBatch& batch, cudaStream_t stream) {
     scatter_food_kernel<<<food_grid, kBlockSize, 0, stream>>>(
         batch.d_food_pos_x(), batch.d_food_pos_y(), batch.d_food_active(),
         batch.food_count(), batch.food_cols(), batch.food_rows(), batch.food_cell_size(),
-        batch.d_food_cell_offsets(), batch.d_food_cell_write_counts(), batch.d_food_cell_ids());
+        batch.d_food_cell_offsets(), batch.d_food_cell_write_counts(), batch.d_food_cell_ids(),
+        batch.d_sensor_food_entries());
     CUDA_CHECK(cudaGetLastError());
 }
 
@@ -478,9 +491,9 @@ void launch_resident_tick_sequence(GpuBatch& batch, const ResidentTickParams& pa
         batch.d_food_pos_y(),
         batch.d_food_active(),
         batch.d_agent_cell_offsets(),
-        batch.d_agent_cell_ids(),
+        batch.d_sensor_agent_entries(),
         batch.d_food_cell_offsets(),
-        batch.d_food_cell_ids(),
+        batch.d_sensor_food_entries(),
         batch.d_inputs(),
         batch.num_agents(),
         batch.food_count(),

@@ -226,6 +226,8 @@ GpuBatch::~GpuBatch() {
     if (d_food_cell_write_counts_) cudaFree(d_food_cell_write_counts_);
     if (d_agent_cell_ids_) cudaFree(d_agent_cell_ids_);
     if (d_food_cell_ids_) cudaFree(d_food_cell_ids_);
+    if (d_sensor_agent_entries_) cudaFree(d_sensor_agent_entries_);
+    if (d_sensor_food_entries_) cudaFree(d_sensor_food_entries_);
     if (d_agent_pos_x_) cudaFree(d_agent_pos_x_);
     if (d_agent_pos_y_) cudaFree(d_agent_pos_y_);
     if (d_agent_vel_x_) cudaFree(d_agent_vel_x_);
@@ -620,6 +622,8 @@ void GpuBatch::upload_tick_state_async(
     realloc_if_needed(&d_food_cell_write_counts_, food_cell_bins, food_write_capacity_, sizeof(int));
     realloc_if_needed(&d_agent_cell_ids_, num_agents_, agent_bin_ids_capacity_, sizeof(unsigned int));
     realloc_if_needed(&d_food_cell_ids_, food_count > 0 ? food_count : 1, food_bin_ids_capacity_, sizeof(unsigned int));
+    realloc_if_needed(&d_sensor_agent_entries_, num_agents_, sensor_agent_entry_capacity_, sizeof(GpuSensorAgentEntry));
+    realloc_if_needed(&d_sensor_food_entries_, food_count > 0 ? food_count : 1, sensor_food_entry_capacity_, sizeof(GpuSensorFoodEntry));
     if (had_error_) {
         return;
     }

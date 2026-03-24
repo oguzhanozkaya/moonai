@@ -31,6 +31,18 @@ struct GpuGridEntry {
     float pos_y;
 };
 
+struct GpuSensorAgentEntry {
+    unsigned int id;
+    unsigned int type;
+    float pos_x;
+    float pos_y;
+};
+
+struct GpuSensorFoodEntry {
+    float pos_x;
+    float pos_y;
+};
+
 // Per-agent network descriptor for CSR-packed flat GPU layout
 struct GpuNetDesc {
     int num_nodes;   // total node count (input+bias+hidden+output)

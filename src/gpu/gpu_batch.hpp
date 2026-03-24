@@ -125,6 +125,10 @@ public:
     int* d_food_cell_write_counts() { return d_food_cell_write_counts_; }
     unsigned int* d_agent_cell_ids() { return d_agent_cell_ids_; }
     unsigned int* d_food_cell_ids() { return d_food_cell_ids_; }
+    GpuSensorAgentEntry* d_sensor_agent_entries() { return d_sensor_agent_entries_; }
+    const GpuSensorAgentEntry* d_sensor_agent_entries() const { return d_sensor_agent_entries_; }
+    GpuSensorFoodEntry* d_sensor_food_entries() { return d_sensor_food_entries_; }
+    const GpuSensorFoodEntry* d_sensor_food_entries() const { return d_sensor_food_entries_; }
     float*            d_node_vals()         { return d_node_vals_; }
     const uint8_t*    d_node_types()  const { return d_node_types_; }
     const int*        d_eval_order()  const { return d_eval_order_; }
@@ -227,6 +231,8 @@ private:
     int*           d_food_cell_write_counts_ = nullptr;
     unsigned int*  d_agent_cell_ids_ = nullptr;
     unsigned int*  d_food_cell_ids_ = nullptr;
+    GpuSensorAgentEntry* d_sensor_agent_entries_ = nullptr;
+    GpuSensorFoodEntry* d_sensor_food_entries_ = nullptr;
 
     float*         d_agent_pos_x_ = nullptr;
     float*         d_agent_pos_y_ = nullptr;
@@ -295,6 +301,8 @@ private:
     int food_write_capacity_ = 0;
     int agent_bin_ids_capacity_ = 0;
     int food_bin_ids_capacity_ = 0;
+    int sensor_agent_entry_capacity_ = 0;
+    int sensor_food_entry_capacity_ = 0;
     int inference_agent_indices_capacity_ = 0;
     int agent_cell_count_ = 0;
     int agent_grid_entry_count_ = 0;
