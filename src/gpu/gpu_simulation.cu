@@ -14,19 +14,21 @@ namespace {
 
 constexpr int kBlockSize = 256;
 
-__device__ __forceinline__ float length2(float x, float y) {
-    return sqrtf(x * x + y * y);
-}
+enum class AgentBinMode {
+    AllAgents,
+    PreyOnly,
+};
 
 __device__ __forceinline__ void normalize_inplace(float& x, float& y) {
-    const float len = length2(x, y);
-    if (len < 1e-6f) {
+    const float len_sq = x * x + y * y;
+    if (len_sq < 1e-12f) {
         x = 0.0f;
         y = 0.0f;
         return;
     }
-    x /= len;
-    y /= len;
+    const float inv_len = rsqrtf(len_sq);
+    x *= inv_len;
+    y *= inv_len;
 }
 
 __global__ void bin_agents_kernel(const float* pos_x, const float* pos_y,
@@ -35,6 +37,20 @@ __global__ void bin_agents_kernel(const float* pos_x, const float* pos_y,
                                   int* cell_counts) {
     const int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= num_agents || alive[idx] == 0U) {
+        return;
+    }
+    const int cx = sensor_clamp_index(static_cast<int>(pos_x[idx] / cell_size), 0, cols - 1);
+    const int cy = sensor_clamp_index(static_cast<int>(pos_y[idx] / cell_size), 0, rows - 1);
+    const int cell = cy * cols + cx;
+    atomicAdd(&cell_counts[cell], 1);
+}
+
+__global__ void bin_prey_kernel(const float* pos_x, const float* pos_y,
+                                const unsigned int* types, const unsigned int* alive,
+                                int num_agents, int cols, int rows, float cell_size,
+                                int* cell_counts) {
+    const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= num_agents || alive[idx] == 0U || types[idx] != 1U) {
         return;
     }
     const int cx = sensor_clamp_index(static_cast<int>(pos_x[idx] / cell_size), 0, cols - 1);
@@ -64,6 +80,22 @@ __global__ void scatter_agents_kernel(const float* pos_x, const float* pos_y,
                                       unsigned int* cell_ids) {
     const int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= num_agents || alive[idx] == 0U) {
+        return;
+    }
+    const int cx = sensor_clamp_index(static_cast<int>(pos_x[idx] / cell_size), 0, cols - 1);
+    const int cy = sensor_clamp_index(static_cast<int>(pos_y[idx] / cell_size), 0, rows - 1);
+    const int cell = cy * cols + cx;
+    const int slot = atomicAdd(&cell_write_counts[cell], 1);
+    cell_ids[cell_offsets[cell] + slot] = static_cast<unsigned int>(idx);
+}
+
+__global__ void scatter_prey_kernel(const float* pos_x, const float* pos_y,
+                                    const unsigned int* types, const unsigned int* alive,
+                                    int num_agents, int cols, int rows, float cell_size,
+                                    const int* cell_offsets, int* cell_write_counts,
+                                    unsigned int* cell_ids) {
+    const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= num_agents || alive[idx] == 0U || types[idx] != 1U) {
         return;
     }
     const int cx = sensor_clamp_index(static_cast<int>(pos_x[idx] / cell_size), 0, cols - 1);
@@ -281,44 +313,73 @@ __global__ void respawn_food_kernel(float* food_pos_x, float* food_pos_y,
     food_active[idx] = 1U;
 }
 
-void rebuild_bins(GpuBatch& batch, cudaStream_t stream) {
+void rebuild_agent_bins(GpuBatch& batch, cudaStream_t stream, AgentBinMode mode) {
     const size_t agent_cell_bytes = static_cast<size_t>(batch.agent_cols() * batch.agent_rows()) * sizeof(int);
-    const size_t food_cell_bytes = static_cast<size_t>(batch.food_cols() * batch.food_rows()) * sizeof(int);
     CUDA_CHECK(cudaMemsetAsync(batch.d_agent_cell_counts(), 0, agent_cell_bytes, stream));
-    CUDA_CHECK(cudaMemsetAsync(batch.d_food_cell_counts(), 0, food_cell_bytes, stream));
 
     const int agent_grid = (batch.num_agents() + kBlockSize - 1) / kBlockSize;
-    const int food_grid = (batch.food_count() + kBlockSize - 1) / kBlockSize;
 
-    bin_agents_kernel<<<agent_grid, kBlockSize, 0, stream>>>(
-        batch.d_agent_pos_x(), batch.d_agent_pos_y(), batch.d_agent_alive(),
-        batch.num_agents(), batch.agent_cols(), batch.agent_rows(), batch.agent_cell_size(),
-        batch.d_agent_cell_counts());
+    if (mode == AgentBinMode::AllAgents) {
+        bin_agents_kernel<<<agent_grid, kBlockSize, 0, stream>>>(
+            batch.d_agent_pos_x(), batch.d_agent_pos_y(), batch.d_agent_alive(),
+            batch.num_agents(), batch.agent_cols(), batch.agent_rows(), batch.agent_cell_size(),
+            batch.d_agent_cell_counts());
+    } else {
+        bin_prey_kernel<<<agent_grid, kBlockSize, 0, stream>>>(
+            batch.d_agent_pos_x(), batch.d_agent_pos_y(), batch.d_agent_types(), batch.d_agent_alive(),
+            batch.num_agents(), batch.agent_cols(), batch.agent_rows(), batch.agent_cell_size(),
+            batch.d_agent_cell_counts());
+    }
+
+    CUDA_CHECK(cudaMemsetAsync(batch.d_agent_cell_offsets(), 0, sizeof(int), stream));
+
+    size_t agent_scan_bytes = batch.agent_scan_temp_bytes();
+    CUDA_CHECK(cub::DeviceScan::InclusiveSum(batch.d_scan_temp_storage(), agent_scan_bytes,
+        batch.d_agent_cell_counts(), batch.d_agent_cell_offsets() + 1, batch.agent_cell_count(), stream));
+
+    CUDA_CHECK(cudaMemsetAsync(batch.d_agent_cell_write_counts(), 0, agent_cell_bytes, stream));
+
+    if (mode == AgentBinMode::AllAgents) {
+        scatter_agents_kernel<<<agent_grid, kBlockSize, 0, stream>>>(
+            batch.d_agent_pos_x(), batch.d_agent_pos_y(), batch.d_agent_alive(),
+            batch.num_agents(), batch.agent_cols(), batch.agent_rows(), batch.agent_cell_size(),
+            batch.d_agent_cell_offsets(), batch.d_agent_cell_write_counts(), batch.d_agent_cell_ids());
+    } else {
+        scatter_prey_kernel<<<agent_grid, kBlockSize, 0, stream>>>(
+            batch.d_agent_pos_x(), batch.d_agent_pos_y(), batch.d_agent_types(), batch.d_agent_alive(),
+            batch.num_agents(), batch.agent_cols(), batch.agent_rows(), batch.agent_cell_size(),
+            batch.d_agent_cell_offsets(), batch.d_agent_cell_write_counts(), batch.d_agent_cell_ids());
+    }
+    CUDA_CHECK(cudaGetLastError());
+}
+
+void rebuild_food_bins(GpuBatch& batch, cudaStream_t stream) {
+    const size_t food_cell_bytes = static_cast<size_t>(batch.food_cols() * batch.food_rows()) * sizeof(int);
+    CUDA_CHECK(cudaMemsetAsync(batch.d_food_cell_counts(), 0, food_cell_bytes, stream));
+
+    const int food_grid = (batch.food_count() + kBlockSize - 1) / kBlockSize;
     bin_food_kernel<<<food_grid, kBlockSize, 0, stream>>>(
         batch.d_food_pos_x(), batch.d_food_pos_y(), batch.d_food_active(),
         batch.food_count(), batch.food_cols(), batch.food_rows(), batch.food_cell_size(),
         batch.d_food_cell_counts());
 
-    CUDA_CHECK(cudaMemsetAsync(batch.d_agent_cell_offsets(), 0, sizeof(int), stream));
     CUDA_CHECK(cudaMemsetAsync(batch.d_food_cell_offsets(), 0, sizeof(int), stream));
 
-    size_t agent_scan_bytes = batch.agent_scan_temp_bytes();
     size_t food_scan_bytes = batch.food_scan_temp_bytes();
-    CUDA_CHECK(cub::DeviceScan::InclusiveSum(batch.d_scan_temp_storage(), agent_scan_bytes,
-        batch.d_agent_cell_counts(), batch.d_agent_cell_offsets() + 1, batch.agent_cell_count(), stream));
     CUDA_CHECK(cub::DeviceScan::InclusiveSum(batch.d_scan_temp_storage(), food_scan_bytes,
         batch.d_food_cell_counts(), batch.d_food_cell_offsets() + 1, batch.food_cell_count(), stream));
 
-    CUDA_CHECK(cudaMemsetAsync(batch.d_agent_cell_write_counts(), 0, agent_cell_bytes, stream));
     CUDA_CHECK(cudaMemsetAsync(batch.d_food_cell_write_counts(), 0, food_cell_bytes, stream));
-    scatter_agents_kernel<<<agent_grid, kBlockSize, 0, stream>>>(
-        batch.d_agent_pos_x(), batch.d_agent_pos_y(), batch.d_agent_alive(),
-        batch.num_agents(), batch.agent_cols(), batch.agent_rows(), batch.agent_cell_size(),
-        batch.d_agent_cell_offsets(), batch.d_agent_cell_write_counts(), batch.d_agent_cell_ids());
     scatter_food_kernel<<<food_grid, kBlockSize, 0, stream>>>(
         batch.d_food_pos_x(), batch.d_food_pos_y(), batch.d_food_active(),
         batch.food_count(), batch.food_cols(), batch.food_rows(), batch.food_cell_size(),
         batch.d_food_cell_offsets(), batch.d_food_cell_write_counts(), batch.d_food_cell_ids());
+    CUDA_CHECK(cudaGetLastError());
+}
+
+void rebuild_bins(GpuBatch& batch, cudaStream_t stream) {
+    rebuild_agent_bins(batch, stream, AgentBinMode::AllAgents);
+    rebuild_food_bins(batch, stream);
     CUDA_CHECK(cudaGetLastError());
 }
 
@@ -330,7 +391,8 @@ void launch_resident_tick_sequence(GpuBatch& batch, const ResidentTickParams& pa
     CUDA_CHECK(cudaMemcpyAsync(batch.d_tick_index(), batch.host_tick_index(), sizeof(int),
                                cudaMemcpyHostToDevice, stream));
 
-    rebuild_bins(batch, stream);
+    rebuild_agent_bins(batch, stream, AgentBinMode::AllAgents);
+    rebuild_food_bins(batch, stream);
 
     SensorBuildView view{
         batch.d_agent_pos_x(),
@@ -381,7 +443,7 @@ void launch_resident_tick_sequence(GpuBatch& batch, const ResidentTickParams& pa
         batch.num_outputs(), params.dt, params.world_width, params.world_height,
         params.has_walls, params.energy_drain_per_tick, params.target_fps);
 
-    rebuild_bins(batch, stream);
+    rebuild_agent_bins(batch, stream, AgentBinMode::PreyOnly);
 
     prey_food_kernel<<<agent_grid, kBlockSize, 0, stream>>>(
         batch.d_agent_alive(), batch.d_agent_types(), batch.d_agent_pos_x(), batch.d_agent_pos_y(),
