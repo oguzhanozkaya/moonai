@@ -262,6 +262,10 @@ __global__ void prey_food_kernel(
             if (nx < 0 || nx >= food_cols) {
                 continue;
             }
+            if (!cell_may_intersect_radius<HasWalls>(nx, ny, food_cell_size, self_x, self_y,
+                                                     food_pickup_range, world_width, world_height)) {
+                continue;
+            }
             const int cell = row_base + nx;
             const int start = food_cell_offsets[cell];
             const int end = food_cell_offsets[cell + 1];
