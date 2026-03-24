@@ -421,10 +421,8 @@ void rebuild_food_bins(GpuBatch& batch, cudaStream_t stream) {
 }
 
 void rebuild_bins(GpuBatch& batch, cudaStream_t stream) {
-    record_stage_begin(batch, stream);
     rebuild_agent_bins(batch, stream, AgentBinMode::AllAgents);
     rebuild_food_bins(batch, stream);
-    record_stage_end(batch, stream, GpuStageTiming::ResidentTickBinRebuildPre);
     CUDA_CHECK(cudaGetLastError());
 }
 
@@ -436,8 +434,10 @@ void launch_resident_tick_sequence(GpuBatch& batch, const ResidentTickParams& pa
     CUDA_CHECK(cudaMemcpyAsync(batch.d_tick_index(), batch.host_tick_index(), sizeof(int),
                                cudaMemcpyHostToDevice, stream));
 
+    record_stage_begin(batch, stream);
     rebuild_agent_bins(batch, stream, AgentBinMode::AllAgents);
     rebuild_food_bins(batch, stream);
+    record_stage_end(batch, stream, GpuStageTiming::ResidentTickBinRebuildPre);
 
     SensorBuildView view{
         batch.d_agent_pos_x(),
