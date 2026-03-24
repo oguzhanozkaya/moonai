@@ -244,13 +244,6 @@ profile: release
     ./build/linux-release/moonai_profiler profiler.lua \
         --suite baseline
 
-# Compare profiler build overhead against plain moonai
-[group('dev')]
-profile-overhead: release
-    ./build/linux-release/moonai_profiler profiler.lua \
-        --suite baseline --measure-overhead \
-        --plain-binary ./build/linux-release/moonai
-
 # Full profiler pipeline: run profiler -> generate profiler report
 [group('dev')]
 profile-pipeline: profile analyse-profile

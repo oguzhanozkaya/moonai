@@ -158,10 +158,6 @@ int main(int argc, char* argv[]) {
     spdlog::set_level(args.verbose ? spdlog::level::debug : spdlog::level::info);
     moonai::Profiler::instance().set_enabled(false);
     spdlog::info("MoonAI v{}.{}.{}", 0, 3, 0);
-    if (args.profile) {
-        spdlog::error("--profile is no longer supported by moonai. Use the dedicated moonai_profiler entry point.");
-        return 1;
-    }
     {
         std::string features = " +vis";
 #ifdef MOONAI_ENABLE_CUDA

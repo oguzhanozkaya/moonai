@@ -25,7 +25,6 @@ namespace moonai::gpu {
 #include <cmath>
 #include <csignal>
 #include <cstdio>
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -47,12 +46,10 @@ struct ProfilerCliArgs {
     std::string config_path = "profiler.lua";
     std::string suite_name;
     std::string output_dir;
-    std::string plain_binary;
     bool list_suites = false;
     bool validate_only = false;
     bool verbose = false;
     bool no_gpu = false;
-    bool measure_overhead = false;
 };
 
 struct RawRunSummary {
@@ -71,11 +68,6 @@ struct RawRunSummary {
     nlohmann::json summary_counters;
 };
 
-struct OverheadRunSummary {
-    std::uint64_t seed = 0;
-    double plain_process_ms = 0.0;
-};
-
 ProfilerCliArgs parse_args(int argc, char* argv[]) {
     ProfilerCliArgs args;
     for (int i = 1; i < argc; ++i) {
@@ -90,8 +82,6 @@ ProfilerCliArgs parse_args(int argc, char* argv[]) {
                 "  --validate             Validate profiler suite and exit\n"
                 "  --output <dir>         Override profiler output root\n"
                 "  --no-gpu               Disable CUDA GPU acceleration\n"
-                "  --measure-overhead     Compare against plain moonai wall time\n"
-                "  --plain-binary <path>  Path to plain moonai binary for overhead checks\n"
                 "  -v, --verbose          Enable debug logging\n"
                 "  -h, --help             Show this help message\n",
                 argv[0]);
@@ -104,10 +94,6 @@ ProfilerCliArgs parse_args(int argc, char* argv[]) {
             args.validate_only = true;
         } else if (arg == "--output" && i + 1 < argc) {
             args.output_dir = argv[++i];
-        } else if (arg == "--plain-binary" && i + 1 < argc) {
-            args.plain_binary = argv[++i];
-        } else if (arg == "--measure-overhead") {
-            args.measure_overhead = true;
         } else if (arg == "--no-gpu") {
             args.no_gpu = true;
         } else if (arg == "-v" || arg == "--verbose") {
@@ -212,24 +198,6 @@ double compute_stddev(const std::vector<double>& values, double mean) {
         accum += diff * diff;
     }
     return std::sqrt(accum / static_cast<double>(values.size()));
-}
-
-int run_plain_overhead_baseline(const std::string& binary_path,
-                                const moonai::ProfilerSuiteConfig& suite,
-                                std::uint64_t seed,
-                                bool no_gpu,
-                                double& process_ms) {
-    const std::string no_gpu_arg = no_gpu ? " --no-gpu" : "";
-    const std::string command = "\"" + binary_path + "\" \"" + suite.config_path + "\""
-        + " --experiment \"" + suite.experiment_name + "\""
-        + " --headless -g " + std::to_string(suite.generations)
-        + " --seed " + std::to_string(seed)
-        + no_gpu_arg;
-    const auto start = std::chrono::steady_clock::now();
-    const int rc = std::system(command.c_str());
-    const auto end = std::chrono::steady_clock::now();
-    process_ms = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count() / 1'000'000.0;
-    return rc;
 }
 
 RawRunSummary run_profiled_experiment(const moonai::ProfilerSuiteConfig& suite,
@@ -444,8 +412,7 @@ void write_suite_manifest(const std::filesystem::path& suite_dir,
                           const moonai::SimulationConfig& base_config,
                           const std::string& config_fingerprint,
                           const std::vector<RawRunSummary>& runs,
-                          const std::vector<RawRunSummary>& kept_runs,
-                          const std::vector<OverheadRunSummary>& overhead_runs) {
+                          const std::vector<RawRunSummary>& kept_runs) {
     if (runs.size() != 6 || kept_runs.size() != 4) {
         throw std::runtime_error("suite manifest requires exactly 6 runs with 4 kept runs");
     }
@@ -474,31 +441,6 @@ void write_suite_manifest(const std::filesystem::path& suite_dir,
         kept_generation_ms.begin(), kept_generation_ms.end(), 0.0) / kept_generation_ms.size();
     const double avg_run_total_ms = std::accumulate(
         kept_run_total_ms.begin(), kept_run_total_ms.end(), 0.0) / kept_run_total_ms.size();
-
-    nlohmann::json overhead_json;
-    if (!overhead_runs.empty()) {
-        std::vector<double> kept_plain_ms;
-        kept_plain_ms.reserve(kept_runs.size());
-        for (const auto& run : kept_runs) {
-            auto it = std::find_if(overhead_runs.begin(), overhead_runs.end(), [&](const OverheadRunSummary& overhead) {
-                return overhead.seed == run.seed;
-            });
-            if (it != overhead_runs.end()) {
-                kept_plain_ms.push_back(it->plain_process_ms / static_cast<double>(suite.generations));
-            }
-        }
-        if (!kept_plain_ms.empty()) {
-            const double plain_avg_ms = std::accumulate(kept_plain_ms.begin(), kept_plain_ms.end(), 0.0) / kept_plain_ms.size();
-            const double profiled_avg_ms = avg_run_total_ms / static_cast<double>(suite.generations);
-            const double delta_ms = profiled_avg_ms - plain_avg_ms;
-            overhead_json = {
-                {"plain_avg_process_ms_per_generation", plain_avg_ms},
-                {"profiled_avg_process_ms_per_generation", profiled_avg_ms},
-                {"delta_ms_per_generation", delta_ms},
-                {"delta_percent", plain_avg_ms == 0.0 ? 0.0 : (delta_ms / plain_avg_ms) * 100.0},
-            };
-        }
-    }
 
     nlohmann::json manifest;
     manifest["schema_version"] = 1;
@@ -558,10 +500,6 @@ void write_suite_manifest(const std::filesystem::path& suite_dir,
             "nonzero_generation_count",
             "avg_per_nonzero_generation")},
     };
-    if (!overhead_json.is_null()) {
-        manifest["overhead"] = overhead_json;
-    }
-
     const std::filesystem::path output_path = suite_dir / "profile_suite.json";
     std::ofstream handle(output_path);
     if (!handle.is_open()) {
@@ -672,33 +610,8 @@ int main(int argc, char* argv[]) {
     });
     std::vector<RawRunSummary> kept_runs(runs.begin() + 1, runs.end() - 1);
 
-    std::vector<OverheadRunSummary> overhead_runs;
-    if (args.measure_overhead) {
-        std::string plain_binary = args.plain_binary;
-        if (plain_binary.empty()) {
-            plain_binary = (std::filesystem::path(argv[0]).parent_path() / "moonai").string();
-        }
-        for (std::uint64_t seed : suite.seeds) {
-            double process_ms = 0.0;
-            const int rc = run_plain_overhead_baseline(
-                plain_binary,
-                suite,
-                seed,
-                args.no_gpu,
-                process_ms);
-            if (rc != 0) {
-                spdlog::error("Plain overhead baseline failed for seed {} with exit code {}", seed, rc);
-                return 1;
-            }
-            OverheadRunSummary summary;
-            summary.seed = seed;
-            summary.plain_process_ms = process_ms;
-            overhead_runs.push_back(summary);
-        }
-    }
-
     try {
-        write_suite_manifest(suite_dir, suite, base_config, config_fingerprint, runs, kept_runs, overhead_runs);
+        write_suite_manifest(suite_dir, suite, base_config, config_fingerprint, runs, kept_runs);
     } catch (const std::exception& e) {
         spdlog::error("Failed to write suite manifest: {}", e.what());
         return 1;

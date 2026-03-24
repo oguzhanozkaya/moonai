@@ -407,30 +407,6 @@
         </table>
         {% endif %}
 
-        {% if run.overhead %}
-        <h3>Overhead Check</h3>
-        <table>
-          <tbody>
-            <tr>
-              <th>plain_avg_process_ms_per_generation</th>
-              <td>{{ '%.3f'|format(run.overhead.plain_avg_process_ms_per_generation) }}</td>
-            </tr>
-            <tr>
-              <th>profiled_avg_process_ms_per_generation</th>
-              <td>{{ '%.3f'|format(run.overhead.profiled_avg_process_ms_per_generation) }}</td>
-            </tr>
-            <tr>
-              <th>delta_ms_per_generation</th>
-              <td>{{ '%.3f'|format(run.overhead.delta_ms_per_generation) }}</td>
-            </tr>
-            <tr>
-              <th>delta_percent</th>
-              <td>{{ '%.3f'|format(run.overhead.delta_percent) }}</td>
-            </tr>
-          </tbody>
-        </table>
-        {% endif %}
-
         <div class="figure-grid">
           {% for chart in run.charts %}
           <figure>

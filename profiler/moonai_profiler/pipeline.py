@@ -70,7 +70,6 @@ def run_analysis(input_dir: Path, output_dir: Path) -> None:
                     }
                     for member in suite.members
                 ],
-                "overhead": suite.overhead,
             }
         )
 
@@ -112,16 +111,11 @@ def run_analysis(input_dir: Path, output_dir: Path) -> None:
 
 
 def _suite_notes(suite) -> list[str]:
-    notes = [
+    return [
         "Profiler suites run six fixed seeds from profiler.lua.",
         "The fastest and slowest runs are dropped before aggregation.",
         "Aggregate timing and counter tables use the remaining four runs only.",
     ]
-    if suite.overhead:
-        notes.append(
-            f"Measured process-level profiler overhead: {suite.overhead['delta_percent']:.2f}% over plain moonai on kept runs."
-        )
-    return notes
 
 
 def _top_event_name(suite) -> str:

@@ -22,6 +22,7 @@ class SuiteMemberRun:
     run_total_ms: float
     generation_count: int
     disposition: str
+    generation_times_ms: list[float]
 
 
 @dataclass(frozen=True)
@@ -42,7 +43,6 @@ class ProfileSuite:
     members: list[SuiteMemberRun]
     kept_members: list[SuiteMemberRun]
     dropped_members: list[SuiteMemberRun]
-    overhead: dict[str, float] | None
     raw: dict
 
 
@@ -87,6 +87,9 @@ def _build_profile_suite(path: Path, payload: dict) -> ProfileSuite:
             run_total_ms=float(run.get("run_total_ms", 0.0)),
             generation_count=int(run.get("generation_count", 0)),
             disposition=str(run.get("disposition", "kept")),
+            generation_times_ms=_load_generation_times(
+                path.parent / str(run.get("profile_path", ""))
+            ),
         )
         for run in runs
         if isinstance(run, dict)
@@ -119,8 +122,27 @@ def _build_profile_suite(path: Path, payload: dict) -> ProfileSuite:
         members=members,
         kept_members=kept_members,
         dropped_members=dropped_members,
-        overhead=payload.get("overhead")
-        if isinstance(payload.get("overhead"), dict)
-        else None,
         raw=payload,
     )
+
+
+def _load_generation_times(profile_path: Path) -> list[float]:
+    try:
+        with profile_path.open(encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except Exception:
+        return []
+
+    generations = payload.get("generations")
+    if not isinstance(generations, list):
+        return []
+
+    values: list[float] = []
+    for generation in generations:
+        if not isinstance(generation, dict):
+            continue
+        events = generation.get("events_ms")
+        if not isinstance(events, dict):
+            continue
+        values.append(float(events.get("generation_total", 0.0)))
+    return values

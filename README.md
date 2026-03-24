@@ -366,7 +366,7 @@ aggregate artifact:
 | File | Contents |
 |------|----------|
 | `raw/*/profile.json` | Full raw run payload: run metadata, event/counter definitions, per-generation records, and summary statistics |
-| `profile_suite.json` | Suite manifest: six raw runs, dropped fastest/slowest runs, aggregate timing/counter summaries from the remaining four runs, and optional overhead data |
+| `profile_suite.json` | Suite manifest: six raw runs, dropped fastest/slowest runs, and aggregate timing/counter summaries from the remaining four runs |
 
 The profiler suite uses six fixed seeds from `profiler.lua`, drops the fastest and
 slowest runs by average generation time, and reports aggregate timing/counter data
@@ -436,9 +436,6 @@ just bench-nn
 
 # Run the dedicated profiler suite entry point
 just profile
-
-# Run profiler suite and compare against plain moonai wall time
-just profile-overhead
 
 # Generate the standalone profiler HTML report
 just analyse-profile
