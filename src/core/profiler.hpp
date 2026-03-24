@@ -4,6 +4,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <string_view>
 #include <string>
 #include <vector>
 
@@ -69,6 +70,23 @@ struct GenerationProfileMeta {
     float avg_complexity = 0.0f;
 };
 
+struct ProfileRunSpec {
+    std::string experiment_name;
+    std::string output_root_dir;
+    std::uint64_t seed = 0;
+    int predator_count = 0;
+    int prey_count = 0;
+    int food_count = 0;
+    int generation_ticks = 0;
+    bool gpu_allowed = false;
+    bool cuda_compiled = false;
+    bool openmp_compiled = false;
+    std::string suite_name;
+    std::string base_experiment_name;
+    std::string config_fingerprint;
+    std::string profiler_entry_point;
+};
+
 class Profiler {
 public:
     static Profiler& instance();
@@ -76,16 +94,7 @@ public:
     void set_enabled(bool enabled);
     bool enabled() const { return enabled_.load(std::memory_order_relaxed); }
 
-    void start_run(const std::string& experiment_name,
-                   const std::string& output_root_dir,
-                   std::uint64_t seed,
-                   int predator_count,
-                   int prey_count,
-                   int food_count,
-                   int generation_ticks,
-                   bool gpu_allowed,
-                   bool cuda_compiled,
-                   bool openmp_compiled);
+    void start_run(const ProfileRunSpec& spec);
     void start_generation(int generation);
     void mark_cpu_used(bool used);
     void mark_gpu_used(bool used);
@@ -120,6 +129,10 @@ private:
     bool gpu_allowed_ = false;
     bool cuda_compiled_ = false;
     bool openmp_compiled_ = false;
+    std::string suite_name_;
+    std::string base_experiment_name_;
+    std::string config_fingerprint_;
+    std::string profiler_entry_point_;
     bool generation_cpu_used_ = false;
     bool generation_gpu_used_ = false;
     bool generation_active_ = false;
@@ -156,5 +169,25 @@ private:
 
 const char* profile_event_name(ProfileEvent event);
 const char* profile_counter_name(ProfileCounter counter);
+
+#define MOONAI_PROFILE_CONCAT_INNER(lhs, rhs) lhs##rhs
+#define MOONAI_PROFILE_CONCAT(lhs, rhs) MOONAI_PROFILE_CONCAT_INNER(lhs, rhs)
+
+#ifdef MOONAI_BUILD_PROFILER
+#define MOONAI_PROFILE_SCOPE(event) \
+    ::moonai::ScopedTimer MOONAI_PROFILE_CONCAT(moonai_scoped_timer_, __COUNTER__)(event)
+#define MOONAI_PROFILE_INC(counter, ...) ::moonai::Profiler::instance().increment(counter, ##__VA_ARGS__)
+#define MOONAI_PROFILE_MARK_CPU_USED(value) ::moonai::Profiler::instance().mark_cpu_used(value)
+#define MOONAI_PROFILE_MARK_GPU_USED(value) ::moonai::Profiler::instance().mark_gpu_used(value)
+#define MOONAI_PROFILE_ADD_DURATION(event, value) ::moonai::Profiler::instance().add_duration(event, value)
+#define MOONAI_PROFILE_SET_DURATION(event, value) ::moonai::Profiler::instance().set_duration(event, value)
+#else
+#define MOONAI_PROFILE_SCOPE(event) ((void)0)
+#define MOONAI_PROFILE_INC(counter, ...) ((void)0)
+#define MOONAI_PROFILE_MARK_CPU_USED(value) ((void)0)
+#define MOONAI_PROFILE_MARK_GPU_USED(value) ((void)0)
+#define MOONAI_PROFILE_ADD_DURATION(event, value) ((void)0)
+#define MOONAI_PROFILE_SET_DURATION(event, value) ((void)0)
+#endif
 
 } // namespace moonai

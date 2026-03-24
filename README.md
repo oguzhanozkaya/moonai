@@ -256,8 +256,6 @@ experiments["adaptive"] = extend(moonai_defaults, {
 | `--list` | List experiment names and exit |
 | `--name <name>` | Override output directory name |
 | `--validate` | Load + validate config, print result, exit |
-| `--profile` | Enable built-in headless profiler |
-| `--profile-output <dir>` | Override profiler output root directory (default: `output/profiles`) |
 | `--set key=value` | Override any param after Lua load (repeatable) |
 
 ### Examples
@@ -353,19 +351,27 @@ The analysis code is structured as a small package under `analysis/moonai_analys
 
 ### Profiler output and analysis
 
-The built-in profiler is intentionally **headless-only**. Use `--headless --profile` so generation timing is not polluted by rendering, pause time, or GUI event handling.
+Profiler runs now use the dedicated `moonai_profiler` entry point with a separate
+`profiler.lua` config. The standard `moonai` binary no longer owns profiler
+orchestration.
 
 ```bash
 just profile
 ```
 
-Each profiled run now writes to its own timestamped directory under `output/profiles/` by default and produces a single raw artifact. When `--profile-output <dir>` is supplied, that directory is treated as the root instead:
+Each profiler suite writes to its own timestamped directory under `output/profiles/`
+by default. Every suite contains six raw run artifacts plus one suite-level
+aggregate artifact:
 
 | File | Contents |
 |------|----------|
-| `profile.json` | Full profiler payload: run metadata, event/counter definitions, per-generation records, and summary statistics |
+| `raw/*/profile.json` | Full raw run payload: run metadata, event/counter definitions, per-generation records, and summary statistics |
+| `profile_suite.json` | Suite manifest: six raw runs, dropped fastest/slowest runs, aggregate timing/counter summaries from the remaining four runs, and optional overhead data |
 
-`profile.json` is the single source of truth for profiler data. The old split CSV + JSON profiler output is gone. Summary fields use `nonzero_generation_count` and `avg_*_per_nonzero_generation` for optional paths so zero-valued generations are not mislabeled as active executions. The `cpu_generation_count` and `gpu_generation_count` summary fields are non-exclusive because a generation can start on GPU and fall back to CPU.
+The profiler suite uses six fixed seeds from `profiler.lua`, drops the fastest and
+slowest runs by average generation time, and reports aggregate timing/counter data
+from the remaining four runs. Standard simulation builds do not include profiler
+instrumentation, so normal runtime overhead stays unchanged.
 
 To generate the standalone profiler report:
 
@@ -380,7 +386,7 @@ The profiler writes a timestamped self-contained HTML report to `profiler/output
 The profiler package lives under `profiler/moonai_profiler/` and includes:
 
 - `pipeline.py` for orchestration
-- `io.py` for discovering and validating `profile.json` runs
+- `io.py` for discovering and validating `profile_suite.json` runs
 - `plots.py` for embedded timing charts
 - `html_report.py` for rendering
 - `templates/report.html.j2` for layout
@@ -428,8 +434,11 @@ just lint
 # Benchmark NN forward-pass timing (requires release build)
 just bench-nn
 
-# Run the built-in profiler and write headless profile.json output
+# Run the dedicated profiler suite entry point
 just profile
+
+# Run profiler suite and compare against plain moonai wall time
+just profile-overhead
 
 # Generate the standalone profiler HTML report
 just analyse-profile
@@ -447,8 +456,8 @@ just check-memory
 just test-gpu
 ```
 
-The built-in profiler writes one `profile.json` file per run under a unique directory in
-`output/profiles/` by default when invoked through `just profile`.
+The dedicated profiler writes one `profile_suite.json` file per suite under a unique
+directory in `output/profiles/` by default when invoked through `just profile`.
 
 ## Project Structure
 

@@ -58,6 +58,8 @@ public:
     void refresh_state();
 
 private:
+    void initialize(bool log_initialization);
+
     struct QueryCache {
         std::vector<std::vector<AgentId>> nearby_agents;
         std::vector<std::vector<AgentId>> nearby_food;

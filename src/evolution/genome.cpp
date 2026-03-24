@@ -66,8 +66,7 @@ void Genome::sort_connections_by_innovation() {
 
 float Genome::compatibility_distance(const Genome& a, const Genome& b,
                                      float c1, float c2, float c3) {
-    ScopedTimer timer(ProfileEvent::CompatibilityDistance);
-    Profiler::instance().increment(ProfileCounter::CompatibilityChecks);
+    MOONAI_PROFILE_INC(ProfileCounter::CompatibilityChecks);
     const auto& raw_conns_a = a.connections();
     const auto& raw_conns_b = b.connections();
 

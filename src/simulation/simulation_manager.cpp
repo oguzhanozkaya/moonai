@@ -27,6 +27,10 @@ SimulationManager::SimulationManager(const SimulationConfig& config)
 }
 
 void SimulationManager::initialize() {
+    initialize(true);
+}
+
+void SimulationManager::initialize(bool log_initialization) {
     agents_.clear();
     current_tick_ = 0;
     invalidate_neighbor_cache();
@@ -58,19 +62,21 @@ void SimulationManager::initialize() {
     rebuild_neighbor_cache(config_.vision_range);
     count_alive();
 
-    spdlog::info("Simulation initialized: {} predators, {} prey, {} food (seed: {})",
-                 config_.predator_count, config_.prey_count, config_.food_count, rng_.seed());
+    if (log_initialization) {
+        spdlog::info("Simulation initialized: {} predators, {} prey, {} food (seed: {})",
+                     config_.predator_count, config_.prey_count, config_.food_count, rng_.seed());
+    }
 }
 
 void SimulationManager::tick(float dt) {
-    ScopedTimer timer(ProfileEvent::SimulationTick);
+    MOONAI_PROFILE_SCOPE(ProfileEvent::SimulationTick);
     last_events_.clear();
     rebuild_alive_indices();
     rebuild_neighbor_cache(config_.vision_range);
 
     // Update agents (age increment)
     {
-        ScopedTimer section(ProfileEvent::AgentUpdate);
+        MOONAI_PROFILE_SCOPE(ProfileEvent::AgentUpdate);
         #pragma omp parallel for schedule(static) if(MOONAI_OPENMP_ENABLED)
         for (size_t idx = 0; idx < alive_indices_.size(); ++idx) {
             agents_[alive_indices_[idx]]->update(dt);
@@ -95,7 +101,7 @@ void SimulationManager::tick(float dt) {
 
     // Apply boundary conditions
     {
-        ScopedTimer section(ProfileEvent::BoundaryApply);
+        MOONAI_PROFILE_SCOPE(ProfileEvent::BoundaryApply);
         #pragma omp parallel for schedule(static) if(MOONAI_OPENMP_ENABLED)
         for (size_t idx = 0; idx < alive_indices_.size(); ++idx) {
             auto& agent = agents_[alive_indices_[idx]];
@@ -107,7 +113,7 @@ void SimulationManager::tick(float dt) {
 
     // Check for energy death
     {
-        ScopedTimer section(ProfileEvent::DeathCheck);
+        MOONAI_PROFILE_SCOPE(ProfileEvent::DeathCheck);
         #pragma omp parallel for schedule(static) if(MOONAI_OPENMP_ENABLED)
         for (size_t idx = 0; idx < alive_indices_.size(); ++idx) {
             auto& agent = agents_[alive_indices_[idx]];
@@ -125,7 +131,7 @@ void SimulationManager::tick(float dt) {
 }
 
 void SimulationManager::reset() {
-    initialize();
+    initialize(false);
 }
 
 SensorInput SimulationManager::get_sensors(size_t agent_index) const {
@@ -232,7 +238,7 @@ void SimulationManager::rebuild_neighbor_cache(float radius) {
 }
 
 void SimulationManager::rebuild_spatial_grid() {
-    ScopedTimer timer(ProfileEvent::RebuildSpatialGrid);
+    MOONAI_PROFILE_SCOPE(ProfileEvent::RebuildSpatialGrid);
     grid_.clear();
     for (const auto& agent : agents_) {
         if (agent->alive()) {
@@ -242,7 +248,7 @@ void SimulationManager::rebuild_spatial_grid() {
 }
 
 void SimulationManager::rebuild_food_grid() {
-    ScopedTimer timer(ProfileEvent::RebuildFoodGrid);
+    MOONAI_PROFILE_SCOPE(ProfileEvent::RebuildFoodGrid);
     food_grid_.clear();
     const auto& food = environment_.food();
     for (size_t i = 0; i < food.size(); ++i) {
@@ -253,7 +259,7 @@ void SimulationManager::rebuild_food_grid() {
 }
 
 void SimulationManager::process_energy(float dt) {
-    ScopedTimer timer(ProfileEvent::ProcessEnergy);
+    MOONAI_PROFILE_SCOPE(ProfileEvent::ProcessEnergy);
     #pragma omp parallel for schedule(static) if(MOONAI_OPENMP_ENABLED)
     for (size_t idx = 0; idx < alive_indices_.size(); ++idx) {
         auto& agent = agents_[alive_indices_[idx]];
@@ -263,12 +269,12 @@ void SimulationManager::process_energy(float dt) {
 }
 
 void SimulationManager::process_food() {
-    ScopedTimer timer(ProfileEvent::ProcessFood);
+    MOONAI_PROFILE_SCOPE(ProfileEvent::ProcessFood);
     float eat_range = config_.food_pickup_range;
     for (size_t prey_index : alive_prey_indices_) {
         auto& agent = agents_[prey_index];
         if (!agent->alive()) continue;
-        Profiler::instance().increment(ProfileCounter::FoodEatAttempts);
+        MOONAI_PROFILE_INC(ProfileCounter::FoodEatAttempts);
         AgentId eaten_food = 0;
         bool ate_food = false;
         if (neighbor_cache_enabled_ && neighbor_cache_.valid
@@ -284,14 +290,14 @@ void SimulationManager::process_food() {
             food_grid_.remove(eaten_food);
             agent->add_energy(config_.energy_gain_from_food);
             agent->add_food();
-            Profiler::instance().increment(ProfileCounter::FoodEaten);
+            MOONAI_PROFILE_INC(ProfileCounter::FoodEaten);
             last_events_.push_back({SimEvent::Food, agent->id(), eaten_food, agent->position()});
         }
     }
 }
 
 void SimulationManager::process_attacks() {
-    ScopedTimer timer(ProfileEvent::ProcessAttacks);
+    MOONAI_PROFILE_SCOPE(ProfileEvent::ProcessAttacks);
     auto kills = (neighbor_cache_enabled_ && neighbor_cache_.valid)
         ? Physics::process_attacks_from_candidates(
             agents_,
@@ -300,7 +306,7 @@ void SimulationManager::process_attacks() {
             config_.attack_range)
         : Physics::process_attacks(agents_, grid_, config_.attack_range);
 
-    Profiler::instance().increment(ProfileCounter::Kills, static_cast<std::int64_t>(kills.size()));
+    MOONAI_PROFILE_INC(ProfileCounter::Kills, static_cast<std::int64_t>(kills.size()));
 
     for (const auto& kill : kills) {
         // Reward energy to the killer
@@ -316,7 +322,7 @@ void SimulationManager::process_attacks() {
 }
 
 void SimulationManager::count_alive() {
-    ScopedTimer timer(ProfileEvent::CountAlive);
+    MOONAI_PROFILE_SCOPE(ProfileEvent::CountAlive);
     alive_predators_ = static_cast<int>(alive_predator_indices_.size());
     alive_prey_ = static_cast<int>(alive_prey_indices_.size());
 }

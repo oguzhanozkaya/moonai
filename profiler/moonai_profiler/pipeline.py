@@ -1,4 +1,4 @@
-"""Profiler analysis pipeline orchestration."""
+"""Profiler suite analysis pipeline orchestration."""
 
 from __future__ import annotations
 
@@ -6,65 +6,71 @@ from datetime import datetime
 from pathlib import Path
 
 from .html_report import render_html_report
-from .io import discover_profiles
-from .plots import render_comparison_charts, render_run_charts
+from .io import discover_profile_suites
+from .plots import render_comparison_charts, render_suite_charts
 
 
 def run_analysis(input_dir: Path, output_dir: Path) -> None:
-    runs, skipped = discover_profiles(input_dir)
-    if not runs:
-        raise SystemExit(f"No profile.json files found in {input_dir}")
+    suites, skipped = discover_profile_suites(input_dir)
+    if not suites:
+        raise SystemExit(f"No profile_suite.json files found in {input_dir}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     generated_at = datetime.now()
-    comparison_charts = render_comparison_charts(runs)
+    comparison_charts = render_comparison_charts(suites)
 
     run_sections = []
-    for run in runs:
-        charts = render_run_charts(run)
-
-        first_gen = int(run.trimmed_generations["generation"].iloc[0])
-        last_gen = int(run.trimmed_generations["generation"].iloc[-1])
-        trim_note = (
-            f"Generations {first_gen}\u2013{last_gen} of "
-            f"{run.total_generation_count} (IQR-trimmed, middle 50%)"
+    for suite in suites:
+        charts = render_suite_charts(suite)
+        dropped = ", ".join(
+            f"seed {member.seed} ({member.disposition})"
+            for member in suite.dropped_members
         )
-
+        trim_note = f"6 runs total; dropped {dropped}; averaged the remaining 4 runs"
         run_sections.append(
             {
-                "name": run.name,
-                "label": run.label,
-                "experiment_name": run.experiment_name,
-                "mode": run.mode,
-                "total_generation_count": run.total_generation_count,
-                "generation_count": run.generation_count,
+                "name": suite.name,
+                "label": suite.label,
+                "experiment_name": suite.experiment_name,
+                "suite_name": suite.suite_name,
+                "mode": "suite",
+                "total_generation_count": suite.generations,
+                "generation_count": len(suite.kept_members),
                 "trim_note": trim_note,
-                "avg_generation_ms": f"{run.avg_generation_ms:.2f}",
-                "top_event_name": run.top_event_name,
-                "top_event_total_ms": f"{run.top_event_ms:.2f}",
-                "top_event_avg_ms": f"{run.top_event_avg_ms:.2f}",
+                "avg_generation_ms": f"{suite.avg_generation_ms:.2f}",
+                "top_event_name": _top_event_name(suite),
+                "top_event_total_ms": f"{_top_event_total_ms(suite):.2f}",
+                "top_event_avg_ms": f"{_top_event_avg_ms(suite):.2f}",
                 "top_event_nonzero_generation_count": str(
-                    run.top_event_nonzero_generation_count
+                    int(_top_event_nonzero_count(suite))
                 ),
-                "path": str(run.path),
-                "run_meta": run.raw["run"],
-                "run_notes": run.raw.get("notes", []),
+                "path": str(suite.path),
+                "run_meta": suite.raw["suite"],
+                "run_notes": _suite_notes(suite),
                 "summary_meta": {
+                    "suite_name": suite.suite_name,
                     "cpu_generation_count": str(
-                        run.raw["summary"].get("cpu_generation_count", 0)
+                        suite.raw["aggregate"].get("cpu_generation_count_avg", 0.0)
                     ),
                     "gpu_generation_count": str(
-                        run.raw["summary"].get("gpu_generation_count", 0)
+                        suite.raw["aggregate"].get("gpu_generation_count_avg", 0.0)
                     ),
-                    "path_count_note": str(
-                        run.raw["summary"].get("path_count_note", "")
-                    ),
+                    "path_count_note": "Averages are computed from the four kept runs.",
                 },
-                "summary_events": _format_event_summary(run.trimmed_summary_events),
-                "summary_counters": _format_counter_summary(
-                    run.trimmed_summary_counters
-                ),
+                "summary_events": _format_event_summary(suite.aggregate_events),
+                "summary_counters": _format_counter_summary(suite.aggregate_counters),
                 "charts": [chart.__dict__ for chart in charts],
+                "members": [
+                    {
+                        "seed": str(member.seed),
+                        "avg_generation_ms": f"{member.avg_generation_ms:.2f}",
+                        "run_total_ms": f"{member.run_total_ms:.2f}",
+                        "generation_count": str(member.generation_count),
+                        "disposition": member.disposition,
+                    }
+                    for member in suite.members
+                ],
+                "overhead": suite.overhead,
             }
         )
 
@@ -75,34 +81,76 @@ def run_analysis(input_dir: Path, output_dir: Path) -> None:
             "generated_at": generated_at.strftime("%Y-%m-%d %H:%M:%S"),
             "report_name": report_name,
             "input_dir": str(input_dir),
-            "run_count": len(runs),
+            "run_count": len(suites),
             "skipped_count": len(skipped),
             "summary_rows": [
                 {
-                    "label": run.label,
-                    "total_generations": run.total_generation_count,
-                    "trimmed_generations": run.generation_count,
-                    "avg_generation_ms": f"{run.avg_generation_ms:.2f}",
-                    "top_event": run.top_event_name,
-                    "top_event_avg_ms": f"{run.top_event_avg_ms:.2f}",
+                    "label": suite.label,
+                    "total_generations": suite.generations,
+                    "trimmed_generations": len(suite.kept_members),
+                    "avg_generation_ms": f"{suite.avg_generation_ms:.2f}",
+                    "top_event": _top_event_name(suite),
+                    "top_event_avg_ms": f"{_top_event_avg_ms(suite):.2f}",
                     "top_event_nonzero_generation_count": str(
-                        run.top_event_nonzero_generation_count
+                        int(_top_event_nonzero_count(suite))
                     ),
                 }
-                for run in runs
+                for suite in suites
             ],
             "comparison_charts": [chart.__dict__ for chart in comparison_charts],
             "run_sections": run_sections,
             "skipped_profiles": [
-                {"name": skipped_run.path.name, "reason": skipped_run.reason}
-                for skipped_run in skipped
+                {"name": skipped_suite.path.name, "reason": skipped_suite.reason}
+                for skipped_suite in skipped
             ],
         }
     )
     report_path.write_text(report_html, encoding="utf-8")
 
-    print(f"Analysed {len(runs)} profile runs.")
+    print(f"Analysed {len(suites)} profiler suites.")
     print(f"Wrote self-contained profiler report to {report_path}")
+
+
+def _suite_notes(suite) -> list[str]:
+    notes = [
+        "Profiler suites run six fixed seeds from profiler.lua.",
+        "The fastest and slowest runs are dropped before aggregation.",
+        "Aggregate timing and counter tables use the remaining four runs only.",
+    ]
+    if suite.overhead:
+        notes.append(
+            f"Measured process-level profiler overhead: {suite.overhead['delta_percent']:.2f}% over plain moonai on kept runs."
+        )
+    return notes
+
+
+def _top_event_name(suite) -> str:
+    best_name = "generation_total"
+    best_value = 0.0
+    for name, values in suite.aggregate_events.items():
+        if name == "generation_total":
+            continue
+        avg = values.get("avg_ms_per_generation", 0.0)
+        if avg > best_value:
+            best_name = name
+            best_value = avg
+    return best_name
+
+
+def _top_event_total_ms(suite) -> float:
+    return suite.aggregate_events.get(_top_event_name(suite), {}).get("total_ms", 0.0)
+
+
+def _top_event_avg_ms(suite) -> float:
+    return suite.aggregate_events.get(_top_event_name(suite), {}).get(
+        "avg_ms_per_generation", 0.0
+    )
+
+
+def _top_event_nonzero_count(suite) -> float:
+    return suite.aggregate_events.get(_top_event_name(suite), {}).get(
+        "nonzero_generation_count", 0.0
+    )
 
 
 def _format_event_summary(events: dict[str, dict[str, float]]) -> list[dict[str, str]]:
@@ -111,12 +159,12 @@ def _format_event_summary(events: dict[str, dict[str, float]]) -> list[dict[str,
         rows.append(
             {
                 "name": name,
-                "total_ms": f"{values['total_ms']:.3f}",
-                "avg_ms_per_generation": f"{values['avg_ms_per_generation']:.3f}",
+                "total_ms": f"{values.get('total_ms', 0.0):.3f}",
+                "avg_ms_per_generation": f"{values.get('avg_ms_per_generation', 0.0):.3f}",
                 "nonzero_generation_count": str(
-                    int(values["nonzero_generation_count"])
+                    int(values.get("nonzero_generation_count", 0.0))
                 ),
-                "avg_ms_per_nonzero_generation": f"{values['avg_ms_per_nonzero_generation']:.3f}",
+                "avg_ms_per_nonzero_generation": f"{values.get('avg_ms_per_nonzero_generation', 0.0):.3f}",
             }
         )
     rows.sort(key=lambda row: float(row["total_ms"]), reverse=True)
@@ -131,12 +179,12 @@ def _format_counter_summary(
         rows.append(
             {
                 "name": name,
-                "total": f"{values['total']:.3f}",
-                "avg_per_generation": f"{values['avg_per_generation']:.3f}",
+                "total": f"{values.get('total', 0.0):.3f}",
+                "avg_per_generation": f"{values.get('avg_per_generation', 0.0):.3f}",
                 "nonzero_generation_count": str(
-                    int(values["nonzero_generation_count"])
+                    int(values.get("nonzero_generation_count", 0.0))
                 ),
-                "avg_per_nonzero_generation": f"{values['avg_per_nonzero_generation']:.3f}",
+                "avg_per_nonzero_generation": f"{values.get('avg_per_nonzero_generation', 0.0):.3f}",
             }
         )
     rows.sort(key=lambda row: float(row["total"]), reverse=True)

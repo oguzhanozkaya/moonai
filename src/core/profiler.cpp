@@ -169,42 +169,37 @@ void Profiler::set_enabled(bool enabled) {
     enabled_.store(enabled, std::memory_order_relaxed);
 }
 
-void Profiler::start_run(const std::string& experiment_name,
-                         const std::string& output_root_dir,
-                         std::uint64_t seed,
-                         int predator_count,
-                         int prey_count,
-                         int food_count,
-                         int generation_ticks,
-                         bool gpu_allowed,
-                         bool cuda_compiled,
-                         bool openmp_compiled) {
+void Profiler::start_run(const ProfileRunSpec& spec) {
     if (!enabled()) {
         return;
     }
 
     const auto now = std::chrono::system_clock::now();
-    experiment_name_ = experiment_name;
+    experiment_name_ = spec.experiment_name;
     generated_at_utc_ = utc_timestamp_iso(now);
-    seed_ = seed;
-    predator_count_ = predator_count;
-    prey_count_ = prey_count;
-    food_count_ = food_count;
-    generation_ticks_ = generation_ticks;
-    gpu_allowed_ = gpu_allowed;
-    cuda_compiled_ = cuda_compiled;
-    openmp_compiled_ = openmp_compiled;
+    seed_ = spec.seed;
+    predator_count_ = spec.predator_count;
+    prey_count_ = spec.prey_count;
+    food_count_ = spec.food_count;
+    generation_ticks_ = spec.generation_ticks;
+    gpu_allowed_ = spec.gpu_allowed;
+    cuda_compiled_ = spec.cuda_compiled;
+    openmp_compiled_ = spec.openmp_compiled;
+    suite_name_ = spec.suite_name;
+    base_experiment_name_ = spec.base_experiment_name;
+    config_fingerprint_ = spec.config_fingerprint;
+    profiler_entry_point_ = spec.profiler_entry_point;
     generation_cpu_used_ = false;
     generation_gpu_used_ = false;
     generation_active_ = false;
     generation_records_.clear();
 
     try {
-        const std::filesystem::path base_path(output_root_dir);
+        const std::filesystem::path base_path(spec.output_root_dir);
         std::string run_name;
-        if (!experiment_name.empty()) {
+        if (!experiment_name_.empty()) {
             // Named experiment: use timestamp + sanitized name (name already contains seed from config.lua)
-            run_name = utc_timestamp_for_path(now) + "_" + sanitize_path_component(experiment_name);
+            run_name = utc_timestamp_for_path(now) + "_" + sanitize_path_component(experiment_name_);
         } else {
             // Anonymous run: add seed suffix
             run_name = utc_timestamp_for_path(now) + "_seed" + std::to_string(seed_);
@@ -218,7 +213,7 @@ void Profiler::start_run(const std::string& experiment_name,
     } catch (const std::exception& e) {
         output_dir_.clear();
         set_enabled(false);
-        spdlog::error("Failed to initialize profiler output under '{}': {}", output_root_dir, e.what());
+        spdlog::error("Failed to initialize profiler output under '{}': {}", spec.output_root_dir, e.what());
         return;
     }
 
@@ -324,12 +319,16 @@ void Profiler::finish_run(std::int64_t run_total_ns) {
     }
 
     nlohmann::json profile;
-    profile["schema_version"] = 1;
+    profile["schema_version"] = 2;
     profile["generated_at_utc"] = generated_at_utc_;
     profile["run"] = {
         {"experiment_name", experiment_name_},
+        {"base_experiment_name", base_experiment_name_},
+        {"suite_name", suite_name_},
         {"output_dir", output_dir_},
         {"seed", seed_},
+        {"config_fingerprint", config_fingerprint_},
+        {"profiler_entry_point", profiler_entry_point_},
         {"predator_count", predator_count_},
         {"prey_count", prey_count_},
         {"food_count", food_count_},

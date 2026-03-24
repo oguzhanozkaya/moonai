@@ -279,11 +279,11 @@
   <section class="abstract">
     <h2>Abstract</h2>
     <p>
-      This report presents profiling data from {{ run_count }} headless simulation
-      run{{ 's' if run_count != 1 else '' }}.
-      To reduce noise from cold-start and late-run variance, the first and last
-      25% of generations are discarded (IQR trimming); all reported averages,
-      charts, and event tables use only the middle 50% of generations.
+      This report presents profiling data from {{ run_count }} profiler
+      suite{{ 's' if run_count != 1 else '' }}.
+      Each suite runs six fixed seeds from <code>profiler.lua</code>, drops the
+      fastest and slowest run by average generation time, and reports aggregate
+      timings, charts, and counters from the remaining four runs.
       {{ skipped_count }} profile{{ 's' if skipped_count != 1 else '' }} could not be analysed and
       {{ 'are' if skipped_count != 1 else 'is' }} listed in Excluded Profiles.
       Source directory: <code>{{ input_dir }}</code>.
@@ -309,15 +309,15 @@
   <section id="summary">
     <h2>Run Summary</h2>
     <table>
-      <caption>Per-run overview of generation timing and dominant hotspots (IQR-trimmed).</caption>
+      <caption>Per-suite overview of trimmed generation timing and dominant hotspots.</caption>
       <thead>
         <tr>
           <th>Run</th>
-          <th>Total Gens</th>
-          <th>Trimmed Gens</th>
+          <th>Gens / Run</th>
+          <th>Kept Runs</th>
           <th>Avg Gen (ms)</th>
           <th>Top Event</th>
-          <th>Top Event Avg (ms/active gen)</th>
+          <th>Top Event Avg (ms/gen)</th>
         </tr>
       </thead>
       <tbody>
@@ -327,7 +327,7 @@
           <td>{{ row.total_generations }}</td>
           <td>{{ row.trimmed_generations }}</td>
           <td>{{ row.avg_generation_ms }}</td>
-          <td>{{ row.top_event }} ({{ row.top_event_nonzero_generation_count }} active)</td>
+          <td>{{ row.top_event }} ({{ row.top_event_nonzero_generation_count }} active avg)</td>
           <td>{{ row.top_event_avg_ms }}</td>
         </tr>
         {% endfor %}
@@ -354,14 +354,14 @@
       <summary>{{ run.label }}</summary>
       <div class="details-body">
         <p class="run-meta">
-          <em>Run dir:</em> {{ run.name }} &ensp;|&ensp;
+          <em>Suite dir:</em> {{ run.name }} &ensp;|&ensp;
           <em>Mode:</em> {{ run.mode }} &ensp;|&ensp;
           <em>{{ run.trim_note }}</em> &ensp;|&ensp;
           <em>Avg generation:</em> {{ run.avg_generation_ms }} ms
         </p>
         <p class="run-meta">
-          <em>Top event:</em> {{ run.top_event_name }} ({{ run.top_event_avg_ms }} ms/active gen,
-          {{ run.top_event_nonzero_generation_count }} active generations,
+          <em>Top event:</em> {{ run.top_event_name }} ({{ run.top_event_avg_ms }} ms/gen,
+          {{ run.top_event_nonzero_generation_count }} active avg,
           {{ run.top_event_total_ms }} ms total)
         </p>
 
@@ -376,6 +376,57 @@
             {% for note in run.run_notes %}
             <tr><td>{{ note }}</td></tr>
             {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+
+        {% if run.members %}
+        <h3>Suite Members</h3>
+        <table>
+          <caption>All six raw suite members and their trim disposition.</caption>
+          <thead>
+            <tr>
+              <th>Seed</th>
+              <th>Avg Gen (ms)</th>
+              <th>Run Total (ms)</th>
+              <th>Generation Count</th>
+              <th>Disposition</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for member in run.members %}
+            <tr>
+              <td>{{ member.seed }}</td>
+              <td>{{ member.avg_generation_ms }}</td>
+              <td>{{ member.run_total_ms }}</td>
+              <td>{{ member.generation_count }}</td>
+              <td>{{ member.disposition }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+
+        {% if run.overhead %}
+        <h3>Overhead Check</h3>
+        <table>
+          <tbody>
+            <tr>
+              <th>plain_avg_process_ms_per_generation</th>
+              <td>{{ '%.3f'|format(run.overhead.plain_avg_process_ms_per_generation) }}</td>
+            </tr>
+            <tr>
+              <th>profiled_avg_process_ms_per_generation</th>
+              <td>{{ '%.3f'|format(run.overhead.profiled_avg_process_ms_per_generation) }}</td>
+            </tr>
+            <tr>
+              <th>delta_ms_per_generation</th>
+              <td>{{ '%.3f'|format(run.overhead.delta_ms_per_generation) }}</td>
+            </tr>
+            <tr>
+              <th>delta_percent</th>
+              <td>{{ '%.3f'|format(run.overhead.delta_percent) }}</td>
+            </tr>
           </tbody>
         </table>
         {% endif %}
@@ -407,7 +458,7 @@
 
         <h3>Summary Events</h3>
         <table>
-          <caption>All profiled events sorted by total time (IQR-trimmed generations).</caption>
+          <caption>Aggregate event summary computed from the four kept suite runs.</caption>
           <thead>
             <tr>
               <th>Event</th>
@@ -432,7 +483,7 @@
 
         <h3>Summary Counters</h3>
         <table>
-          <caption>All profiled counters sorted by total value (IQR-trimmed generations).</caption>
+          <caption>Aggregate counter summary computed from the four kept suite runs.</caption>
           <thead>
             <tr>
               <th>Counter</th>

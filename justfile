@@ -241,9 +241,15 @@ bench-nn: release
 # Run the built-in profiler on the baseline experiment
 [group('dev')]
 profile: release
-    ./build/linux-release/moonai config.lua \
-        --experiment baseline_seed42 --headless -g 24 --profile \
-        --profile-output output/profiles
+    ./build/linux-release/moonai_profiler profiler.lua \
+        --suite baseline
+
+# Compare profiler build overhead against plain moonai
+[group('dev')]
+profile-overhead: release
+    ./build/linux-release/moonai_profiler profiler.lua \
+        --suite baseline --measure-overhead \
+        --plain-binary ./build/linux-release/moonai
 
 # Full profiler pipeline: run profiler -> generate profiler report
 [group('dev')]

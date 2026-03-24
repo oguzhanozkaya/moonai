@@ -131,8 +131,7 @@ std::vector<AgentId> SpatialGrid::query_radius(Vec2 position, float radius) cons
 }
 
 void SpatialGrid::query_radius_into(Vec2 position, float radius, std::vector<AgentId>& result) const {
-    ScopedTimer timer(ProfileEvent::SpatialQueryRadius);
-    Profiler::instance().increment(ProfileCounter::GridQueryCalls);
+    MOONAI_PROFILE_INC(ProfileCounter::GridQueryCalls);
     result.clear();
     float r2 = radius * radius;
     int cells_to_check = static_cast<int>(std::ceil(radius / cell_size_));
@@ -145,8 +144,8 @@ void SpatialGrid::query_radius_into(Vec2 position, float radius, std::vector<Age
             int ny = cy + dy;
             if (nx < 0 || nx >= cols_ || ny < 0 || ny >= rows_) continue;
             int idx = ny * cols_ + nx;
-            Profiler::instance().increment(ProfileCounter::GridCandidatesScanned,
-                                           static_cast<std::int64_t>(cells_[idx].size()));
+            MOONAI_PROFILE_INC(ProfileCounter::GridCandidatesScanned,
+                               static_cast<std::int64_t>(cells_[idx].size()));
             for (const auto& entry : cells_[idx]) {
                 float ddx = entry.pos.x - position.x;
                 float ddy = entry.pos.y - position.y;

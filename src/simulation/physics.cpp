@@ -84,8 +84,6 @@ SensorInput Physics::build_sensors_from_candidates(
     float max_energy,
     bool has_walls) {
 
-    ScopedTimer timer(ProfileEvent::PhysicsBuildSensors);
-
     SensorInput s;
     float vision = agent.vision_range();
     float vision_sq = vision * vision;
@@ -227,8 +225,8 @@ std::vector<Physics::KillEvent> Physics::process_attacks_from_candidates(
 
         auto* predator = static_cast<Predator*>(agent.get());
         const auto& nearby = nearby_agent_ids[predator_index];
-        Profiler::instance().increment(ProfileCounter::AttackChecks,
-                                       static_cast<std::int64_t>(nearby.size()));
+        MOONAI_PROFILE_INC(ProfileCounter::AttackChecks,
+                           static_cast<std::int64_t>(nearby.size()));
 
         for (AgentId nid : nearby) {
             if (nid >= agents.size()) continue;

@@ -27,7 +27,22 @@ protected:
 
 TEST_F(ProfilerTest, WritesSingleJsonProfileWithSummaryAndGenerations) {
     auto& profiler = Profiler::instance();
-    profiler.start_run("baseline_seed42", test_dir_, 42, 500, 1500, 2500, 1500, true, true, true);
+    ProfileRunSpec spec;
+    spec.experiment_name = "baseline_seed42";
+    spec.output_root_dir = test_dir_;
+    spec.seed = 42;
+    spec.predator_count = 500;
+    spec.prey_count = 1500;
+    spec.food_count = 2500;
+    spec.generation_ticks = 1500;
+    spec.gpu_allowed = true;
+    spec.cuda_compiled = true;
+    spec.openmp_compiled = true;
+    spec.suite_name = "baseline_suite";
+    spec.base_experiment_name = "baseline_seed42";
+    spec.config_fingerprint = "abc123";
+    spec.profiler_entry_point = "moonai_profiler";
+    profiler.start_run(spec);
     const std::string run_dir = profiler.output_dir();
 
     profiler.start_generation(0);
@@ -44,8 +59,10 @@ TEST_F(ProfilerTest, WritesSingleJsonProfileWithSummaryAndGenerations) {
     ASSERT_TRUE(handle.is_open());
     const auto profile = nlohmann::json::parse(handle);
 
-    EXPECT_EQ(profile["schema_version"], 1);
+    EXPECT_EQ(profile["schema_version"], 2);
     EXPECT_EQ(profile["run"]["experiment_name"], "baseline_seed42");
+    EXPECT_EQ(profile["run"]["suite_name"], "baseline_suite");
+    EXPECT_EQ(profile["run"]["config_fingerprint"], "abc123");
     EXPECT_EQ(profile["run"]["seed"], 42);
     EXPECT_EQ(profile["summary"]["generation_count"], 1);
     EXPECT_EQ(profile["summary"]["cpu_generation_count"], 1);
@@ -60,11 +77,22 @@ TEST_F(ProfilerTest, WritesSingleJsonProfileWithSummaryAndGenerations) {
 
 TEST_F(ProfilerTest, CreatesUniqueRunDirectories) {
     auto& profiler = Profiler::instance();
-    profiler.start_run("baseline_seed42", test_dir_, 42, 500, 1500, 2500, 1500, true, true, true);
+    ProfileRunSpec spec;
+    spec.experiment_name = "baseline_seed42";
+    spec.output_root_dir = test_dir_;
+    spec.seed = 42;
+    spec.predator_count = 500;
+    spec.prey_count = 1500;
+    spec.food_count = 2500;
+    spec.generation_ticks = 1500;
+    spec.gpu_allowed = true;
+    spec.cuda_compiled = true;
+    spec.openmp_compiled = true;
+    profiler.start_run(spec);
     const std::string first_dir = profiler.output_dir();
     profiler.finish_run(0);
 
-    profiler.start_run("baseline_seed42", test_dir_, 42, 500, 1500, 2500, 1500, true, true, true);
+    profiler.start_run(spec);
     const std::string second_dir = profiler.output_dir();
     profiler.finish_run(0);
 
