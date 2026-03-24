@@ -23,8 +23,6 @@
 
 namespace {
 
-constexpr int kGpuMinPopulation = 1000;
-
 std::vector<moonai::gpu::GpuAgentState> build_gpu_agent_states(
     const moonai::SimulationManager& sim,
     int agent_count) {
@@ -252,14 +250,6 @@ void EvolutionManager::enable_gpu(bool use_gpu) {
     use_gpu_ = use_gpu;
 #ifdef MOONAI_ENABLE_CUDA
     if (use_gpu_) {
-        int total_agents = config_.predator_count + config_.prey_count;
-        if (total_agents < kGpuMinPopulation) {
-            spdlog::info("GPU disabled: population {} < {} threshold "
-                         "(kernel launch overhead exceeds computation)",
-                         total_agents, kGpuMinPopulation);
-            use_gpu_ = false;
-            return;
-        }
         if (num_inputs_ > 0 && !population_.empty()) {
             gpu_batch_ = std::make_unique<moonai::gpu::GpuBatch>(
                 static_cast<int>(population_.size()), num_inputs_, num_outputs_);

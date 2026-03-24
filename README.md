@@ -148,7 +148,7 @@ Mode selection happens at runtime via flags — no need to rebuild:
 | `just run-server` | Headless + CPU-only (for servers without a display or GPU) |
 | `just run-config <path>` | Run with a custom config file |
 
-CUDA is enabled at runtime when available and the population is at least 1000 agents. In headless runs, the fast path keeps sensing, inference, and tick processing on the GPU for the whole generation. If GPU upload, sensing, inference, or resident tick execution fails during runtime, MoonAI disables the CUDA path and continues with CPU execution.
+CUDA is enabled at runtime when available. In headless runs, the fast path keeps sensing, inference, and tick processing on the GPU for the whole generation. If GPU upload, sensing, inference, or resident tick execution fails during runtime, MoonAI disables the CUDA path and continues with CPU execution.
 
 ### Visualization Controls
 
@@ -395,7 +395,7 @@ The profiler package lives under `profiler/moonai_profiler/` and includes:
 
 66 conditions defined in `config.lua` across 9 groups, each × 5 seeds = **330 deterministic runs**.
 
-The default baseline is 2000 agents (500 predators, 1500 prey) on a 4300×2400 world with 1500 ticks/generation. Scaled experiments use `scale_base()` to maintain agent density by proportionally adjusting world size and food count. GPU is auto-enabled for populations >= 1000.
+The default baseline is 2000 agents (500 predators, 1500 prey) on a 4300×2400 world with 1500 ticks/generation. Scaled experiments use `scale_base()` to maintain agent density by proportionally adjusting world size and food count.
 
 - Group A — Baseline sweeps (2K agents)
 - Group B — Scale experiments (proportional world)
