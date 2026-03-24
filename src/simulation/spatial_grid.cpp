@@ -60,7 +60,7 @@ void SpatialGrid::query_radius_into(Vec2 position, float radius, std::vector<Age
     Profiler::instance().increment(ProfileCounter::GridQueryCalls);
     result.clear();
     float r2 = radius * radius;
-    int cells_to_check = static_cast<int>(std::ceil(radius / cell_size_)) + 1;
+    int cells_to_check = static_cast<int>(std::ceil(radius / cell_size_));
     int cx = cell_x(position.x);
     int cy = cell_y(position.y);
 

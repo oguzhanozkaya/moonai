@@ -166,12 +166,12 @@ SensorInput Physics::build_sensors(
     return s;
 }
 
-std::vector<AgentId> Physics::process_attacks(
+std::vector<Physics::KillEvent> Physics::process_attacks(
     std::vector<std::unique_ptr<Agent>>& agents,
     const SpatialGrid& grid,
     float attack_range) {
 
-    std::vector<AgentId> killed;
+    std::vector<KillEvent> kills;
     std::vector<AgentId> nearby;
     nearby.reserve(32);
     const float attack_range_sq = attack_range * attack_range;
@@ -194,13 +194,13 @@ std::vector<AgentId> Physics::process_attacks(
             if (dist_sq <= attack_range_sq) {
                 target->set_alive(false);
                 predator->add_kill();
-                killed.push_back(target->id());
+                kills.push_back({predator->id(), target->id()});
                 break;  // one kill per tick per predator
             }
         }
     }
 
-    return killed;
+    return kills;
 }
 
 } // namespace moonai

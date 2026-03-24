@@ -59,8 +59,10 @@ public:
         float max_energy,
         bool has_walls);
 
-    // Process predator attacks: returns list of killed prey IDs
-    static std::vector<AgentId> process_attacks(
+    struct KillEvent { AgentId killer; AgentId victim; };
+
+    // Process predator attacks: returns (killer, victim) pairs
+    static std::vector<KillEvent> process_attacks(
         std::vector<std::unique_ptr<Agent>>& agents,
         const SpatialGrid& grid,
         float attack_range);
