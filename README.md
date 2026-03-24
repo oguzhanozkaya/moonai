@@ -373,15 +373,11 @@ To generate the standalone profiler report:
 just analyse-profile
 ```
 
-Internally this runs the packaged profiler analysis entry point from `profiler_analysis/`:
+Internally this runs the packaged profiler entry point via `just analyse-profile`.
 
-```bash
-cd profiler_analysis && uv run moonai-profile-analysis
-```
+The profiler writes a timestamped self-contained HTML report to `profiler/output/`, for example `profile_report_20260324_154233.html`.
 
-The profiler analysis writes a timestamped self-contained HTML report to `profiler_analysis/output/`, for example `profile_report_20260324_154233.html`.
-
-The profiler analysis package lives under `profiler_analysis/moonai_profile_analysis/` and includes:
+The profiler package lives under `profiler/moonai_profiler/` and includes:
 
 - `pipeline.py` for orchestration
 - `io.py` for discovering and validating `profile.json` runs
@@ -574,7 +570,7 @@ moonai/
 │   └── gpu/                    # CUDA kernels (auto-detected; disabled at runtime by --no-gpu)
 ├── tests/                      # Google Test unit tests
 ├── analysis/                   # Python simulation analysis package and generated report output
-├── profiler_analysis/          # Python profiler analysis package and generated report output
+├── profiler/                   # Python profiler analysis package and generated report output
 ├── docs/                       # Project documents (PDFs + LLD LaTeX source)
 ├── web/                        # GitHub Pages website
 └── .github/workflows/          # CI/CD pipelines

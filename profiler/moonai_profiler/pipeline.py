@@ -22,13 +22,23 @@ def run_analysis(input_dir: Path, output_dir: Path) -> None:
     run_sections = []
     for run in runs:
         charts = render_run_charts(run)
+
+        first_gen = int(run.trimmed_generations["generation"].iloc[0])
+        last_gen = int(run.trimmed_generations["generation"].iloc[-1])
+        trim_note = (
+            f"Generations {first_gen}\u2013{last_gen} of "
+            f"{run.total_generation_count} (IQR-trimmed, middle 50%)"
+        )
+
         run_sections.append(
             {
                 "name": run.name,
                 "label": run.label,
                 "experiment_name": run.experiment_name,
                 "mode": run.mode,
+                "total_generation_count": run.total_generation_count,
                 "generation_count": run.generation_count,
+                "trim_note": trim_note,
                 "avg_generation_ms": f"{run.avg_generation_ms:.2f}",
                 "top_event_name": run.top_event_name,
                 "top_event_total_ms": f"{run.top_event_ms:.2f}",
@@ -50,23 +60,9 @@ def run_analysis(input_dir: Path, output_dir: Path) -> None:
                         run.raw["summary"].get("path_count_note", "")
                     ),
                 },
-                "summary_events": _format_summary_mapping(
-                    run.raw["summary"]["events"],
-                    [
-                        "total_ms",
-                        "avg_ms_per_generation",
-                        "nonzero_generation_count",
-                        "avg_ms_per_nonzero_generation",
-                    ],
-                ),
-                "summary_counters": _format_summary_mapping(
-                    run.raw["summary"]["counters"],
-                    [
-                        "total",
-                        "avg_per_generation",
-                        "nonzero_generation_count",
-                        "avg_per_nonzero_generation",
-                    ],
+                "summary_events": _format_event_summary(run.trimmed_summary_events),
+                "summary_counters": _format_counter_summary(
+                    run.trimmed_summary_counters
                 ),
                 "charts": [chart.__dict__ for chart in charts],
             }
@@ -84,7 +80,8 @@ def run_analysis(input_dir: Path, output_dir: Path) -> None:
             "summary_rows": [
                 {
                     "label": run.label,
-                    "generations": run.generation_count,
+                    "total_generations": run.total_generation_count,
+                    "trimmed_generations": run.generation_count,
                     "avg_generation_ms": f"{run.avg_generation_ms:.2f}",
                     "top_event": run.top_event_name,
                     "top_event_avg_ms": f"{run.top_event_avg_ms:.2f}",
@@ -109,16 +106,39 @@ def run_analysis(input_dir: Path, output_dir: Path) -> None:
     print(f"Wrote self-contained profiler report to {report_path}")
 
 
-def _format_summary_mapping(data: dict, keys: list[str]) -> list[dict[str, str]]:
+def _format_event_summary(events: dict[str, dict[str, float]]) -> list[dict[str, str]]:
     rows = []
-    for name, values in data.items():
-        row = {"name": name}
-        for key in keys:
-            value = values.get(key, 0)
-            if isinstance(value, float):
-                row[key] = f"{value:.3f}"
-            else:
-                row[key] = str(value)
-        rows.append(row)
-    rows.sort(key=lambda row: float(row[keys[0]]), reverse=True)
+    for name, values in events.items():
+        rows.append(
+            {
+                "name": name,
+                "total_ms": f"{values['total_ms']:.3f}",
+                "avg_ms_per_generation": f"{values['avg_ms_per_generation']:.3f}",
+                "nonzero_generation_count": str(
+                    int(values["nonzero_generation_count"])
+                ),
+                "avg_ms_per_nonzero_generation": f"{values['avg_ms_per_nonzero_generation']:.3f}",
+            }
+        )
+    rows.sort(key=lambda row: float(row["total_ms"]), reverse=True)
+    return rows
+
+
+def _format_counter_summary(
+    counters: dict[str, dict[str, float]],
+) -> list[dict[str, str]]:
+    rows = []
+    for name, values in counters.items():
+        rows.append(
+            {
+                "name": name,
+                "total": f"{values['total']:.3f}",
+                "avg_per_generation": f"{values['avg_per_generation']:.3f}",
+                "nonzero_generation_count": str(
+                    int(values["nonzero_generation_count"])
+                ),
+                "avg_per_nonzero_generation": f"{values['avg_per_nonzero_generation']:.3f}",
+            }
+        )
+    rows.sort(key=lambda row: float(row["total"]), reverse=True)
     return rows

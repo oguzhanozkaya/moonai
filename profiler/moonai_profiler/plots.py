@@ -21,6 +21,7 @@ class Chart:
 def render_comparison_charts(runs: list[ProfileRun]) -> list[Chart]:
     return [
         _render_generation_comparison(runs),
+        _render_generation_timeline_comparison(runs),
         _render_hotspot_comparison(runs),
     ]
 
@@ -41,14 +42,41 @@ def _render_generation_comparison(runs: list[ProfileRun]) -> Chart:
 
     ax.bar(labels, values, color=colors)
     ax.set_ylabel("Average generation time (ms)")
-    ax.set_title("Average Generation Wall Time")
+    ax.set_title("Average Generation Wall Time (IQR-trimmed)")
     ax.tick_params(axis="x", rotation=35)
     ax.grid(axis="y", alpha=0.25)
     fig.tight_layout()
     return Chart(
         title="Average Generation Time",
         image_uri=_figure_to_data_uri(fig),
-        caption="Lower is better. `generation_total` is measured only in headless mode.",
+        caption="Lower is better. Averaged over IQR-trimmed generations only.",
+    )
+
+
+def _render_generation_timeline_comparison(runs: list[ProfileRun]) -> Chart:
+    fig, ax = plt.subplots(figsize=(10, 4.8))
+    gen_col = "event::generation_total"
+    for run in runs:
+        frame = run.trimmed_generations
+        if gen_col not in frame.columns:
+            continue
+        ax.plot(
+            frame["generation"],
+            frame[gen_col],
+            linewidth=1.8,
+            label=run.label,
+            color=_mode_color(run.mode),
+        )
+    ax.set_xlabel("Generation")
+    ax.set_ylabel("Generation wall time (ms)")
+    ax.set_title("Generation Wall Time Comparison (IQR-trimmed)")
+    ax.grid(alpha=0.25)
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    return Chart(
+        title="Generation Timeline Comparison",
+        image_uri=_figure_to_data_uri(fig),
+        caption="Per-generation wall time for each run overlaid (IQR-trimmed generations only).",
     )
 
 
@@ -58,7 +86,7 @@ def _render_hotspot_comparison(runs: list[ProfileRun]) -> Chart:
     values = [run.top_event_avg_ms for run in runs]
     ax.bar(labels, values, color="#c97b63")
     ax.set_ylabel("Average hotspot time per active generation (ms)")
-    ax.set_title("Top Non-Generation Hotspot Per Run")
+    ax.set_title("Top Non-Generation Hotspot Per Run (IQR-trimmed)")
     ax.tick_params(axis="x", rotation=35)
     ax.grid(axis="y", alpha=0.25)
     for index, run in enumerate(runs):
@@ -81,12 +109,18 @@ def _render_hotspot_comparison(runs: list[ProfileRun]) -> Chart:
 
 def _render_generation_timeline(run: ProfileRun) -> Chart:
     fig, ax = plt.subplots(figsize=(10, 4.8))
-    ax.plot(
-        run.generations["generation"],
-        run.generations["event::generation_total"],
-        color="#2d6a4f",
-        linewidth=2,
-    )
+    gen_col = "event::generation_total"
+    frame = run.trimmed_generations
+    if gen_col in frame.columns:
+        ax.plot(
+            frame["generation"],
+            frame[gen_col],
+            color="#2d6a4f",
+            linewidth=2,
+        )
+    else:
+        ax.text(0.5, 0.5, "generation_total not available", ha="center", va="center",
+                transform=ax.transAxes)
     ax.set_xlabel("Generation")
     ax.set_ylabel("Generation wall time (ms)")
     ax.set_title(f"Generation Wall Time - {run.label}")
@@ -95,20 +129,21 @@ def _render_generation_timeline(run: ProfileRun) -> Chart:
     return Chart(
         title="Generation Timeline",
         image_uri=_figure_to_data_uri(fig),
-        caption="Per-generation `generation_total` trend for this profile run.",
+        caption="Per-generation `generation_total` trend (IQR-trimmed generations).",
     )
 
 
 def _render_key_event_timeline(run: ProfileRun) -> Chart:
     fig, ax = plt.subplots(figsize=(10, 4.8))
     event_names = _top_event_names(run, limit=4)
+    frame = run.trimmed_generations
     for event_name in event_names:
         column = f"event::{event_name}"
-        if column not in run.generations:
+        if column not in frame.columns:
             continue
         ax.plot(
-            run.generations["generation"],
-            run.generations[column],
+            frame["generation"],
+            frame[column],
             linewidth=1.8,
             label=event_name,
         )
@@ -122,18 +157,17 @@ def _render_key_event_timeline(run: ProfileRun) -> Chart:
     return Chart(
         title="Key Event Timelines",
         image_uri=_figure_to_data_uri(fig),
-        caption="Events are chosen by average time per active generation so intermittent optional paths are not understated.",
+        caption="Events are chosen by average time per active generation (IQR-trimmed).",
     )
 
 
 def _render_top_event_breakdown(run: ProfileRun) -> Chart:
     fig, ax = plt.subplots(figsize=(10, 4.8))
-    summary_events = run.raw["summary"]["events"]
     pairs = [
-        (name, float(values.get("avg_ms_per_nonzero_generation", 0.0) or 0.0))
-        for name, values in summary_events.items()
+        (name, stats["avg_ms_per_nonzero_generation"])
+        for name, stats in run.trimmed_summary_events.items()
         if name != "generation_total"
-        and float(values.get("avg_ms_per_nonzero_generation", 0.0) or 0.0) > 0.0
+        and stats["avg_ms_per_nonzero_generation"] > 0.0
     ]
     pairs.sort(key=lambda item: item[1], reverse=True)
     pairs = pairs[:8]
@@ -149,17 +183,16 @@ def _render_top_event_breakdown(run: ProfileRun) -> Chart:
     return Chart(
         title="Top Event Active-Generation Averages",
         image_uri=_figure_to_data_uri(fig),
-        caption="Top summary events ranked by average time per active generation.",
+        caption="Top summary events ranked by average time per active generation (IQR-trimmed).",
     )
 
 
 def _top_event_names(run: ProfileRun, limit: int) -> list[str]:
-    summary_events = run.raw["summary"]["events"]
     pairs = [
-        (name, float(values.get("avg_ms_per_nonzero_generation", 0.0) or 0.0))
-        for name, values in summary_events.items()
+        (name, stats["avg_ms_per_nonzero_generation"])
+        for name, stats in run.trimmed_summary_events.items()
         if name != "generation_total"
-        and float(values.get("avg_ms_per_nonzero_generation", 0.0) or 0.0) > 0.0
+        and stats["avg_ms_per_nonzero_generation"] > 0.0
     ]
     pairs.sort(key=lambda item: item[1], reverse=True)
     return [name for name, _ in pairs[:limit]]

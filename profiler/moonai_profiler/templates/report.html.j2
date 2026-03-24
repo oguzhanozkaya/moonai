@@ -283,6 +283,9 @@
     <p>
       This report presents profiling data from {{ run_count }} headless simulation
       run{{ 's' if run_count != 1 else '' }}.
+      To reduce noise from cold-start and late-run variance, the first and last
+      25% of generations are discarded (IQR trimming); all reported averages,
+      charts, and event tables use only the middle 50% of generations.
       {{ skipped_count }} profile{{ 's' if skipped_count != 1 else '' }} could not be analysed and
       {{ 'are' if skipped_count != 1 else 'is' }} listed in Excluded Profiles.
       Source directory: <code>{{ input_dir }}</code>.
@@ -308,11 +311,12 @@
   <section id="summary">
     <h2>Run Summary</h2>
     <table>
-      <caption>Per-run overview of generation timing and dominant hotspots.</caption>
+      <caption>Per-run overview of generation timing and dominant hotspots (IQR-trimmed).</caption>
       <thead>
         <tr>
           <th>Run</th>
-          <th>Generations</th>
+          <th>Total Gens</th>
+          <th>Trimmed Gens</th>
           <th>Avg Gen (ms)</th>
           <th>Top Event</th>
           <th>Top Event Avg (ms/active gen)</th>
@@ -323,7 +327,8 @@
         {% for row in summary_rows %}
         <tr>
           <td>{{ row.label }}</td>
-          <td>{{ row.generations }}</td>
+          <td>{{ row.total_generations }}</td>
+          <td>{{ row.trimmed_generations }}</td>
           <td>{{ row.avg_generation_ms }}</td>
           <td>{{ row.top_event }} ({{ row.top_event_nonzero_generation_count }} active)</td>
           <td>{{ row.top_event_avg_ms }}</td>
@@ -355,7 +360,7 @@
         <p class="run-meta">
           <em>Run dir:</em> {{ run.name }} &ensp;|&ensp;
           <em>Mode:</em> {{ run.mode }} &ensp;|&ensp;
-          <em>Generations:</em> {{ run.generation_count }} &ensp;|&ensp;
+          <em>{{ run.trim_note }}</em> &ensp;|&ensp;
           <em>Avg generation:</em> {{ run.avg_generation_ms }} ms
         </p>
         <p class="run-meta">
@@ -406,7 +411,7 @@
 
         <h3>Summary Events</h3>
         <table>
-          <caption>All profiled events sorted by total time.</caption>
+          <caption>All profiled events sorted by total time (IQR-trimmed generations).</caption>
           <thead>
             <tr>
               <th>Event</th>
@@ -431,7 +436,7 @@
 
         <h3>Summary Counters</h3>
         <table>
-          <caption>All profiled counters sorted by total value.</caption>
+          <caption>All profiled counters sorted by total value (IQR-trimmed generations).</caption>
           <thead>
             <tr>
               <th>Counter</th>

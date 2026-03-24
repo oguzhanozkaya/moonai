@@ -11,10 +11,10 @@ from .pipeline import run_analysis
 def build_parser() -> argparse.ArgumentParser:
     project_root = Path(__file__).resolve().parents[2]
     default_input = project_root / "output" / "profiles"
-    default_output = project_root / "profiler_analysis" / "output"
+    default_output = project_root / "profiler" / "output"
 
     parser = argparse.ArgumentParser(
-        prog="moonai-profile-analysis",
+        prog="moonai-profiler",
         description="Generate a self-contained MoonAI profiler HTML report.",
     )
     parser.add_argument(

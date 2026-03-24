@@ -21,6 +21,7 @@ class ProfileRun:
     name: str
     experiment_name: str
     mode: str
+    total_generation_count: int
     generation_count: int
     avg_generation_ms: float
     top_event_name: str
@@ -28,6 +29,9 @@ class ProfileRun:
     top_event_avg_ms: float
     top_event_nonzero_generation_count: int
     generations: pd.DataFrame
+    trimmed_generations: pd.DataFrame
+    trimmed_summary_events: dict[str, dict[str, float]]
+    trimmed_summary_counters: dict[str, dict[str, float]]
     raw: dict
 
     @property
@@ -109,39 +113,92 @@ def _build_profile_run(path: Path, payload: dict) -> ProfileRun:
     else:
         mode = "cpu"
 
+    # IQR trimming: discard first 25% and last 25%, keep middle 50%
+    n = len(frame)
+    q1_end = n // 4
+    q3_end = n - n // 4
+    if q3_end <= q1_end:
+        # Too few generations to trim — use all
+        trimmed = frame
+    else:
+        trimmed = frame.iloc[q1_end:q3_end].reset_index(drop=True)
+
+    # Recompute averages from trimmed data
+    gen_total_col = "event::generation_total"
+    if gen_total_col in trimmed.columns and len(trimmed) > 0:
+        avg_generation_ms = float(trimmed[gen_total_col].mean())
+    else:
+        avg_generation_ms = 0.0
+
+    # Recompute top event from trimmed data
+    trimmed_events = _compute_trimmed_event_summary(trimmed)
+    trimmed_counters = _compute_trimmed_counter_summary(trimmed)
+
     top_event_name = "generation_total"
     top_event_ms = 0.0
     top_event_avg_ms = 0.0
     top_event_nonzero_generation_count = 0
-    for name, event_summary in summary_events.items():
+    for name, stats in trimmed_events.items():
         if name == "generation_total":
             continue
-        avg_ms = float(event_summary.get("avg_ms_per_nonzero_generation", 0.0) or 0.0)
-        total_ms = float(event_summary.get("total_ms", 0.0) or 0.0)
-        nonzero_generation_count = int(
-            event_summary.get("nonzero_generation_count", 0) or 0
-        )
+        avg_ms = stats["avg_ms_per_nonzero_generation"]
         if avg_ms > top_event_avg_ms:
             top_event_name = name
-            top_event_ms = total_ms
+            top_event_ms = stats["total_ms"]
             top_event_avg_ms = avg_ms
-            top_event_nonzero_generation_count = nonzero_generation_count
+            top_event_nonzero_generation_count = int(stats["nonzero_generation_count"])
 
     return ProfileRun(
         path=path.parent,
         name=path.parent.name,
         experiment_name=str(run_meta.get("experiment_name", path.parent.name)),
         mode=mode,
-        generation_count=int(
-            summary.get("generation_count", len(frame_rows)) or len(frame_rows)
-        ),
-        avg_generation_ms=float(
-            summary_events["generation_total"].get("avg_ms_per_generation", 0.0) or 0.0
-        ),
+        total_generation_count=n,
+        generation_count=len(trimmed),
+        avg_generation_ms=avg_generation_ms,
         top_event_name=top_event_name,
         top_event_ms=top_event_ms,
         top_event_avg_ms=top_event_avg_ms,
         top_event_nonzero_generation_count=top_event_nonzero_generation_count,
         generations=frame,
+        trimmed_generations=trimmed,
+        trimmed_summary_events=trimmed_events,
+        trimmed_summary_counters=trimmed_counters,
         raw=payload,
     )
+
+
+def _compute_trimmed_event_summary(trimmed: pd.DataFrame) -> dict[str, dict[str, float]]:
+    result: dict[str, dict[str, float]] = {}
+    event_cols = [c for c in trimmed.columns if c.startswith("event::")]
+    n = len(trimmed)
+    for col in event_cols:
+        name = col[len("event::"):]
+        series = trimmed[col]
+        total = float(series.sum())
+        nonzero = int((series > 0).sum())
+        result[name] = {
+            "total_ms": total,
+            "avg_ms_per_generation": total / n if n > 0 else 0.0,
+            "nonzero_generation_count": float(nonzero),
+            "avg_ms_per_nonzero_generation": total / nonzero if nonzero > 0 else 0.0,
+        }
+    return result
+
+
+def _compute_trimmed_counter_summary(trimmed: pd.DataFrame) -> dict[str, dict[str, float]]:
+    result: dict[str, dict[str, float]] = {}
+    counter_cols = [c for c in trimmed.columns if c.startswith("counter::")]
+    n = len(trimmed)
+    for col in counter_cols:
+        name = col[len("counter::"):]
+        series = trimmed[col]
+        total = float(series.sum())
+        nonzero = int((series > 0).sum())
+        result[name] = {
+            "total": total,
+            "avg_per_generation": total / n if n > 0 else 0.0,
+            "nonzero_generation_count": float(nonzero),
+            "avg_per_nonzero_generation": total / nonzero if nonzero > 0 else 0.0,
+        }
+    return result

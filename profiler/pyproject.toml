@@ -1,5 +1,5 @@
 [project]
-name = "moonai-profile-analysis"
+name = "moonai-profiler"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
@@ -9,7 +9,7 @@ dependencies = [
 ]
 
 [project.scripts]
-moonai-profile-analysis = "moonai_profile_analysis.__main__:main"
+moonai-profiler = "moonai_profiler.__main__:main"
 
 [build-system]
 requires = ["hatchling>=1.24"]

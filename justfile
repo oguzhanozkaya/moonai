@@ -56,7 +56,7 @@ setup-ubuntu:
 [group('setup')]
 setup-python:
     cd analysis && uv sync
-    cd profiler_analysis && uv sync
+    cd profiler && uv sync
 
 # Full first-time setup
 [group('setup')]
@@ -162,7 +162,7 @@ analyse:
 # Generate the self-contained HTML profiler report from output/profiles/
 [group('analysis')]
 analyse-profile:
-    cd profiler_analysis && uv run moonai-profile-analysis
+    cd profiler && uv run moonai-profiler
 
 # Full experiment pipeline: run all experiments → generate report
 [group('experiment')]
@@ -240,7 +240,7 @@ bench-nn: release
 [group('dev')]
 profile: release
     ./build/linux-release/moonai config.lua \
-        --experiment baseline_seed42 --headless -g 5 --profile \
+        --experiment baseline_seed42 --headless -g 12 --profile \
         --profile-output output/profiles
 
 # Full profiler pipeline: run profiler -> generate profiler report
