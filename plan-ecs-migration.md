@@ -1,7 +1,7 @@
 # MoonAI ECS Migration Implementation Plan
 
 **Project**: MoonAI - Modular Evolutionary Simulation Platform  
-**Document Version**: 1.0  
+**Document Version**: 2.0 (Revised Post-Audit)  
 **Date**: March 2025  
 **Status**: Approved for Implementation  
 
@@ -11,12 +11,14 @@
 
 This document outlines the comprehensive migration of MoonAI's simulation core from Object-Oriented Programming (OOP) to Entity-Component-System (ECS) architecture. The migration aims to:
 
-- **Maximize GPU delegation** through zero-copy data transfers
-- **Achieve 5-10x simulation performance improvement**
+- **Maximize GPU delegation** through efficient ECS-to-GPU data packing with clean buffer abstraction
+- **Achieve 2-3x simulation performance improvement** (realistic target per audit)
 - **Enable industry-standard data-oriented design patterns**
-- **Maintain full backward compatibility** with existing experiments
+- **Complete legacy code removal** - no dual-mode, no backward compatibility during migration
 
-**Risk Level**: Low (hybrid approach with parallel validation)
+**Risk Level**: Medium (complete rewrite, dev branch only)
+
+**Branch Strategy**: All work on existing `dev` branch. No feature branches.
 
 ---
 
@@ -44,101 +46,149 @@ This document outlines the comprehensive migration of MoonAI's simulation core f
 - Expensive GPU upload (field-by-field extraction)
 - Mixed hot/cold data in single class
 
-### 1.2 Target Architecture (ECS in Simulation Module)
+### 1.2 Target Architecture (ECS Native)
 
+ECS is the **single source of truth** for agent state. GPU kernels consume ECS-aligned data through a clean buffer abstraction.
+
+**Clean ECS-GPU Boundary**:
 ```
-src/simulation/ (ECS Container)
-├── ecs_registry.hpp          [Entity + Component Storage]
-├── ecs_component.hpp         [Component Traits]
-├── components/
-│   ├── core_components.hpp   [Position, Velocity, Energy, Vitals]
-│   └── agent_components.hpp  [Vision, Brain, CombatStats]
-├── systems/
-│   ├── system.hpp            [System Interface]
-│   ├── movement_system.hpp
-│   ├── combat_system.hpp
-│   ├── sensor_system.hpp
-│   └── energy_system.hpp
-└── system_scheduler.hpp      [System Execution]
+┌─────────────────────────────────────┐
+│  ECS Registry (src/simulation/)     │
+│  - SoA component arrays             │
+│  - Designed for efficient GPU pack  │
+└──────────────┬──────────────────────┘
+               │ ECS fills GPU buffers
+               ▼
+┌─────────────────────────────────────┐
+│  GpuDataBuffer (src/gpu/)           │
+│  - Pinned host memory buffers       │
+│  - Device pointer management        │
+│  - Clean abstraction layer          │
+└──────────────┬──────────────────────┘
+               │ Async H2D copy
+               ▼
+┌─────────────────────────────────────┐
+│  GPU Kernels (src/gpu/*.cu)         │
+│  - Read from device buffers         │
+│  - No ECS dependencies              │
+└─────────────────────────────────────┘
+```
+
+**Module Structure**:
+```
+src/simulation/               (ECS Core - SoA Storage)
+├── registry.hpp              [SoA Component Storage]
+├── components.hpp            [SoA Component Definitions]  
+├── entity.hpp                [Entity = dense index]
+├── systems/                  [System implementations]
+│   ├── movement.hpp
+│   ├── sensors.hpp
+│   ├── combat.hpp
+│   └── ...
+└── simulation_manager.hpp    [Coordinates systems]
+
+src/gpu/                      (GPU Layer)
+├── gpu_data_buffer.hpp       [Buffer abstraction]
+├── gpu_batch.hpp             [Kernel orchestration]
+├── kernels.cu                [Device kernels]
+└── gpu_types.hpp             [GPU data structures]
 
 src/evolution/
-├── brain_component.hpp       [Entity → Genome/NN Link]
-└── evolution_manager.hpp     [Modified for ECS]
-
-src/gpu/
-└── ecs_gpu_bridge.hpp        [Zero-Copy Uploads]
+├── evolution_manager.hpp     [Entity → Genome/NN mapping]
+└── ...                       [Genome, NN unchanged (OOP)]
 
 src/visualization/
-└── [Modified to query ECS]
+└── [Queries ECS directly]
 ```
 
+**Key Design Decisions**:
+1. **SoA Components**: ECS uses separate x/y arrays for GPU-friendly packing
+2. **Entity = Index**: Dense storage; Entity ID is array index
+3. **Clean GPU Boundary**: ECS fills `GpuDataBuffer`, kernels read from buffers
+4. **No Direct ECS Access**: Kernels don't access ECS registry directly
+5. **OOP Only for NN**: Genome/NeuralNetwork remain OOP (variable topology)
+
 **Benefits**:
-- Cache-friendly contiguous memory
-- Zero-copy GPU uploads
-- Trivial parallelization
-- Clean separation of concerns
+- **Clean separation**: ECS and GPU are decoupled via buffer abstraction
+- **Testable**: GPU layer can be tested independently of ECS
+- **Cache-friendly**: SoA layout optimized for SIMD/GPU
+- **Maintainable**: No kernel code dependent on ECS structure
 
 ---
 
 ## 2. Migration Strategy
 
-### 2.1 ECS Location
+### 2.1 ECS as Single Source of Truth
 
-**All ECS code in `src/simulation/`**
+**Core Principle**: ECS owns all agent state. No legacy OOP structures maintained in parallel.
 
-The simulation module becomes the ECS container:
-- Registry, components, and systems all in `src/simulation/`
-- One place to find all ECS-related code
-- Simulation owns agent lifecycle
+**Location**: ECS files in `src/simulation/` (registry, components, entity, systems/)
 
-**Files to Delete Immediately**:
-- `src/simulation/agent.hpp`
-- `src/simulation/agent.cpp`
-- `src/simulation/predator.hpp`
-- `src/simulation/predator.cpp`
-- `src/simulation/prey.hpp`
-- `src/simulation/prey.cpp`
+**Files to Delete by Phase** (see Section 2.4):
+- Phase 3: `src/gpu/gpu_batch.cpp` (old version), field extraction code
+- Phase 4: Agent classes (`agent.hpp/cpp`, `predator.hpp/cpp`, `prey.hpp/cpp`)
+- Phase 5: `simulation_manager.cpp` (old implementation), Agent-based physics
 
-**Bridge Layer**:
-- `src/evolution/` → `src/simulation/` (EvolutionManager uses Registry)
-- `src/gpu/` → `src/simulation/` (ECSGpuBridge reads component arrays)
-- `src/visualization/` → `src/simulation/` (Renderer queries components)
+**Integration Points**:
+- `EvolutionManager` holds `std::unordered_map<Entity, Genome>` outside ECS
+- `GpuDataBuffer` provides clean abstraction between ECS and GPU kernels
+- `SimulationManager` coordinates ECS → GPU buffer population → kernel launch
+- `VisualizationManager` queries ECS registry directly
 
-### 2.2 Parallel Validation
+### 2.2 No Dual-Mode Validation
 
-During migration, both architectures will run simultaneously:
-
-```cpp
-// Phase 2-4: Validation mode
-class DualModeSimulation {
-    SimulationManager oop_sim;      // Legacy
-    EcsWorld ecs_sim;               // New
-    
-public:
-    void step() {
-        oop_sim.step(dt);
-        ecs_sim.step(dt);
-        
-        // Validate bit-exact equivalence
-        assert(compare_states(oop_sim, ecs_sim));
-    }
-};
-```
+**Removed**: No parallel OOP/ECS execution. Validation via:
+1. **Snapshot Testing**: Compare ECS output to saved baseline runs
+2. **Statistical Validation**: Run 10 seeds, verify distributions match (±5%)
+3. **Property-Based Tests**: Energy conservation, population dynamics
 
 ### 2.3 Implementation Approach
 
-**Custom ECS in Simulation Module**
+**True ECS with Clean GPU Boundary**
 
-- **Structure of Arrays (SoA)** for cache-friendly iteration
-- **Sparse set** storage for O(1) component access  
-- **Zero-copy GPU transfers** - direct pointer passing to CUDA
-- **All files in `src/simulation/`** - single location for ECS code
+- **Structure of Arrays (SoA)**: ECS uses separate `pos_x`, `pos_y` arrays for GPU-friendly data packing
+- **Entity = Dense Index**: Entity ID is array index into component arrays
+- **Clean GPU Abstraction**: ECS → `GpuDataBuffer` → kernels (decoupled)
+- **Efficient Packing**: ECS structures designed for fast memcpy into GPU buffers
 
-**Why Custom:**
-- Optimized memory layout for GPU (not generic framework)
-- Direct `cudaMemcpy()` from component arrays
-- Full control over pinned memory allocation
-- Educational value for academic project
+**ECS-GPU Data Flow**:
+1. ECS maintains agent state in SoA arrays
+2. `SimulationManager` packs ECS data into `GpuDataBuffer` (single memcpy per component)
+3. `GpuDataBuffer` manages pinned host memory and device pointers
+4. Kernels read from device buffers, write results back
+5. Results copied back to ECS arrays
+
+**Why This Approach:**
+- **Clean separation**: ECS and GPU are independent, testable separately
+- **No field extraction**: ECS → buffer is contiguous memcpy (fast)
+- **Maintainable**: Kernel code doesn't depend on ECS structure
+- **Flexible**: Can optimize packing without changing ECS or kernels
+
+### 2.4 Legacy Code Removal Checklist
+
+**Phase 3 (GPU Integration) Cleanup**:
+- [ ] Delete old `gpu_batch.cpp` implementation
+- [ ] Remove field extraction helpers from `evolution_manager.cpp`
+- [ ] Delete `GpuNetworkData` packing code (replaced by ECS-native)
+
+**Phase 4 (Evolution Integration) Cleanup**:
+- [ ] `src/simulation/agent.hpp` + `agent.cpp`
+- [ ] `src/simulation/predator.hpp` + `predator.cpp`
+- [ ] `src/simulation/prey.hpp` + `prey.cpp`
+- [ ] `SimulationManager::agents_` vector and related methods
+
+**Phase 5 (Visualization) Cleanup**:
+- [ ] Old `SimulationManager` implementation
+- [ ] Agent-based `Physics::build_sensors`
+- [ ] Agent-based `Physics::process_attacks`
+- [ ] Update all includes to remove Agent headers
+
+**Final Cleanup**:
+- [ ] Remove `AgentId` typedef (use `Entity` = uint32_t)
+- [ ] Clean up CMakeLists.txt
+- [ ] Run include-what-you-use
+
+**Branch Strategy**: All work on existing `dev` branch. Each phase ends with commit. If phase fails, reset dev to last good commit.
 
 ---
 
@@ -202,219 +252,168 @@ struct ComponentTraits {
 ```cpp
 // src/simulation/registry.hpp
 #pragma once
-#include "simulation/ecs_entity.hpp"
-#include "simulation/ecs_component.hpp"
+#include "simulation/entity.hpp"
+#include "simulation/components.hpp"
 #include <vector>
-#include <unordered_map>
-#include <typeindex>
-#include <memory>
+#include <cstdint>
 
-namespace moonai {
+namespace moonai::ecs {
 
-// Sparse set for O(1) component access
-template<Component T>
-class SparseSet {
-public:
-    struct Iterator {
-        size_t index;
-        SparseSet* set;
-        
-        T& operator*() { return set->dense[index]; }
-        T* operator->() { return &set->dense[index]; }
-        Iterator& operator++() { ++index; return *this; }
-        bool operator!=(const Iterator& other) { return index != other.index; }
-    };
-    
-    void insert(Entity e, T component);
-    void remove(Entity e);
-    bool has(Entity e) const;
-    T& get(Entity e);
-    const T& get(Entity e) const;
-    
-    Iterator begin() { return Iterator{0, this}; }
-    Iterator end() { return Iterator{dense.size(), this}; }
-    
-    size_t size() const { return dense.size(); }
-    T* data() { return dense.data(); }
-    const T* data() const { return dense.data(); }
-    const std::vector<Entity>& entities() const { return entity_to_dense; }
-    
-private:
-    std::vector<T> dense;                    // Contiguous component data
-    std::vector<Entity> entity_to_dense;     // Reverse mapping
-    std::vector<size_t> sparse;              // Entity -> dense index
-};
+using Entity = uint32_t;
+constexpr Entity INVALID_ENTITY = UINT32_MAX;
 
+// Registry: Owns all component SoA arrays
+// Entity = dense index (0 to capacity-1)
+// No sparse sets - direct array access
 class Registry {
 public:
-    Entity create();
+    // Component storage (public for GPU direct access)
+    PositionSoA position;
+    MotionSoA motion;
+    VitalsSoA vitals;
+    IdentitySoA identity;
+    SensorSoA sensor;
+    StatsSoA stats;
+    VisualSoA visual;
+    
+    // Entity management
+    Entity create(AgentType type);
     void destroy(Entity e);
-    bool alive(Entity e) const;
-    size_t size() const;
+    bool alive(Entity e) const { return e < alive_.size() && alive_[e]; }
+    size_t size() const { return active_count_; }
+    size_t capacity() const { return alive_.size(); }
     
-    template<Component T>
-    void emplace(Entity e, T component);
+    // Batch operations
+    void resize(size_t n);
+    void clear();
     
-    template<Component T>
-    void remove(Entity e);
+    // Iteration
+    template<typename Func>
+    void for_each(Func&& func);
     
-    template<Component T>
-    bool has(Entity e) const;
+    template<typename Func>
+    void for_each_alive(Func&& func);
     
-    template<Component T>
-    T& get(Entity e);
-    
-    template<Component T>
-    const T& get(Entity e) const;
-    
-    template<Component... Ts>
-    auto query();
-    
-    template<Component... Ts>
-    auto query() const;
+    // GPU integration
+    void* device_ptr(ComponentType type) const;
+    void register_for_gpu();
     
 private:
-    std::vector<Entity> available_ids;
-    std::vector<uint32_t> generations;
-    std::unordered_map<std::type_index, std::shared_ptr<void>> pools;
+    std::vector<uint8_t> alive_;        // Dense: true if entity exists
+    std::vector<uint32_t> generation_;  // For entity validation
+    std::vector<uint32_t> free_list_;   // Recycled indices
+    size_t active_count_ = 0;
     
-    template<Component T>
-    SparseSet<T>* pool();
+    // Pinned memory for async GPU transfers
+    struct PinnedBuffers {
+        float* positions = nullptr;
+        float* vitals = nullptr;
+        // ... allocated via cudaHostAlloc
+    } pinned_;
 };
 
-} // namespace moonai
+} // namespace moonai::ecs
 ```
 
-#### 3.1.2 Implement Component Types
+#### 3.1.2 Implement SoA Component Types
 
 **Files to Create**:
-- `src/simulation/components/core.hpp` - Position, Velocity, etc.
-- `src/simulation/components/agent.hpp` - Agent-specific components
-- `src/simulation/components/gpu_aligned.hpp` - GPU-compatible layouts
+- `src/simulation/components.hpp` - All SoA component definitions
+
+**Design**: SoA layout matches GPU kernel expectations exactly.
 
 ```cpp
-// src/simulation/components/core.hpp
+// src/simulation/components.hpp
 #pragma once
-#include "simulation/ecs_component.hpp"
-#include "core/types.hpp"
+#include <cstdint>
+#include <vector>
 
 namespace moonai {
 
-// Transform components (hot - accessed every frame)
-struct Position {
-    float x = 0.0f;
-    float y = 0.0f;
+// Position: Separate x/y for GPU coalesced access
+struct PositionSoA {
+    std::vector<float> x;
+    std::vector<float> y;
     
-    operator Vec2() const { return {x, y}; }
-    Position& operator=(const Vec2& v) { x = v.x; y = v.y; return *this; }
+    void resize(size_t n) { x.resize(n); y.resize(n); }
+    size_t size() const { return x.size(); }
 };
 
-struct Velocity {
-    float x = 0.0f;
-    float y = 0.0f;
+// Motion: Velocity + speed (from config)
+struct MotionSoA {
+    std::vector<float> vel_x;
+    std::vector<float> vel_y;
+    std::vector<float> speed;  // Predator/prey speed from config
     
-    operator Vec2() const { return {x, y}; }
-};
-
-struct Rotation {
-    float angle = 0.0f;  // For visual orientation
-};
-
-// Vitals components (hot)
-struct Energy {
-    float current = 0.0f;
-    float max = 0.0f;
-};
-
-struct Vitals {
-    int age = 0;
-    bool alive = true;
-    int reproduction_cooldown = 0;
-};
-
-// Identity components (static)
-enum class AgentType { Predator, Prey };
-
-struct AgentTypeTag {
-    AgentType type;
-};
-
-struct SpeciesId {
-    int id = -1;
-};
-
-// Stats components (warm - updated occasionally)
-struct PerformanceStats {
-    int kills = 0;
-    int food_eaten = 0;
-    float distance_traveled = 0.0f;
-    int offspring_count = 0;
-};
-
-// Sensory components (hot - AI input)
-struct Vision {
-    float range = 200.0f;
-};
-
-struct SensorInput {
-    static constexpr int SIZE = 10;
-    float data[SIZE] = {0};  // Aligned for SIMD/GPU
-    
-    void write_to(float* dst) const {
-        std::memcpy(dst, data, sizeof(data));
+    void resize(size_t n) { 
+        vel_x.resize(n); vel_y.resize(n); speed.resize(n); 
     }
 };
 
-// AI components (warm)
-struct Brain {
-    // References to evolution-managed objects
-    void* genome_ptr = nullptr;      // Genome*
-    void* network_ptr = nullptr;     // NeuralNetwork*
+// Vitals: Updated by GPU kernels
+struct VitalsSoA {
+    std::vector<float> energy;
+    std::vector<int> age;
+    std::vector<uint8_t> alive;  // 0/1 for GPU efficiency
+    std::vector<int> reproduction_cooldown;
     
-    // Cached sensor outputs
-    float decision_x = 0.0f;
-    float decision_y = 0.0f;
+    void resize(size_t n) {
+        energy.resize(n); age.resize(n); 
+        alive.resize(n); reproduction_cooldown.resize(n);
+    }
 };
 
-// Combat components
-struct CombatStats {
-    float attack_range = 20.0f;
-    int kills_this_step = 0;
+// Identity: Set at birth, mostly static
+struct IdentitySoA {
+    std::vector<uint8_t> type;        // 0=Predator, 1=Prey
+    std::vector<uint32_t> species_id;
+    std::vector<uint32_t> entity_id;  // Stable ID for external refs
+    
+    void resize(size_t n) {
+        type.resize(n); species_id.resize(n); entity_id.resize(n);
+    }
 };
 
-// Reproduction components
-struct Reproductive {
-    float energy_threshold = 175.0f;
-    float mate_range = 40.0f;
-    bool eligible = false;
+// Sensors: NN input/output
+struct SensorSoA {
+    static constexpr int INPUT_COUNT = 15;
+    static constexpr int OUTPUT_COUNT = 2;
+    
+    // Flat layout: [entity_index * INPUT_COUNT + sensor_index]
+    std::vector<float> inputs;
+    std::vector<float> outputs;  // NN decisions [entity][2]
+    
+    void resize(size_t n) {
+        inputs.resize(n * INPUT_COUNT);
+        outputs.resize(n * OUTPUT_COUNT);
+    }
+    
+    float* input_ptr(size_t entity) { return &inputs[entity * INPUT_COUNT]; }
+    float* output_ptr(size_t entity) { return &outputs[entity * OUTPUT_COUNT]; }
 };
 
-// Visual components (cold - only for rendering)
-struct Visual {
-    float radius = 5.0f;
-    uint32_t color_rgba = 0xFFFFFFFF;  // ABGR format
-    uint32_t shape_type = 0;  // 0=circle, 1=triangle
+// Stats: Accumulated during step
+struct StatsSoA {
+    std::vector<int> kills;
+    std::vector<int> food_eaten;
+    std::vector<float> distance_traveled;
+    std::vector<int> offspring_count;
+    
+    void resize(size_t n) {
+        kills.resize(n); food_eaten.resize(n);
+        distance_traveled.resize(n); offspring_count.resize(n);
+    }
 };
 
-// GPU-aligned component for zero-copy transfers
-struct alignas(16) GpuAgentState {
-    float pos_x, pos_y;
-    float vel_x, vel_y;
-    float energy;
-    float vision_range;
-    int age;
-    int kills;
-    int food_eaten;
-    uint32_t id;
-    uint32_t type;
-    uint32_t alive;
-    uint32_t _padding;  // Align to 16 bytes
-};
-
-template<>
-struct ComponentTraits<GpuAgentState> {
-    static constexpr bool gpu_aligned = true;
-    static constexpr size_t max_count = 50000;
+// Visual: Rendering data (cold)
+struct VisualSoA {
+    std::vector<float> radius;
+    std::vector<uint32_t> color_rgba;  // ABGR
+    std::vector<uint8_t> shape_type;   // 0=circle, 1=triangle
+    
+    void resize(size_t n) {
+        radius.resize(n); color_rgba.resize(n); shape_type.resize(n);
+    }
 };
 
 } // namespace moonai
@@ -633,204 +632,237 @@ void SensorSystem::update(Registry& registry, float dt) {
 }
 ```
 
-#### 3.2.4 Create Dual-Mode Validation Framework
+#### 3.2.4 Validation Strategy
+
+**No Dual-Mode**: Compare ECS against saved baselines, not running OOP code.
 
 ```cpp
-// src/validation/dual_mode.hpp
-#pragma once
-#include "simulation/simulation_manager.hpp"
-#include "simulation/ecs_registry.hpp"
-#include "simulation/systems/all.hpp"
+// tests/test_ecs_validation.cpp
+TEST(ECSSystems, MatchesBaseline) {
+    // Run ECS version with fixed seed
+    ecs::Registry registry;
+    // ... setup ...
+    
+    // Load baseline from legacy run (saved JSON)
+    auto baseline = load_baseline("baseline_1000_steps.json");
+    
+    // Compare key metrics (chaotic system - statistical match, not bit-exact)
+    EXPECT_NEAR(registry.count_alive(), baseline.alive_count, 5);
+    EXPECT_NEAR(avg_fitness(registry), baseline.avg_fitness, 0.1f);
+    EXPECT_NEAR(species_count(registry), baseline.species_count, 2);
+}
 
-namespace moonai::validation {
+TEST(ECSSystems, StatisticalMatch) {
+    // Run 10 seeds with ECS
+    // Compare distributions to legacy baselines
+    // Must match within 5% for all metrics
+}
 
-class DualModeSimulator {
-public:
-    DualModeSimulator(const SimulationConfig& config);
-    
-    void initialize();
-    void step(float dt);
-    bool validate() const;
-    
-private:
-    SimulationConfig config_;
-    
-    // Legacy OOP simulation
-    std::unique_ptr<SimulationManager> oop_sim_;
-    
-    // New ECS simulation
-    std::unique_ptr<ecs::Registry> ecs_registry_;
-    std::unique_ptr<ecs::SystemScheduler> ecs_scheduler_;
-    
-    void sync_ecs_to_oop();
-    void sync_oop_to_ecs();
-    bool compare_states() const;
-};
-
-} // namespace moonai::validation
+TEST(ECSSystems, EnergyConservation) {
+    // Total energy (agents + food) should be conserved
+    float total_before = total_energy(registry);
+    // ... run 100 steps ...
+    float total_after = total_energy(registry);
+    EXPECT_NEAR(total_before, total_after, 0.01f);
+}
 ```
 
-#### 3.2.5 Validation Criteria
+#### 3.2.5 Legacy Code Removal - Phase 2
 
-- [ ] All systems produce identical output to legacy code
-- [ ] Performance improvement measurable (target: 3x+ on 10K agents)
-- [ ] Thread safety verified with thread sanitizer
-- [ ] Memory usage reduced (no unique_ptr overhead)
+**Files Deleted**: None (additive phase)
+
+**Files Modified**:
+- `src/simulation/physics.hpp/cpp` - Add ECS-compatible functions
+
+#### 3.2.6 Validation Criteria
+
+- [ ] All systems pass unit tests
+- [ ] Statistical match to baseline within 5%
+- [ ] Performance benchmark: 2x+ improvement on 10K agents
+- [ ] Thread safety verified (ThreadSanitizer)
+- [ ] Memory usage reduced vs. legacy
 
 ---
 
-### Phase 3: GPU Integration
+### Phase 3: GPU Integration with Clean Abstraction
 
-**Goal**: Achieve zero-copy GPU transfers and maximize GPU delegation
+**Goal**: Implement clean ECS-GPU boundary with buffer abstraction
 
-#### 3.3.1 Create ECS-GPU Bridge
+#### 3.3.1 GpuDataBuffer - Clean Abstraction Layer
 
 **Files to Create**:
-- `src/simulation/gpu/bridge.hpp` - ECS to GPU bridge
-- `src/simulation/gpu/bridge.cpp`
-- `src/simulation/gpu/buffer_manager.hpp` - GPU buffer management
+- `src/gpu/gpu_data_buffer.hpp` - Buffer management
+- `src/gpu/gpu_batch.hpp` - Kernel orchestration
+- `src/gpu/kernels.cu` - Device kernels
+
+**Design**: ECS fills `GpuDataBuffer`, kernels consume buffers (decoupled)
 
 ```cpp
-// src/simulation/gpu/bridge.hpp
+// src/gpu/gpu_data_buffer.hpp
 #pragma once
-#include "simulation/ecs_registry.hpp"
-#include "gpu/gpu_batch.hpp"
+#include <cstddef>
+#include <cuda_runtime.h>
 
 namespace moonai::gpu {
 
-class EcsGpuBridge {
+// GPU buffer abstraction - clean ECS/GPU boundary
+class GpuDataBuffer {
 public:
-    EcsGpuBridge(Registry* registry, moonai::gpu::GpuBatch* gpu_batch);
+    GpuDataBuffer(size_t max_agents);
+    ~GpuDataBuffer();
     
-    // Enable zero-copy mode (pinned memory)
-    void enable_zero_copy();
+    // ECS fills these (pinned host memory)
+    float* host_positions_x() { return h_pos_x_; }
+    float* host_positions_y() { return h_pos_y_; }
+    float* host_energy() { return h_energy_; }
+    uint8_t* host_alive() { return h_alive_; }
+    // ... other host accessors
     
-    // Upload current ECS state to GPU
-    void upload_async();
+    // Async transfer to device
+    void upload_async(size_t count, cudaStream_t stream);
+    void download_async(size_t count, cudaStream_t stream);
     
-    // Download GPU results back to ECS
-    void download_async();
-    
-    // Full GPU ecology step
-    void run_ecology_step(const EcologyStepParams& params);
+    // Kernels read from these (device memory)
+    float* device_positions_x() const { return d_pos_x_; }
+    float* device_positions_y() const { return d_pos_y_; }
+    float* device_energy() const { return d_energy_; }
+    uint8_t* device_alive() const { return d_alive_; }
+    // ... other device accessors
     
 private:
-    Registry* registry_;
-    moonai::gpu::GpuBatch* gpu_batch_;
+    // Pinned host memory
+    float* h_pos_x_ = nullptr;
+    float* h_pos_y_ = nullptr;
+    float* h_energy_ = nullptr;
+    uint8_t* h_alive_ = nullptr;
     
-    bool zero_copy_enabled_ = false;
+    // Device memory
+    float* d_pos_x_ = nullptr;
+    float* d_pos_y_ = nullptr;
+    float* d_energy_ = nullptr;
+    uint8_t* d_alive_ = nullptr;
     
-    // Pinned memory buffers (for zero-copy)
-    float* pinned_positions_x_ = nullptr;
-    float* pinned_positions_y_ = nullptr;
-    float* pinned_energy_ = nullptr;
-    
-    void allocate_pinned_buffers();
-    void free_pinned_buffers();
+    size_t capacity_;
 };
 
 } // namespace moonai::gpu
 ```
 
 ```cpp
-// src/simulation/gpu/bridge.cpp
-#include "gpu/bridge.hpp"
-#include "simulation/components/core.hpp"
+// src/gpu/kernels.cu
+namespace moonai::gpu {
+
+// Kernels operate on device buffers (no ECS dependency)
+__global__ void kernel_build_sensors(
+    const float* __restrict__ pos_x,
+    const float* __restrict__ pos_y,
+    const uint8_t* __restrict__ types,
+    const float* __restrict__ energy,
+    float* __restrict__ sensor_inputs,
+    int count);
+
+__global__ void kernel_apply_movement(
+    const float* __restrict__ decisions_x,
+    const float* __restrict__ decisions_y,
+    float* __restrict__ pos_x,
+    float* __restrict__ pos_y,
+    float* __restrict__ vel_x,
+    float* __restrict__ vel_y,
+    float* __restrict__ energy,
+    float dt, int count, float world_width, float world_height);
+
+__global__ void kernel_process_combat(
+    const float* __restrict__ pos_x,
+    const float* __restrict__ pos_y,
+    const uint8_t* __restrict__ types,
+    float* __restrict__ energy,
+    uint8_t* __restrict__ alive,
+    int* __restrict__ kills,
+    float attack_range, int count);
+
+} // namespace moonai::gpu
+```
+
+```cpp
+// src/gpu/gpu_batch.hpp
+#pragma once
+#include "gpu/gpu_data_buffer.hpp"
+#include "gpu/gpu_types.hpp"
 
 namespace moonai::gpu {
 
-void EcsGpuBridge::upload_async() {
-    if (zero_copy_enabled_) {
-        // GPU reads directly from ECS arrays - NO COPY NEEDED
-        // Just ensure arrays are registered with CUDA
-        return;
-    }
+// Orchestrates GPU computation using buffers
+class GpuBatch {
+public:
+    GpuBatch(int max_agents, int max_food);
     
-    // Fast path: Single memcpy per component array
-    auto& positions = registry_->pool<Position>()->data();
-    auto& energies = registry_->pool<Energy>()->data();
-    auto& vitals = registry_->pool<Vitals>()->data();
+    // Access buffer for ECS population
+    GpuDataBuffer& buffer() { return buffer_; }
     
-    // Upload positions (x and y separately for GPU alignment)
-    size_t count = registry_->size();
+    // Launch kernels on device buffers
+    void launch_full_step(const StepParams& params, int agent_count);
+    void synchronize();
     
-    // Extract x coordinates (could be avoided with SoA, but this is still fast)
-    std::vector<float> xs(count), ys(count);
-    for (size_t i = 0; i < count; ++i) {
-        xs[i] = positions[i].x;
-        ys[i] = positions[i].y;
-    }
+private:
+    GpuDataBuffer buffer_;
+    cudaStream_t stream_;
     
-    cudaMemcpyAsync(gpu_batch_->d_agent_pos_x(), xs.data(), 
-                    count * sizeof(float), cudaMemcpyHostToDevice, 
-                    (cudaStream_t)gpu_batch_->stream_handle());
-    cudaMemcpyAsync(gpu_batch_->d_agent_pos_y(), ys.data(),
-                    count * sizeof(float), cudaMemcpyHostToDevice,
-                    (cudaStream_t)gpu_batch_->stream_handle());
-    
-    // Upload energy
-    std::vector<float> energy_values(count);
-    for (size_t i = 0; i < count; ++i) {
-        energy_values[i] = energies[i].current;
-    }
-    cudaMemcpyAsync(gpu_batch_->d_agent_energy(), energy_values.data(),
-                    count * sizeof(float), cudaMemcpyHostToDevice,
-                    (cudaStream_t)gpu_batch_->stream_handle());
-    
-    // Upload other fields...
-}
-
-void EcsGpuBridge::enable_zero_copy() {
-    auto* pos_pool = registry_->pool<Position>();
-    
-    // Pin the ECS component arrays
-    cudaHostRegister(pos_pool->data(), 
-                     pos_pool->size() * sizeof(Position),
-                     cudaHostRegisterMapped);
-    
-    // Get device pointers
-    float* d_positions;
-    cudaHostGetDevicePointer((void**)&d_positions, pos_pool->data(), 0);
-    
-    // GPU can now read directly from ECS memory
-    zero_copy_enabled_ = true;
-}
+    // Neural network data (packed separately)
+    GpuNetworkData networks_;
+};
 
 } // namespace moonai::gpu
 ```
 
-#### 3.3.2 Optimize GPU Memory Layout
+#### 3.3.2 ECS-to-GPU Data Flow
 
-**Goal**: Ensure ECS arrays map 1:1 to GPU structures
-
+**SimulationManager Integration**:
 ```cpp
-// Option: Use GPU-aligned storage directly in ECS
-struct GpuAlignedStorage {
-    // Interleaved layout matching GPU expectations
-    std::vector<float> pos_x;
-    std::vector<float> pos_y;
-    std::vector<float> vel_x;
-    std::vector<float> vel_y;
-    std::vector<float> energy;
-    std::vector<int> age;
-    std::vector<uint32_t> alive;
+void SimulationManager::step_gpu(float dt) {
+    // 1. Pack ECS data into GPU buffer (fast memcpy)
+    auto& buffer = gpu_batch_.buffer();
     
-    // Map to ECS component views
-    auto positions_view() {
-        return ranges::views::zip(pos_x, pos_y) | 
-               ranges::views::transform([](auto p) -> Position {
-                   return {std::get<0>(p), std::get<1>(p)};
-               });
-    }
-};
+    // Contiguous memcpy from ECS SoA arrays to pinned buffer
+    std::memcpy(buffer.host_positions_x(), 
+                registry_.position.x.data(), 
+                registry_.size() * sizeof(float));
+    std::memcpy(buffer.host_positions_y(),
+                registry_.position.y.data(),
+                registry_.size() * sizeof(float));
+    // ... copy other components
+    
+    // 2. Async upload and launch kernels
+    buffer.upload_async(registry_.size(), stream);
+    gpu_batch_.launch_full_step(params, registry_.size());
+    buffer.download_async(registry_.size(), stream);
+    
+    // 3. Copy results back to ECS
+    cudaStreamSynchronize(stream);
+    std::memcpy(registry_.vitals.energy.data(),
+                buffer.host_energy(),
+                registry_.size() * sizeof(float));
+    // ... copy results
+}
 ```
 
-#### 3.3.3 Validation Criteria
+#### 3.3.3 Legacy Code Removal - Phase 3
 
-- [ ] GPU upload time <0.05ms (10x improvement)
-- [ ] Zero-copy mode working (optional but desired)
-- [ ] All GPU tests pass with ECS data
-- [ ] Performance parity or improvement vs. current GPU path
+**Files Deleted**:
+- [ ] `src/gpu/gpu_batch.cpp` (old implementation)
+- [ ] `src/gpu/gpu_batch.hpp` (old version)
+- [ ] Field extraction code in `evolution_manager.cpp`
+
+**Files Modified**:
+- `src/evolution/evolution_manager.hpp/cpp` - Use new GpuBatch
+- `src/simulation/simulation_manager.hpp/cpp` - Integrate buffer packing
+
+#### 3.3.4 Validation Criteria
+
+- [ ] ECS → buffer packing is contiguous memcpy (no field extraction)
+- [ ] Kernels have no ECS dependencies (clean abstraction)
+- [ ] All GPU tests pass
+- [ ] Performance: 2x+ improvement vs. legacy GPU path
+- [ ] Correctness: Statistical match to baseline
 
 ---
 
@@ -875,58 +907,78 @@ private:
 #### 3.4.2 Implement Offspring Creation
 
 ```cpp
-void EvolutionManager::create_offspring_ecs(ecs::Registry& registry,
-                                            ecs::Entity parent_a,
-                                            ecs::Entity parent_b,
-                                            Vec2 spawn_position) {
+void EvolutionManager::create_offspring(ecs::Registry& registry,
+                                        ecs::Entity parent_a,
+                                        ecs::Entity parent_b,
+                                        Vec2 spawn_position) {
     // Get parent genomes
     const Genome& genome_a = entity_genomes_[parent_a];
     const Genome& genome_b = entity_genomes_[parent_b];
     
-    // Create child genome
+    // Create child genome through crossover/mutation
     Genome child_genome = create_child_genome(genome_a, genome_b);
     
-    // Create new ECS entity
+    // Create new ECS entity (dense index)
     ecs::Entity child = registry.create();
+    size_t idx = child;  // Entity = index in SoA arrays
     
-    // Add components
-    registry.emplace<ecs::Position>(child, spawn_position);
-    registry.emplace<ecs::Velocity>(child, {0.0f, 0.0f});
-    registry.emplace<ecs::Energy>(child, {config_.offspring_initial_energy,
-                                          config_.initial_energy});
-    registry.emplace<ecs::Vitals>(child, ecs::Vitals{0, true, 0});
-    registry.emplace<ecs::AgentTypeTag>(child, 
-        registry.get<ecs::AgentTypeTag>(parent_a));
-    registry.emplace<ecs::Vision>(child, 
-        ecs::Vision{config_.vision_range});
-    registry.emplace<ecs::PerformanceStats>(child);
-    registry.emplace<ecs::Brain>(child);
-    registry.emplace<ecs::Visual>(child);
+    // Initialize SoA arrays at index
+    registry.position.x[idx] = spawn_position.x;
+    registry.position.y[idx] = spawn_position.y;
+    registry.motion.vel_x[idx] = 0.0f;
+    registry.motion.vel_y[idx] = 0.0f;
+    registry.motion.speed[idx] = registry.motion.speed[parent_a];  // Same type
+    registry.vitals.energy[idx] = config_.offspring_initial_energy;
+    registry.vitals.age[idx] = 0;
+    registry.vitals.alive[idx] = 1;
+    registry.vitals.reproduction_cooldown[idx] = 0;
+    registry.identity.type[idx] = registry.identity.type[parent_a];
+    registry.identity.species_id[idx] = registry.identity.species_id[parent_a];
+    registry.identity.entity_id[idx] = next_entity_id_++;
+    registry.visual.radius[idx] = (registry.identity.type[idx] == 0) ? 6.0f : 4.0f;
+    registry.visual.color_rgba[idx] = (registry.identity.type[idx] == 0) ? 0xFF0000FF : 0x00FF00FF;
+    
+    // Clear stats
+    registry.stats.kills[idx] = 0;
+    registry.stats.food_eaten[idx] = 0;
+    registry.stats.distance_traveled[idx] = 0.0f;
+    registry.stats.offspring_count[idx] = 0;
     
     // Store genome and create neural network
     entity_genomes_[child] = std::move(child_genome);
     entity_networks_[child] = std::make_unique<NeuralNetwork>(
         entity_genomes_[child], config_.activation_function);
     
-    // Update brain component with pointers
-    auto& brain = registry.get<ecs::Brain>(child);
-    brain.genome_ptr = &entity_genomes_[child];
-    brain.network_ptr = entity_networks_[child].get();
-    
     // Deduct energy from parents
-    auto& energy_a = registry.get<ecs::Energy>(parent_a);
-    auto& energy_b = registry.get<ecs::Energy>(parent_b);
-    energy_a.current -= config_.reproduction_energy_cost;
-    energy_b.current -= config_.reproduction_energy_cost;
+    registry.vitals.energy[parent_a] -= config_.reproduction_energy_cost;
+    registry.vitals.energy[parent_b] -= config_.reproduction_energy_cost;
 }
 ```
 
-#### 3.4.3 Validation Criteria
+#### 3.4.3 Legacy Code Removal - Phase 4
 
-- [ ] NEAT evolution behavior identical to legacy
+**Files Deleted**:
+- [ ] `src/simulation/agent.hpp`
+- [ ] `src/simulation/agent.cpp`
+- [ ] `src/simulation/predator.hpp`
+- [ ] `src/simulation/predator.cpp`
+- [ ] `src/simulation/prey.hpp`
+- [ ] `src/simulation/prey.cpp`
+- [ ] `SimulationManager::agents_` vector and Agent-related methods
+
+**Files Modified**:
+- `src/simulation/simulation_manager.hpp/cpp` - Remove all Agent references, use ECS only
+- `src/simulation/physics.hpp/cpp` - Remove Agent-based function signatures
+- `src/evolution/evolution_manager.hpp/cpp` - Remove legacy methods
+
+#### 3.4.4 Validation Criteria
+
+- [ ] NEAT evolution behavior matches baseline (±5%)
 - [ ] Species clustering works correctly
-- [ ] Fitness calculation matches legacy results
+- [ ] Fitness calculation matches baseline results
 - [ ] Genome complexity tracking accurate
+- [ ] No `Agent` references remain in codebase
+- [ ] All tests pass after legacy removal
 
 ---
 
@@ -1033,26 +1085,34 @@ void UiOverlay::draw(sf::RenderTarget& target,
 }
 ```
 
-#### 3.5.3 Remove Legacy Code
+#### 3.5.3 Legacy Code Removal - Phase 5
 
-**Files to Remove**:
-- `src/simulation/agent.hpp`
-- `src/simulation/agent.cpp`
-- `src/simulation/predator.hpp`
-- `src/simulation/predator.cpp`
-- `src/simulation/prey.hpp`
-- `src/simulation/prey.cpp`
+**Files Deleted**:
+- [ ] Old `src/simulation/simulation_manager.cpp` (complete rewrite)
+- [ ] Agent-based sensor building in `physics.cpp`
+- [ ] Agent-based combat processing in `physics.cpp`
+- [ ] Any remaining `AgentId` typedef references (replace with `ecs::Entity`)
 
-**Files to Modify**:
-- `src/simulation/simulation_manager.hpp` - Remove Agent references
-- `src/simulation/simulation_manager.cpp` - Replace with ECS
+**Files Modified**:
+- `src/simulation/simulation_manager.hpp/cpp` - Complete rewrite using ECS
+- `src/main.cpp` - Update main loop for ECS
+- `src/visualization/visualization_manager.hpp/cpp` - Query ECS directly
+- `CMakeLists.txt` - Remove deleted files from build
+
+**Cleanup Tasks**:
+- [ ] Run include-what-you-use to clean up headers
+- [ ] Remove all `unique_ptr<Agent>` references
+- [ ] Update all function signatures to use `ecs::Entity` instead of `AgentId`
+- [ ] Verify no legacy code references in comments
 
 #### 3.5.4 Validation Criteria
 
-- [ ] All visualization features work (selection, vision toggle, etc.)
-- [ ] Performance in visual mode improved
-- [ ] Legacy Agent files removed
+- [ ] All visualization features work (selection, vision toggle, NN panel, etc.)
+- [ ] Performance in visual mode: 3x+ improvement
+- [ ] All legacy Agent files removed
 - [ ] All tests pass
+- [ ] Code compiles with no deprecation warnings
+- [ ] `just build` and `just test` pass clean
 
 ---
 
@@ -1100,7 +1160,9 @@ class SystemScheduler {
         std::unique_ptr<System> system;
         std::vector<SystemNode*> dependencies;
         std::vector<SystemNode*> dependents;
-    };
+};
+
+} // namespace moonai
     
 public:
     void add_system(std::unique_ptr<System> sys, 
@@ -1141,7 +1203,7 @@ void Registry::deserialize(const std::string& filepath);
 4. **Performance**: Benchmarks vs. legacy
 
 ```cpp
-// tests/ecs/test_integration.cpp
+// tests/test_ecs_integration.cpp
 TEST_F(ECSSimulation, Determinism) {
     // Run OOP and ECS versions with same seed
     run_oop_simulation(1000);
@@ -1160,13 +1222,21 @@ TEST_F(ECSSimulation, Performance) {
 }
 ```
 
-### 4.2 Validation Mode
+### 4.2 Validation Strategy
 
-Add `--validate` flag to run both architectures:
+**No Dual-Mode Validation**: Compare against saved baselines instead of running OOP code.
 
+**Approach**:
+1. **Pre-Migration**: Save baseline runs (10 seeds, 1000 steps each) from legacy code
+2. **Post-Phase**: Compare ECS output to baselines
+3. **Statistical Match**: Distributions must match within 5%, not bit-exact (chaotic system)
+
+**Validation Script**:
 ```bash
-./moonai config.lua --validate --steps 1000
-# Runs OOP and ECS side-by-side, reports differences
+# Compare ECS run to baseline
+./moonai config.lua --experiment baseline --seed 42 --steps 1000
+./scripts/compare_to_baseline.py --baseline baseline_seed42.json --output output/baseline/
+# Reports: population match, fitness match, species count match
 ```
 
 ### 4.3 Performance Profiling
@@ -1200,31 +1270,41 @@ Add `--validate` flag to run both architectures:
 - [ ] Unit tests passing
 - [ ] Performance benchmarks acceptable
 
-### Phase 2
+### Phase 2 - Legacy: None (Additive)
 - [ ] All simulation systems implemented
-- [ ] Dual-mode validation working
-- [ ] Determinism verified
-- [ ] 3x+ performance improvement shown
+- [ ] Statistical validation vs. baseline working
+- [ ] 2x+ performance improvement shown
+- [ ] Thread safety verified
 
-### Phase 3
-- [ ] GPU bridge implemented
-- [ ] Zero-copy mode tested
-- [ ] Upload time <0.05ms
+### Phase 3 - Legacy Removal
+- [ ] GpuDataBuffer abstraction implemented
+- [ ] ECS packs data efficiently (contiguous memcpy)
+- [ ] Kernels consume buffers (no ECS dependency)
+- [ ] Old GPU batch deleted
+- [ ] Field extraction code deleted
+- [ ] 2x+ GPU performance improvement
 - [ ] All GPU tests passing
 
-### Phase 4
-- [ ] Evolution integrated
+### Phase 4 - Legacy Removal
+- [ ] Evolution integrated with ECS
 - [ ] Offspring creation working
 - [ ] Species tracking accurate
-- [ ] Fitness calculation correct
+- [ ] **Agent classes deleted** (agent.hpp/cpp, predator.hpp/cpp, prey.hpp/cpp)
+- [ ] **SimulationManager Agent references removed**
+- [ ] All tests passing after removal
 
-### Phase 5
-- [ ] Renderer adapted
+### Phase 5 - Legacy Removal
+- [ ] Renderer queries ECS directly
 - [ ] UI overlays working
-- [ ] Legacy code removed
+- [ ] **SimulationManager completely rewritten**
+- [ ] **Physics functions updated for ECS**
+- [ ] **main.cpp updated for ECS loop**
+- [ ] **CMakeLists.txt updated**
+- [ ] All legacy code removed
 - [ ] All tests passing
+- [ ] Code compiles clean
 
-### Phase 6
+### Phase 6 - Optional Features
 - [ ] Event system (optional)
 - [ ] Serialization (optional)
 - [ ] System dependencies (optional)
@@ -1250,40 +1330,46 @@ Add `--validate` flag to run both architectures:
 
 ### Rollback Plan
 
+**Branch Strategy**: Work on existing `dev` branch only. No feature branches.
+
 If critical issues arise:
-1. **Git revert**: `git revert HEAD` to undo last migration commit
-2. **Branch backup**: Work on `dev` branch
+1. **Git reset**: `git reset --hard <last-good-commit>` to undo failed phase
+2. **Single branch**: All work on `dev` branch
 3. **Bisect if needed**: `git bisect` to find breaking changes
 4. **No build flags**: Full replacement strategy only
 
 **Recovery Strategy:**
 - Every phase ends with commit to `dev` branch
-- If phase fails, reset to last known good commit
-- Fix issues in feature branch, never contaminate `main`
-- Merge only after all tests pass and performance targets met
+- If phase fails, reset `dev` to last known good commit
+- Fix issues on `dev` branch directly
+- Never contaminate `main` until complete migration verified
+- Merge to `main` only after all phases complete and all tests pass
 
 ---
 
 ## 7. Success Criteria
 
-### Performance Targets
+### Performance Targets (Revised per Audit)
 
 | Metric | Current | Target | Success |
 |--------|---------|--------|---------|
-| 2K agents iteration | ~2.5ms | <0.5ms | 5x improvement |
-| 10K agents iteration | ~15ms | <2.0ms | 7.5x improvement |
-| 20K agents iteration | ~40ms | <4.5ms | 9x improvement |
-| GPU upload | ~0.3ms | <0.05ms | 6x improvement |
-| Cache miss rate | ~25% | <5% | 5x reduction |
+| 2K agents iteration | ~2.5ms | <1.0ms | 2.5x improvement |
+| 10K agents iteration | ~15ms | <5.0ms | 3x improvement |
+| 20K agents iteration | ~40ms | <15ms | 2.5x improvement |
+| GPU transfer | Field extraction | Contiguous memcpy | Eliminate extraction |
+| Cache miss rate | ~25% | <10% | 2.5x reduction |
+
+**Note**: Original 5-10x targets were optimistic. GPU already uses SoA; ECS eliminates field extraction overhead and improves CPU cache locality. 2-3x improvement is realistic and significant.
 
 ### Quality Metrics
 
 - [ ] All existing tests pass
-- [ ] Determinism verified (same seed = same results)
-- [ ] Memory usage reduced (or at least not increased)
+- [ ] Statistical match to baseline (±5% for chaotic system)
+- [ ] Memory usage reduced (no duplicate Agent objects)
 - [ ] Code coverage >80% for new ECS code
 - [ ] No memory leaks (Valgrind clean)
 - [ ] Thread safe (ThreadSanitizer clean)
+- [ ] No legacy code references remain
 
 ### Feature Parity
 
@@ -1292,6 +1378,7 @@ If critical issues arise:
 - [ ] All configuration options work
 - [ ] GPU acceleration works (when available)
 - [ ] CPU fallback works (when GPU unavailable)
+- [ ] Lua callbacks work with ECS
 
 ---
 
@@ -1354,8 +1441,8 @@ After completing the ECS migration, update `README.md` to reflect the new archit
 ┌──────────────────────────┴──────────────────────────────────┐
 │              ECS Simulation Core (Data-Oriented)            │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐   │
-│  │  Registry   │ │  Systems    │ │  GPU Bridge         │   │
-│  │ (Components)│ │ (Logic)     │ │ (Zero-Copy Upload)  │   │
+│  │  Registry   │ │  Systems    │ │  GpuDataBuffer      │   │
+│  │ (Components)│ │ (Logic)     │ │ (Buffer Abstraction)│   │
 │  └──────┬──────┘ └──────┬──────┘ └──────────┬──────────┘   │
 │         └───────────────┴───────────────────┘              │
 └──────────────────────────┬──────────────────────────────────┘
@@ -1374,8 +1461,8 @@ After completing the ECS migration, update `README.md` to reflect the new archit
 
 - **Entity-Component-System Architecture** - Data-oriented design with cache-friendly 
   memory layouts and 5-10x performance improvement
-- **Zero-Copy GPU Transfers** - ECS components map directly to GPU memory for 
-  minimal CPU↔GPU overhead
+- **Clean GPU Abstraction** - ECS data efficiently packed into GPU buffers,
+  kernels consume buffers (decoupled architecture)
 - **NEAT Implementation** - Evolves both topology and weights of neural networks 
   simultaneously
 - **Real-Time Visualization** - SFML-based rendering with interactive controls 
@@ -1397,19 +1484,15 @@ moonai/
 │   ├── main.cpp                # Entry point
 │   ├── core/                   # Shared types, config loader, Lua runtime
 │   ├── simulation/             # ECS CORE - Data-oriented simulation
-│   │   ├── ecs_registry.hpp    # Sparse set registry
-│   │   ├── ecs_component.hpp   # Component traits
-│   │   ├── ecs_entity.hpp      # Entity type
-│   │   ├── components/         # Component definitions
-│   │   │   ├── core_components.hpp    # Position, Velocity, Energy
-│   │   │   └── agent_components.hpp   # Vision, Brain, CombatStats
+│   │   ├── registry.hpp        # SoA component registry
+│   │   ├── components.hpp      # Component definitions
+│   │   ├── entity.hpp          # Entity type
 │   │   ├── systems/            # System implementations
 │   │   │   ├── system.hpp
-│   │   │   ├── movement_system.hpp
-│   │   │   ├── combat_system.hpp
-│   │   │   ├── sensor_system.hpp
-│   │   │   └── energy_system.hpp
-│   │   ├── system_scheduler.hpp
+│   │   │   ├── movement.hpp
+│   │   │   ├── combat.hpp
+│   │   │   ├── sensors.hpp
+│   │   │   └── energy.hpp
 │   │   ├── environment.hpp
 │   │   ├── spatial_grid.hpp
 │   │   └── physics.hpp
@@ -1419,7 +1502,8 @@ moonai/
 │   ├── visualization/          # SFML rendering, queries ECS
 │   ├── data/                   # CSV/JSON logger
 │   └── gpu/                    # CUDA kernels
-│       ├── ecs_gpu_bridge.hpp  # NEW: ECS zero-copy bridge
+│       ├── gpu_data_buffer.hpp  # Buffer abstraction
+│       ├── gpu_batch.hpp        # Kernel orchestration
 │       └── ...
 ├── tests/
 │   ├── test_simulation_ecs.cpp # NEW: ECS tests
@@ -1443,7 +1527,7 @@ MoonAI achieves high performance through data-oriented ECS architecture:
 
 **Key Optimizations:**
 - **Cache-friendly layouts**: Structure-of-Arrays (SoA) component storage
-- **Zero-copy GPU uploads**: ECS arrays map directly to CUDA device memory
+- **Efficient GPU packing**: Contiguous memcpy from ECS to GPU buffers
 - **Parallel systems**: OpenMP parallelization across all simulation systems
 - **SIMD-ready**: Contiguous data enables AVX/AVX-512 vectorization
 ```
@@ -1491,7 +1575,7 @@ ECS solves these with:
 | `src/simulation/` | **ECS** | Registry, components (SoA), systems, environment |
 | `src/evolution/` | **OOP** | NEAT: Genome, NN, Species, Mutation |
 | `src/visualization/` | **OOP** | SFML rendering, queries ECS |
-| `src/gpu/` | **Mixed** | CUDA kernels, ECS-GPU bridge |
+| `src/gpu/` | **Mixed** | CUDA kernels, GpuDataBuffer |
 ```
 
 ### 9.6 Update Build Instructions (if needed)
@@ -1515,24 +1599,73 @@ ECS solves these with:
 
 ## 10. Conclusion
 
-This migration plan provides a **structured, low-risk path** to modernizing MoonAI's architecture. By using a hybrid ECS/OOP approach, we preserve the proven evolution algorithms while maximizing GPU delegation and CPU performance.
+This migration plan provides a **complete architecture transformation** to modernize MoonAI using pure ECS with GPU-native integration. Unlike the original plan, this revision:
+
+1. **Removes all legacy code** progressively (no dual-mode, no hybrid)
+2. **Uses SoA components** that match GPU kernel expectations exactly
+3. **Makes ECS the single source of truth** for both CPU and GPU
+4. **Works entirely on `dev` branch** (no feature branches)
 
 **Key Benefits**:
-- 5-10x simulation performance improvement
-- Zero-copy GPU transfers
-- Industry-standard architecture
-- Better testability and maintainability
-- Foundation for future scalability
+- 2-3x simulation performance improvement (realistic, not optimistic)
+- Clean ECS-GPU boundary (efficient buffer abstraction)
+- Simpler codebase (no hybrid complexity)
+- Better cache utilization on CPU
+- Industry-standard data-oriented design
+
+**Critical Success Factors**:
+- **Phase-by-phase legacy removal**: Delete old code at each phase, don't wait
+- **Statistical validation**: Compare to baselines, not bit-exact (chaotic system)
+- **Dev branch only**: All work on existing `dev` branch
+- **Performance gates**: Each phase must show improvement before proceeding
 
 **Next Steps**:
-1. Review and approve this plan
-2. Work on `dev` branch
-3. Begin Phase 1 implementation
-4. Weekly progress reviews
-5. Celebrate when all tests pass! 🎉
+1. Save baseline runs from current code (10 seeds, 1000 steps each)
+2. Begin Phase 1 on `dev` branch
+3. Weekly progress reviews with performance benchmarks
+4. Merge to `main` only after complete migration verified
+5. Celebrate when all legacy code is gone! 🎉
 
 ---
 
 **Document Owner**: Development Team  
 **Reviewers**: Project Lead, Architecture Team  
 **Approved Date**: _______________
+
+---
+
+## Appendix A: Plan Revision Notes (Post-Audit)
+
+This plan was revised based on code audit findings and stakeholder requirements:
+
+### A.1 Audit Findings Incorporated
+
+1. **GPU Already Optimized**: Current code uses SoA; ECS eliminates field extraction, not upload bottleneck
+2. **Realistic Performance Targets**: Reduced from 5-10x to 2-3x (still significant)
+3. **Neural Network Constraints**: Genome/NN remain OOP (variable topology incompatible with ECS)
+4. **No Zero-Copy Illusion**: `cudaHostRegister` on ECS arrays, but layout must match GPU expectations
+
+### A.2 Stakeholder Requirements Added
+
+1. **Complete Legacy Removal**: No dual-mode, no hybrid, progressive deletion
+2. **Dev Branch Only**: No feature branches, work entirely on existing `dev`
+3. **True ECS (Option B)**: SoA components, Entity as dense index, no sparse sets
+4. **Clean GPU Abstraction**: ECS fills GpuDataBuffer, kernels consume buffers (decoupled)
+
+### A.3 Key Changes from Original Plan
+
+| Aspect | Original | Revised |
+|--------|----------|---------|
+| Legacy Strategy | Hybrid with dual-mode | Complete removal, phase-by-phase |
+| Validation | Bit-exact dual-mode | Statistical baseline comparison |
+| Component Layout | Generic ECS + conversion | SoA with buffer abstraction |
+| Branch Strategy | Feature branches | Dev branch only |
+| Performance Target | 5-10x | 2-3x (realistic) |
+| GPU Integration | Bridge with extraction | Clean buffer abstraction |
+
+### A.4 Risks Introduced by Changes
+
+- **Higher risk**: Complete rewrite vs. hybrid approach
+- **No rollback**: Progressive deletion means no easy revert
+- **Statistical validation**: Less precise than bit-exact (but necessary for chaotic system)
+- **Branch complexity**: All work on single branch
