@@ -1,4 +1,5 @@
 #include "evolution/species.hpp"
+#include "simulation/entity.hpp"
 
 #include <algorithm>
 #include <numeric>
@@ -20,9 +21,9 @@ bool Species::is_compatible(const Genome &genome, float threshold, float c1,
          threshold;
 }
 
-void Species::add_member(AgentId agent_id, const Genome &genome) {
+void Species::add_member(Entity entity, const Genome &genome) {
   members_.push_back(
-      {agent_id, genome.fitness(), static_cast<int>(genome.complexity())});
+      {entity, genome.fitness(), static_cast<int>(genome.complexity())});
 }
 
 void Species::clear_members() {

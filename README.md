@@ -157,7 +157,6 @@ CUDA is enabled at runtime when available. In headless runs, the fast path keeps
 | `Space` | Pause / resume |
 | `↑` / `↓` or `+` / `-` | Increase / decrease simulation speed |
 | `.` | Step one step (while paused) |
-| `V` | Toggle vision range / sensor lines for selected agent |
 | `E` | Open experiment selector (multi-config only) |
 | `R` | Reset simulation |
 | `S` | Save screenshot |
@@ -166,7 +165,7 @@ CUDA is enabled at runtime when available. In headless runs, the fast path keeps
 | Right-click drag | Pan camera |
 | Scroll wheel | Zoom |
 
-When an agent is selected, the **Network panel** (top-right) shows its topology with nodes colored by live activation value: blue (inactive, −1) → gray (zero) → orange (active, +1).
+When an agent is selected, its **vision range** (semi-transparent circle), **sensor lines** (connections to nearby agents and food), and **stats panel** (bottom-left) are automatically displayed. The **Network panel** (top-right) shows its topology with nodes colored by live activation value: blue (inactive, −1) → gray (zero) → orange (active, +1).
 
 ## Configuration
 

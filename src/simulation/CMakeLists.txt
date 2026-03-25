@@ -1,11 +1,7 @@
 set(MOONAI_SIMULATION_SOURCES
     simulation_manager.cpp
     environment.cpp
-    agent.cpp
-    predator.cpp
-    prey.cpp
     physics.cpp
-    spatial_grid.cpp
     registry.cpp
     system.cpp
     spatial_grid_ecs.cpp

@@ -29,7 +29,6 @@ gtest_discover_tests(moonai_tests)
 # GPU tests — only built when CUDA is available
 if(MOONAI_ENABLE_CUDA)
     add_executable(moonai_gpu_tests
-        test_gpu.cpp
         test_ecs_gpu_packing.cpp
     )
 

@@ -1,5 +1,6 @@
 #include "visualization/visualization_manager.hpp"
 #include "evolution/evolution_manager.hpp"
+#include "simulation/registry.hpp"
 #include "simulation/simulation_manager.hpp"
 
 #include <SFML/Graphics/Image.hpp>
@@ -80,10 +81,15 @@ void VisualizationManager::enter_experiment_select_mode() {
   }
 }
 
-void VisualizationManager::render(const SimulationManager &sim,
-                                  const EvolutionManager &evolution) {
+void VisualizationManager::render_ecs(const Registry &registry,
+                                      const EvolutionManager &evolution,
+                                      const SimulationManager &simulation,
+                                      int current_step) {
   if (!window_ || !running_)
     return;
+
+  // Update step counter
+  overlay_stats_.step = current_step;
 
   // Experiment selector mode: render selector overlay only
   if (experiment_select_mode_) {
@@ -95,9 +101,9 @@ void VisualizationManager::render(const SimulationManager &sim,
     return;
   }
 
-  // Apply any pending click now that we have sim access
+  // Apply any pending click now that we have registry access
   if (pending_click_) {
-    handle_mouse_click(pending_click_x_, pending_click_y_, sim);
+    handle_mouse_click_ecs(pending_click_x_, pending_click_y_, registry);
     pending_click_ = false;
   }
 
@@ -106,41 +112,70 @@ void VisualizationManager::render(const SimulationManager &sim,
 
   // Draw world
   renderer_.draw_background(*window_, config_.grid_size, config_.grid_size);
-
   renderer_.draw_grid(*window_, config_.grid_size, config_.grid_size, 500.0f);
-
   renderer_.draw_boundaries(*window_, config_.grid_size, config_.grid_size);
 
   // Draw food
-  renderer_.draw_food(*window_, sim.environment().food());
+  renderer_.draw_food(*window_, simulation.environment().food());
 
-  // Draw agents
-  const auto &agents = sim.agents();
-  for (size_t i = 0; i < agents.size(); ++i) {
-    if (!agents[i]->alive())
-      continue;
+  // Count entities and calculate stats
+  int alive_predators = 0;
+  int alive_prey = 0;
+  int dead_count = 0;
+  float pred_dist[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+  float prey_dist[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
 
-    bool is_selected =
-        (static_cast<int>(agents[i]->id()) == selected_agent_id_);
-    renderer_.draw_agent(*window_, *agents[i], is_selected);
+  const auto &living = registry.living_entities();
+  for (Entity entity : living) {
+    size_t idx = registry.index_of(entity);
+    const auto &vitals = registry.vitals();
+    const auto &identity = registry.identity();
 
-    // Draw debug visualization for selected agent
-    if (is_selected) {
-      if (renderer_.show_vision) {
-        renderer_.draw_vision_range(*window_, *agents[i]);
+    if (vitals.alive[idx]) {
+      if (identity.type[idx] == IdentitySoA::TYPE_PREDATOR) {
+        alive_predators++;
+      } else {
+        alive_prey++;
       }
-      if (renderer_.show_sensors) {
-        renderer_.draw_sensor_lines(*window_, *agents[i], agents,
-                                    sim.environment().food());
+
+      // Calculate energy distribution
+      float energy_ratio = vitals.energy[idx] / config_.initial_energy;
+      energy_ratio = std::clamp(energy_ratio, 0.0f, 1.0f);
+      int bucket = static_cast<int>(energy_ratio * 5.0f);
+      bucket = std::min(bucket, 4);
+
+      if (identity.type[idx] == IdentitySoA::TYPE_PREDATOR) {
+        pred_dist[bucket]++;
+      } else {
+        prey_dist[bucket]++;
       }
+    } else {
+      dead_count++;
     }
   }
 
-  // Draw dead agents (faded)
-  for (size_t i = 0; i < agents.size(); ++i) {
-    if (agents[i]->alive())
-      continue;
-    renderer_.draw_agent(*window_, *agents[i], false);
+  // Convert to percentages
+  if (alive_predators > 0) {
+    for (int i = 0; i < 5; ++i) {
+      pred_dist[i] /= alive_predators;
+    }
+  }
+  if (alive_prey > 0) {
+    for (int i = 0; i < 5; ++i) {
+      prey_dist[i] /= alive_prey;
+    }
+  }
+  set_energy_distribution(pred_dist, prey_dist);
+
+  // Draw all agents using ECS
+  renderer_.draw_all_agents_ecs(*window_, registry, selected_entity_);
+
+  // Draw vision/sensor lines for selected entity (automatically shown when
+  // agent is clicked)
+  if (selected_entity_ != INVALID_ENTITY && registry.valid(selected_entity_)) {
+    Renderer::draw_vision_range_ecs(*window_, registry, selected_entity_);
+    Renderer::draw_sensor_lines_ecs(*window_, registry, selected_entity_,
+                                    simulation.environment().food());
   }
 
   // Update FPS counter
@@ -152,103 +187,50 @@ void VisualizationManager::render(const SimulationManager &sim,
     fps_clock_.restart();
   }
 
-  // Update overlay stats from simulation
-  overlay_stats_.step = sim.current_step();
-  overlay_stats_.alive_predators = sim.alive_predators();
-  overlay_stats_.alive_prey = sim.alive_prey();
+  // Update overlay stats
+  overlay_stats_.alive_predators = alive_predators;
+  overlay_stats_.alive_prey = alive_prey;
   overlay_stats_.speed_multiplier = speed_multiplier_;
   overlay_stats_.paused = paused_;
-  overlay_stats_.selected_agent = selected_agent_id_;
+  overlay_stats_.selected_agent = (selected_entity_ != INVALID_ENTITY)
+                                      ? static_cast<int>(selected_entity_.index)
+                                      : -1;
   overlay_stats_.experiment_name = selected_experiment_name_;
 
   // Update selected agent info
-  if (selected_agent_id_ >= 0) {
-    const Agent *sel =
-        sim.agent_by_id(static_cast<AgentId>(selected_agent_id_));
-    if (sel != nullptr) {
-      overlay_stats_.selected_energy = sel->energy();
-      overlay_stats_.selected_age = sel->age();
-      overlay_stats_.selected_kills = sel->kills();
-      overlay_stats_.selected_food_eaten = sel->food_eaten();
-      overlay_stats_.selected_fitness = sel->genome().fitness();
-      overlay_stats_.selected_genome_complexity = sel->genome().complexity();
+  if (selected_entity_ != INVALID_ENTITY && registry.valid(selected_entity_)) {
+    size_t idx = registry.index_of(selected_entity_);
+    const auto &vitals = registry.vitals();
+    const auto &stats = registry.stats();
+
+    overlay_stats_.selected_energy = vitals.energy[idx];
+    overlay_stats_.selected_age = vitals.age[idx];
+    overlay_stats_.selected_kills = stats.kills[idx];
+    overlay_stats_.selected_food_eaten = stats.food_eaten[idx];
+
+    // Get fitness and complexity from evolution manager
+    auto genome = evolution.genome_for(selected_entity_);
+    if (genome) {
+      overlay_stats_.selected_fitness = genome->fitness();
+      overlay_stats_.selected_genome_complexity = genome->complexity();
     }
   }
 
   // Update population chart (per step)
-  overlay_.push_population(sim.alive_predators(), sim.alive_prey());
-
-  // Calculate energy distribution
-  float pred_dist[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
-  float prey_dist[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
-  int pred_count = 0;
-  int prey_count = 0;
-
-  for (const auto &agent : agents) {
-    if (!agent->alive())
-      continue;
-
-    float energy_ratio = agent->energy() / config_.initial_energy;
-    energy_ratio = std::clamp(energy_ratio, 0.0f, 1.0f);
-    int bucket = static_cast<int>(energy_ratio * 5.0f);
-    bucket = std::min(bucket, 4);
-
-    if (agent->type() == AgentType::Predator) {
-      pred_dist[bucket]++;
-      pred_count++;
-    } else {
-      prey_dist[bucket]++;
-      prey_count++;
-    }
-  }
-
-  // Convert to percentages
-  if (pred_count > 0) {
-    for (int i = 0; i < 5; ++i) {
-      pred_dist[i] /= pred_count;
-    }
-  }
-  if (prey_count > 0) {
-    for (int i = 0; i < 5; ++i) {
-      prey_dist[i] /= prey_count;
-    }
-  }
-  set_energy_distribution(pred_dist, prey_dist);
-
-  step_kills_ = 0;
-  step_food_eaten_ = 0;
-  step_births_ = 0;
-  step_deaths_ = 0;
-
-  // Show events from the last simulation step.
-  for (const auto &event : sim.last_events()) {
-    switch (event.type) {
-      case SimEvent::Kill:
-        step_kills_++;
-        break;
-      case SimEvent::Food:
-        step_food_eaten_++;
-        break;
-      case SimEvent::Birth:
-        step_births_++;
-        break;
-      case SimEvent::Death:
-        step_deaths_++;
-        break;
-      default:
-        break;
-    }
-  }
-  set_event_counts(step_kills_, step_food_eaten_, step_births_, step_deaths_);
+  overlay_.push_population(alive_predators, alive_prey);
 
   // Get fitness by type from evolution manager
-  float best_pred, avg_pred, best_prey_f, avg_prey_f;
-  evolution.get_fitness_by_type(sim, best_pred, avg_pred, best_prey_f,
-                                avg_prey_f);
+  float best_pred = 0.0f, avg_pred = 0.0f, best_prey_f = 0.0f,
+        avg_prey_f = 0.0f;
+  evolution.get_fitness_by_type_ecs(registry, best_pred, avg_pred, best_prey_f,
+                                    avg_prey_f);
   set_fitness_by_type(best_pred, avg_pred, best_prey_f, avg_prey_f);
 
   // Draw UI overlay (with selected genome for NN topology panel)
-  const Genome *sel_genome = evolution.genome_at(sim, selected_agent_id_);
+  const Genome *sel_genome = nullptr;
+  if (selected_entity_ != INVALID_ENTITY) {
+    sel_genome = evolution.genome_for(selected_entity_);
+  }
   overlay_.set_activations(selected_node_activations_);
   overlay_.draw(*window_, overlay_stats_, sel_genome);
 
@@ -370,11 +352,6 @@ void VisualizationManager::handle_events() {
           reset_requested_ = true;
           break;
 
-        case sf::Keyboard::Key::V:
-          renderer_.show_vision = !renderer_.show_vision;
-          renderer_.show_sensors = renderer_.show_vision;
-          break;
-
         case sf::Keyboard::Key::E:
           if (!experiment_names_.empty()) {
             enter_experiment_select_mode();
@@ -469,26 +446,32 @@ void VisualizationManager::handle_events() {
   }
 }
 
-void VisualizationManager::handle_mouse_click(float world_x, float world_y,
-                                              const SimulationManager &sim) {
-  // Find closest agent to click position
+void VisualizationManager::handle_mouse_click_ecs(float world_x, float world_y,
+                                                  const Registry &registry) {
+  // Find closest entity to click position
   float best_dist = 20.0f * zoom_level_; // click threshold in world units
-  int best_id = -1;
+  Entity best_entity = INVALID_ENTITY;
 
-  const auto &agents = sim.agents();
-  for (size_t i = 0; i < agents.size(); ++i) {
-    if (!agents[i]->alive())
+  const auto &living = registry.living_entities();
+  for (Entity entity : living) {
+    size_t idx = registry.index_of(entity);
+    const auto &vitals = registry.vitals();
+
+    if (!vitals.alive[idx]) {
       continue;
-    float dx = agents[i]->position().x - world_x;
-    float dy = agents[i]->position().y - world_y;
+    }
+
+    const auto &positions = registry.positions();
+    float dx = positions.x[idx] - world_x;
+    float dy = positions.y[idx] - world_y;
     float dist = std::sqrt(dx * dx + dy * dy);
     if (dist < best_dist) {
       best_dist = dist;
-      best_id = static_cast<int>(agents[i]->id());
+      best_entity = entity;
     }
   }
 
-  selected_agent_id_ = best_id;
+  selected_entity_ = best_entity;
 }
 
 void VisualizationManager::set_selected_activations(

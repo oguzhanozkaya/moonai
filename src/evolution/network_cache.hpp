@@ -19,6 +19,11 @@ public:
   // Get network for entity (nullptr if not found)
   NeuralNetwork *get(Entity e) const;
 
+  // Alias for get() - used by visualization
+  NeuralNetwork *get_network(Entity e) const {
+    return get(e);
+  }
+
   // Remove network (called when entity dies)
   void remove(Entity e);
 

@@ -29,6 +29,9 @@ struct MotionSoA {
     vel_y.resize(n);
     speed.resize(n);
   }
+  size_t size() const {
+    return vel_x.size();
+  }
 };
 
 // Vitals: Updated by GPU kernels
@@ -107,6 +110,9 @@ struct StatsSoA {
     food_eaten.resize(n);
     distance_traveled.resize(n);
     offspring_count.resize(n);
+  }
+  size_t size() const {
+    return kills.size();
   }
 };
 

@@ -1,14 +1,17 @@
 #include "data/metrics.hpp"
 
+#include "evolution/evolution_manager.hpp"
+#include "simulation/registry.hpp"
+
 #include <algorithm>
 #include <numeric>
 
 namespace moonai {
 
-StepMetrics
-MetricsCollector::collect(int step,
-                          const std::vector<std::unique_ptr<Agent>> &agents,
-                          int births, int deaths, int num_species) {
+StepMetrics MetricsCollector::collect_ecs(int step, const Registry &registry,
+                                          const EvolutionManager &evolution,
+                                          int births, int deaths,
+                                          int num_species) {
   StepMetrics metrics;
   metrics.step = step;
   metrics.births = births;
@@ -20,17 +23,23 @@ MetricsCollector::collect(int step,
   int predator_energy_count = 0;
   int prey_energy_count = 0;
 
-  for (const auto &agent : agents) {
-    if (!agent->alive()) {
+  const auto &living = registry.living_entities();
+  const auto &vitals = registry.vitals();
+  const auto &identity = registry.identity();
+
+  for (Entity entity : living) {
+    size_t idx = registry.index_of(entity);
+    if (!vitals.alive[idx]) {
       continue;
     }
-    if (agent->type() == AgentType::Predator) {
+
+    if (identity.type[idx] == IdentitySoA::TYPE_PREDATOR) {
       ++metrics.predator_count;
-      predator_energy_sum += agent->energy();
+      predator_energy_sum += vitals.energy[idx];
       ++predator_energy_count;
     } else {
       ++metrics.prey_count;
-      prey_energy_sum += agent->energy();
+      prey_energy_sum += vitals.energy[idx];
       ++prey_energy_count;
     }
   }
@@ -44,36 +53,35 @@ MetricsCollector::collect(int step,
         prey_energy_sum / static_cast<float>(prey_energy_count);
   }
 
-  std::vector<const Genome *> genomes;
-  genomes.reserve(agents.size());
-  for (const auto &agent : agents) {
-    if (agent->alive()) {
-      genomes.push_back(&agent->genome());
+  // Get fitness and complexity from evolution manager
+  std::vector<float> fitnesses;
+  float complexity_sum = 0.0f;
+  int genome_count = 0;
+
+  for (Entity entity : living) {
+    size_t idx = registry.index_of(entity);
+    if (!vitals.alive[idx]) {
+      continue;
+    }
+
+    const Genome *genome = evolution.genome_for(entity);
+    if (genome) {
+      fitnesses.push_back(genome->fitness());
+      complexity_sum += static_cast<float>(genome->complexity());
+      ++genome_count;
     }
   }
 
-  if (!genomes.empty()) {
+  if (!fitnesses.empty()) {
     metrics.best_fitness =
-        (*std::max_element(genomes.begin(), genomes.end(),
-                           [](const Genome *lhs, const Genome *rhs) {
-                             return lhs->fitness() < rhs->fitness();
-                           }))
-            ->fitness();
+        *std::max_element(fitnesses.begin(), fitnesses.end());
 
     const float fitness_sum =
-        std::accumulate(genomes.begin(), genomes.end(), 0.0f,
-                        [](float sum, const Genome *genome) {
-                          return sum + genome->fitness();
-                        });
-    metrics.avg_fitness = fitness_sum / static_cast<float>(genomes.size());
+        std::accumulate(fitnesses.begin(), fitnesses.end(), 0.0f);
+    metrics.avg_fitness = fitness_sum / static_cast<float>(fitnesses.size());
 
-    const float complexity_sum =
-        std::accumulate(genomes.begin(), genomes.end(), 0.0f,
-                        [](float sum, const Genome *genome) {
-                          return sum + static_cast<float>(genome->complexity());
-                        });
     metrics.avg_genome_complexity =
-        complexity_sum / static_cast<float>(genomes.size());
+        complexity_sum / static_cast<float>(genome_count);
   }
 
   history_.push_back(metrics);

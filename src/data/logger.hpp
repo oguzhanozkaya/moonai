@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/config.hpp"
+#include "simulation/entity.hpp"
 
 #include <cstdint>
 #include <fstream>
@@ -10,11 +11,12 @@
 
 namespace moonai {
 
-class Agent;
+// Forward declarations
 class Genome;
 class Species;
 struct SimEvent;
 struct StepMetrics;
+class Registry;
 
 class Logger {
 public:
@@ -26,8 +28,11 @@ public:
   void log_report(const StepMetrics &metrics);
   void log_best_genome(int step, const Genome &genome);
   void log_species(int step, const std::vector<Species> &species);
-  void log_step(int step, const std::vector<std::unique_ptr<Agent>> &agents);
+
+  // ECS-based logging methods
+  void log_step(int step, const Registry &registry);
   void log_events(int step, const std::vector<SimEvent> &events);
+
   void flush_steps();
   void flush();
 

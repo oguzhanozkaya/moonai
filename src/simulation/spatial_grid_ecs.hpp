@@ -2,6 +2,7 @@
 #include "core/types.hpp"
 #include "simulation/entity.hpp"
 #include "simulation/system.hpp"
+#include <unordered_map>
 #include <vector>
 
 namespace moonai {

@@ -4,6 +4,7 @@
 #include "data/metrics.hpp"
 #include "evolution/evolution_manager.hpp"
 #include "simulation/physics.hpp"
+#include "simulation/registry.hpp"
 #include "simulation/simulation_manager.hpp"
 
 #include <nlohmann/json.hpp>
@@ -572,13 +573,14 @@ RunResult run_suite_member(const moonai::profiler::SuiteConfig &suite,
   config.max_steps = suite.windows * config.report_interval_steps;
 
   moonai::Random rng(config.seed);
+  moonai::Registry registry;
   moonai::SimulationManager simulation(config);
   moonai::EvolutionManager evolution(config, rng);
   moonai::MetricsCollector metrics;
 
   simulation.initialize();
   evolution.initialize(moonai::SensorInput::SIZE, 2);
-  evolution.seed_initial_population(simulation);
+  evolution.seed_initial_population_ecs(registry);
   evolution.enable_gpu(!no_gpu);
 
   auto &profiler = moonai::profiler::Profiler::instance();
@@ -618,32 +620,48 @@ RunResult run_suite_member(const moonai::profiler::SuiteConfig &suite,
         config.max_steps, steps_executed + config.report_interval_steps);
 
     while (steps_executed < window_end) {
-      // Try GPU full ecology first, fall back to CPU
-      bool used_gpu = false;
-      if (evolution.gpu_enabled()) {
-        used_gpu = evolution.step_gpu(simulation, steps_executed);
+      // CPU path: compute actions and step simulation (GPU disabled in ECS mode
+      // for profiler)
+      evolution.compute_actions_ecs(registry, actions);
+
+      // Apply actions to entities
+      size_t action_idx = 0;
+      for (moonai::Entity e : registry.living_entities()) {
+        size_t idx = registry.index_of(e);
+        if (!registry.vitals().alive[idx]) {
+          continue;
+        }
+
+        if (action_idx < actions.size()) {
+          float dx = actions[action_idx].x;
+          float dy = actions[action_idx].y;
+          float speed = registry.motion().speed[idx];
+
+          registry.motion().vel_x[idx] = dx * speed;
+          registry.motion().vel_y[idx] = dy * speed;
+          registry.positions().x[idx] += registry.motion().vel_x[idx] * dt;
+          registry.positions().y[idx] += registry.motion().vel_y[idx] * dt;
+          registry.stats().distance_traveled[idx] +=
+              std::sqrt(dx * dx + dy * dy) * speed * dt;
+
+          action_idx++;
+        }
       }
 
-      if (!used_gpu) {
-        // CPU path: compute actions and step simulation
-        evolution.compute_actions(simulation, actions);
-        for (std::size_t idx : simulation.alive_agent_indices())
-          simulation.apply_action(idx, actions[idx], dt);
-        simulation.step(dt);
-      }
+      simulation.step_ecs(registry, dt);
 
-      const auto pairs = simulation.find_reproduction_pairs();
+      const auto pairs = simulation.find_reproduction_pairs_ecs(registry);
       for (const auto &pair : pairs)
-        evolution.create_offspring(simulation, pair.parent_a, pair.parent_b,
-                                   pair.spawn_position);
+        evolution.create_offspring_ecs(registry, pair.parent_a, pair.parent_b,
+                                       pair.spawn_position);
 
-      evolution.refresh_fitness(simulation);
+      evolution.refresh_fitness_ecs(registry);
       ++steps_executed;
     }
 
-    evolution.refresh_species(simulation);
-    const auto snapshot = metrics.collect(steps_executed, simulation.agents(),
-                                          0, 0, evolution.species_count());
+    evolution.refresh_species_ecs(registry);
+    const auto snapshot = metrics.collect_ecs(
+        steps_executed, registry, evolution, 0, 0, evolution.species_count());
     profiler.finish_window({window, snapshot.predator_count,
                             snapshot.prey_count, snapshot.num_species,
                             snapshot.best_fitness, snapshot.avg_fitness,

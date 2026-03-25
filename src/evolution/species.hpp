@@ -2,6 +2,7 @@
 
 #include "core/types.hpp"
 #include "evolution/genome.hpp"
+#include "simulation/entity.hpp"
 
 #include <deque>
 #include <vector>
@@ -13,7 +14,7 @@ public:
   explicit Species(const Genome &representative);
 
   struct Member {
-    AgentId agent_id = 0;
+    Entity entity = INVALID_ENTITY;
     float fitness = 0.0f;
     int complexity = 0;
   };
@@ -21,7 +22,7 @@ public:
   bool is_compatible(const Genome &genome, float threshold, float c1, float c2,
                      float c3) const;
 
-  void add_member(AgentId agent_id, const Genome &genome);
+  void add_member(Entity entity, const Genome &genome);
   void clear_members();
   void refresh_summary();
   void update_representative(const Genome &genome);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/config.hpp"
+#include "simulation/entity.hpp"
 #include "visualization/renderer.hpp"
 #include "visualization/ui_overlay.hpp"
 
@@ -16,8 +17,9 @@
 
 namespace moonai {
 
-class SimulationManager;
+class Registry;
 class EvolutionManager;
+class SimulationManager;
 
 class VisualizationManager {
 public:
@@ -25,7 +27,8 @@ public:
   ~VisualizationManager();
 
   bool initialize();
-  void render(const SimulationManager &sim, const EvolutionManager &evolution);
+  void render_ecs(const Registry &registry, const EvolutionManager &evolution,
+                  const SimulationManager &simulation, int current_step);
   bool should_close() const;
   void handle_events();
 
@@ -60,8 +63,8 @@ public:
   void clear_step() {
     step_requested_ = false;
   }
-  int selected_agent() const {
-    return selected_agent_id_;
+  Entity selected_entity() const {
+    return selected_entity_;
   }
 
   // Provide activation values for the selected agent's NN panel
@@ -122,8 +125,8 @@ public:
   void enter_experiment_select_mode();
 
 private:
-  void handle_mouse_click(float world_x, float world_y,
-                          const SimulationManager &sim);
+  void handle_mouse_click_ecs(float world_x, float world_y,
+                              const Registry &registry);
   void update_camera();
 
   SimulationConfig config_;
@@ -141,7 +144,7 @@ private:
   bool reset_requested_ = false;
   bool step_requested_ = false;
   int speed_multiplier_ = 1;
-  int selected_agent_id_ = -1;
+  Entity selected_entity_ = INVALID_ENTITY;
 
   // Activation values for selected agent's NN visualization
   std::unordered_map<std::uint32_t, float> selected_node_activations_;
@@ -169,12 +172,6 @@ private:
   std::string selected_experiment_name_;
   int experiment_hover_index_ = -1;
   int experiment_scroll_offset_ = 0;
-
-  // Last-step event counters
-  int step_kills_ = 0;
-  int step_food_eaten_ = 0;
-  int step_births_ = 0;
-  int step_deaths_ = 0;
 };
 
 } // namespace moonai

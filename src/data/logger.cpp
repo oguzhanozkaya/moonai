@@ -3,7 +3,7 @@
 #include "data/metrics.hpp"
 #include "evolution/genome.hpp"
 #include "evolution/species.hpp"
-#include "simulation/agent.hpp"
+#include "simulation/registry.hpp"
 #include "simulation/simulation_manager.hpp"
 
 #include <chrono>
@@ -173,24 +173,39 @@ void Logger::log_species(int step, const std::vector<Species> &species) {
   }
 }
 
-void Logger::log_step(int step,
-                      const std::vector<std::unique_ptr<Agent>> &agents) {
+void Logger::log_step(int step, const Registry &registry) {
   if (!steps_file_.is_open()) {
     return;
   }
-  for (const auto &agent : agents) {
-    steps_buffer_ +=
-        std::to_string(step) + "," + std::to_string(agent->id()) + "," +
-        (agent->type() == AgentType::Predator ? "predator" : "prey") + "," +
-        (agent->alive() ? "1" : "0") + "," +
-        std::to_string(agent->position().x) + "," +
-        std::to_string(agent->position().y) + "," +
-        std::to_string(agent->energy()) + "," + std::to_string(agent->kills()) +
-        "," + std::to_string(agent->food_eaten()) + "," +
-        std::to_string(agent->offspring_count()) + "," +
-        std::to_string(agent->species_id()) + "\n";
+
+  const auto &living = registry.living_entities();
+  const auto &positions = registry.positions();
+  const auto &vitals = registry.vitals();
+  const auto &identity = registry.identity();
+  const auto &stats = registry.stats();
+
+  for (Entity entity : living) {
+    size_t idx = registry.index_of(entity);
+    if (!vitals.alive[idx]) {
+      continue;
+    }
+
+    std::string type_str = (identity.type[idx] == IdentitySoA::TYPE_PREDATOR)
+                               ? "predator"
+                               : "prey";
+
+    steps_buffer_ += std::to_string(step) + "," + std::to_string(entity.index) +
+                     "," + type_str + "," + "1" + "," +
+                     std::to_string(positions.x[idx]) + "," +
+                     std::to_string(positions.y[idx]) + "," +
+                     std::to_string(vitals.energy[idx]) + "," +
+                     std::to_string(stats.kills[idx]) + "," +
+                     std::to_string(stats.food_eaten[idx]) + "," +
+                     std::to_string(stats.offspring_count[idx]) + "," +
+                     std::to_string(identity.species_id[idx]) + "\n";
     ++steps_buffered_;
   }
+
   if (steps_buffered_ >= STEP_FLUSH_EVERY) {
     flush_steps();
   }
@@ -202,10 +217,10 @@ void Logger::log_events(int step, const std::vector<SimEvent> &events) {
   }
   for (const auto &event : events) {
     events_buffer_ += std::to_string(step) + "," + event_name(event.type) +
-                      "," + std::to_string(event.agent_id) + "," +
-                      std::to_string(event.target_id) + "," +
-                      std::to_string(event.parent_a_id) + "," +
-                      std::to_string(event.parent_b_id) + "," +
+                      "," + std::to_string(event.agent_id.index) + "," +
+                      std::to_string(event.target_id.index) + "," +
+                      std::to_string(event.parent_a_id.index) + "," +
+                      std::to_string(event.parent_b_id.index) + "," +
                       std::to_string(event.position.x) + "," +
                       std::to_string(event.position.y) + "\n";
     ++events_buffered_;

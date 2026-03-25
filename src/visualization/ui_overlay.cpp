@@ -63,7 +63,7 @@ void UIOverlay::draw(sf::RenderTarget &target, const OverlayStats &stats,
   // Draw left column with all the panels
   draw_left_column(target, stats);
 
-  // Selected agent panel (bottom-right, above fitness chart)
+  // Selected agent panel (bottom-left)
   float panel_width = 220.0f;
   float margin = 10.0f;
   char buf[128];
@@ -71,12 +71,9 @@ void UIOverlay::draw(sf::RenderTarget &target, const OverlayStats &stats,
 
   if (stats.selected_agent >= 0) {
     float sel_y = target.getDefaultView().getSize().y - margin - 130.0f;
-    draw_panel(target,
-               target.getDefaultView().getSize().x - panel_width - margin,
-               sel_y, panel_width, 120.0f);
+    draw_panel(target, margin, sel_y, panel_width, 120.0f);
 
-    float sx =
-        target.getDefaultView().getSize().x - panel_width - margin + 8.0f;
+    float sx = margin + 8.0f;
     float sy = sel_y + 6.0f;
 
     std::snprintf(buf, sizeof(buf), "Agent #%d", stats.selected_agent);
@@ -186,7 +183,7 @@ void UIOverlay::draw_left_column(sf::RenderTarget &target,
 
 void UIOverlay::draw_stats_panel(sf::RenderTarget &target,
                                  const OverlayStats &stats, float x, float y) {
-  constexpr float PANEL_H = 200.0f;
+  constexpr float PANEL_H = 180.0f;
   constexpr float COL_WIDTH = 260.0f;
   float line_h = 18.0f;
 
@@ -238,8 +235,6 @@ void UIOverlay::draw_stats_panel(sf::RenderTarget &target,
   // Controls hint
   draw_text(target, "[Space] Pause  [+/-] Speed", tx, ty, 11,
             sf::Color(120, 120, 140));
-  ty += 14;
-  draw_text(target, "[V] Vision", tx, ty, 11, sf::Color(120, 120, 140));
 }
 
 void UIOverlay::draw_population_chart(sf::RenderTarget &target, float x,

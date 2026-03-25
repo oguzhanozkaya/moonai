@@ -1,12 +1,14 @@
 #pragma once
 
 #include "evolution/genome.hpp"
-#include "simulation/agent.hpp"
 
-#include <memory>
 #include <vector>
 
 namespace moonai {
+
+// Forward declaration
+class Registry;
+class EvolutionManager;
 
 struct StepMetrics {
   int step = 0;
@@ -24,9 +26,10 @@ struct StepMetrics {
 
 class MetricsCollector {
 public:
-  StepMetrics collect(int step,
-                      const std::vector<std::unique_ptr<Agent>> &agents,
-                      int births, int deaths, int num_species);
+  // ECS-based collection method
+  StepMetrics collect_ecs(int step, const Registry &registry,
+                          const EvolutionManager &evolution, int births,
+                          int deaths, int num_species);
 
   const std::vector<StepMetrics> &history() const {
     return history_;

@@ -1,17 +1,13 @@
 #pragma once
 
-#include "simulation/agent.hpp"
-#include "simulation/spatial_grid.hpp"
-
 #include <cstddef>
-#include <memory>
-#include <unordered_map>
 #include <vector>
 
 namespace moonai {
 
 // Sensor input vector layout for the neural network.
 // All values normalized to roughly [0, 1] or [-1, 1].
+// Note: This struct is used by ECS systems, not the legacy Agent-based Physics.
 struct SensorInput {
   // Nearest predator (relative)
   float nearest_predator_dist =
@@ -46,51 +42,10 @@ struct SensorInput {
   void write_to(float *buffer) const;
 };
 
-class Environment;
-struct Food;
-
-class Physics {
-public:
-  // Build sensor inputs for one agent
-  static SensorInput build_sensors_from_candidates(
-      const Agent &agent, const std::vector<std::unique_ptr<Agent>> &agents,
-      const std::vector<Food> &food,
-      const std::vector<AgentId> &nearby_agent_ids,
-      const std::unordered_map<AgentId, std::size_t> &agent_slots,
-      const std::vector<AgentId> &nearby_food_ids, float world_width,
-      float world_height, float max_energy, bool has_walls);
-
-  static SensorInput build_sensors(
-      const Agent &agent, const std::vector<std::unique_ptr<Agent>> &agents,
-      const std::vector<Food> &food, const SpatialGrid &grid,
-      const SpatialGrid &food_grid,
-      const std::unordered_map<AgentId, std::size_t> &agent_slots,
-      float world_width, float world_height, float max_energy, bool has_walls);
-
-  static SensorInput
-  build_sensors(const Agent &agent,
-                const std::vector<std::unique_ptr<Agent>> &agents,
-                const std::vector<Food> &food, const SpatialGrid &grid,
-                const SpatialGrid &food_grid, float world_width,
-                float world_height, float max_energy, bool has_walls);
-
-  struct KillEvent {
-    AgentId killer;
-    AgentId victim;
-  };
-
-  // Process predator attacks: returns (killer, victim) pairs
-  static std::vector<KillEvent>
-  process_attacks(std::vector<std::unique_ptr<Agent>> &agents,
-                  const SpatialGrid &grid,
-                  const std::unordered_map<AgentId, std::size_t> &agent_slots,
-                  float attack_range);
-
-  static std::vector<KillEvent> process_attacks_from_candidates(
-      std::vector<std::unique_ptr<Agent>> &agents,
-      const std::vector<std::vector<AgentId>> &nearby_agent_ids,
-      const std::unordered_map<AgentId, std::size_t> &agent_slots,
-      const std::vector<std::size_t> &predator_indices, float attack_range);
-};
+// Legacy Physics class removed - all physics is now handled by ECS systems:
+// - SensorSystem: builds sensor inputs from ECS components
+// - MovementSystem: applies movement and boundaries
+// - CombatSystem: processes predator attacks
+// These are implemented in simulation_manager.cpp using Registry queries.
 
 } // namespace moonai

@@ -1,4 +1,5 @@
 #include "visualization/renderer.hpp"
+#include "simulation/registry.hpp"
 
 #include <SFML/Graphics/PrimitiveType.hpp>
 #include <SFML/Graphics/Vertex.hpp>
@@ -7,6 +8,10 @@
 #include <cmath>
 
 namespace moonai {
+
+namespace ecs {
+class Registry;
+}
 
 Renderer::Renderer() {
   // Pre-configure triangle shape (3 points for predator)
@@ -72,19 +77,42 @@ void Renderer::draw_food(sf::RenderTarget &target,
   }
 }
 
-void Renderer::draw_agent(sf::RenderTarget &target, const Agent &agent,
-                          bool selected) {
-  float alpha = agent.alive() ? 255.0f : dead_fade_alpha;
+void Renderer::draw_agent_ecs(sf::RenderTarget &target,
+                              const Registry &registry, Entity entity,
+                              bool selected) {
+  if (!registry.valid(entity)) {
+    return;
+  }
+
+  size_t idx = registry.index_of(entity);
+  const auto &vitals = registry.vitals();
+  const auto &positions = registry.positions();
+  const auto &motion = registry.motion();
+  const auto &identity = registry.identity();
+  const auto &visual = registry.visual();
+
+  bool alive = vitals.alive[idx] != 0;
+  float alpha = alive ? 255.0f : dead_fade_alpha;
   auto a = static_cast<std::uint8_t>(alpha);
 
-  // Use type-based colors: red for predators, green for prey
+  // Use VisualSoA colors if available, otherwise fall back to type-based colors
   sf::Color base_color;
-  if (agent.type() == AgentType::Predator) {
-    base_color = sf::Color(220, 60, 60);
+  if (idx < visual.color_rgba.size() && visual.color_rgba[idx] != 0) {
+    // Unpack RGBA from uint32_t
+    uint32_t rgba = visual.color_rgba[idx];
+    base_color.r = static_cast<uint8_t>((rgba >> 24) & 0xFF);
+    base_color.g = static_cast<uint8_t>((rgba >> 16) & 0xFF);
+    base_color.b = static_cast<uint8_t>((rgba >> 8) & 0xFF);
+    base_color.a = static_cast<uint8_t>(rgba & 0xFF);
   } else {
-    base_color = sf::Color(60, 200, 80);
+    // Fallback to type-based colors
+    if (identity.type[idx] == IdentitySoA::TYPE_PREDATOR) {
+      base_color = sf::Color(220, 60, 60);
+    } else {
+      base_color = sf::Color(60, 200, 80);
+    }
   }
-  base_color.a = a;
+  base_color.a = static_cast<uint8_t>(base_color.a * alpha / 255.0f);
 
   if (selected) {
     // Brighten for selection
@@ -97,14 +125,27 @@ void Renderer::draw_agent(sf::RenderTarget &target, const Agent &agent,
                           std::min(255, base_color.g + 30),
                           std::min(255, base_color.b + 30), a);
 
-  if (agent.type() == AgentType::Predator) {
-    // Draw predator as triangle pointing in movement direction
-    float size = 8.0f;
-    Vec2 vel = agent.velocity();
+  // Use visual radius if available, otherwise use defaults
+  float visual_radius = (idx < visual.radius.size() && visual.radius[idx] > 0)
+                            ? visual.radius[idx]
+                            : 8.0f;
+
+  // Use shape_type if available, otherwise default based on agent type
+  // shape == 0 means "use default", shape == 1 means triangle, shape == 2 means
+  // circle
+  uint8_t shape = (idx < visual.shape_type.size()) ? visual.shape_type[idx] : 0;
+  bool is_triangle =
+      (shape == 1) ||
+      (shape == 0 && identity.type[idx] == IdentitySoA::TYPE_PREDATOR);
+
+  if (is_triangle) {
+    // Draw as triangle pointing in movement direction
+    float size = visual_radius;
+    Vec2 vel{motion.vel_x[idx], motion.vel_y[idx]};
     float angle = std::atan2(vel.y, vel.x);
 
-    float x = agent.position().x;
-    float y = agent.position().y;
+    float x = positions.x[idx];
+    float y = positions.y[idx];
 
     // Triangle vertices relative to center, rotated by angle
     float cos_a = std::cos(angle);
@@ -127,11 +168,11 @@ void Renderer::draw_agent(sf::RenderTarget &target, const Agent &agent,
 
     target.draw(triangle_);
   } else {
-    // Draw prey as circle
-    float radius = 5.0f;
+    // Draw as circle
+    float radius = visual_radius;
     circle_.setRadius(radius);
     circle_.setOrigin({radius, radius});
-    circle_.setPosition({agent.position().x, agent.position().y});
+    circle_.setPosition({positions.x[idx], positions.y[idx]});
     circle_.setPointCount(20);
 
     circle_.setFillColor(base_color);
@@ -142,44 +183,111 @@ void Renderer::draw_agent(sf::RenderTarget &target, const Agent &agent,
   }
 }
 
-void Renderer::draw_vision_range(sf::RenderTarget &target, const Agent &agent) {
-  float r = agent.vision_range();
+void Renderer::draw_all_agents_ecs(sf::RenderTarget &target,
+                                   const Registry &registry,
+                                   Entity selected_entity) {
+  const auto &living = registry.living_entities();
+  for (Entity entity : living) {
+    size_t idx = registry.index_of(entity);
+    const auto &vitals = registry.vitals();
+    if (vitals.alive[idx]) {
+      bool is_selected = (entity == selected_entity);
+      draw_agent_ecs(target, registry, entity, is_selected);
+    }
+  }
+
+  // Draw dead agents (faded)
+  for (Entity entity : living) {
+    size_t idx = registry.index_of(entity);
+    const auto &vitals = registry.vitals();
+    if (!vitals.alive[idx]) {
+      bool is_selected = (entity == selected_entity);
+      draw_agent_ecs(target, registry, entity, is_selected);
+    }
+  }
+}
+
+void Renderer::draw_vision_range_ecs(sf::RenderTarget &target,
+                                     const Registry &registry, Entity entity) {
+  if (!registry.valid(entity)) {
+    return;
+  }
+
+  size_t idx = registry.index_of(entity);
+  const auto &positions = registry.positions();
+  const auto &sensors = registry.sensors();
+
+  // Get sensor range (use a default or from config)
+  float r = 100.0f; // Default vision range
+  if (idx * SensorSoA::INPUT_COUNT < sensors.inputs.size()) {
+    // Could extract from sensor config if stored there
+    // For now use default
+  }
+
   sf::CircleShape vision(r, 60);
   vision.setOrigin({r, r});
-  vision.setPosition({agent.position().x, agent.position().y});
+  vision.setPosition({positions.x[idx], positions.y[idx]});
   vision.setFillColor(sf::Color(255, 255, 255, 15));
   vision.setOutlineColor(sf::Color(255, 255, 255, 40));
   vision.setOutlineThickness(1.0f);
   target.draw(vision);
 }
 
-void Renderer::draw_sensor_lines(
-    sf::RenderTarget &target, const Agent &agent,
-    const std::vector<std::unique_ptr<Agent>> &agents,
-    const std::vector<Food> &food) {
-  Vec2 pos = agent.position();
-  float vision = agent.vision_range();
+void Renderer::draw_sensor_lines_ecs(sf::RenderTarget &target,
+                                     const Registry &registry, Entity entity,
+                                     const std::vector<Food> &food) {
+  if (!registry.valid(entity)) {
+    return;
+  }
+
+  size_t idx = registry.index_of(entity);
+  const auto &positions = registry.positions();
+  const auto &vitals = registry.vitals();
+  const auto &identity = registry.identity();
+  const auto &sensors = registry.sensors();
+
+  if (!vitals.alive[idx]) {
+    return;
+  }
+
+  Vec2 pos{positions.x[idx], positions.y[idx]};
+  float vision = 100.0f; // Default vision range
 
   sf::VertexArray lines(sf::PrimitiveType::Lines);
 
-  // Lines to nearby agents
-  for (const auto &other : agents) {
-    if (!other->alive() || other->id() == agent.id())
+  // We need a spatial query to find nearby entities
+  // For now, iterate all entities (optimization: use spatial grid)
+  const auto &living = registry.living_entities();
+  for (Entity other_entity : living) {
+    if (other_entity == entity) {
       continue;
-    Vec2 diff = other->position() - pos;
-    if (diff.length() > vision)
-      continue;
+    }
 
+    size_t other_idx = registry.index_of(other_entity);
+    const auto &other_vitals = registry.vitals();
+
+    if (!other_vitals.alive[other_idx]) {
+      continue;
+    }
+
+    const auto &other_positions = registry.positions();
+    Vec2 other_pos{other_positions.x[other_idx], other_positions.y[other_idx]};
+
+    Vec2 diff = other_pos - pos;
+    if (diff.length() > vision) {
+      continue;
+    }
+
+    const auto &other_identity = registry.identity();
     sf::Color line_color;
-    if (other->type() == AgentType::Predator) {
+    if (other_identity.type[other_idx] == IdentitySoA::TYPE_PREDATOR) {
       line_color = sf::Color(255, 80, 80, 80);
     } else {
       line_color = sf::Color(80, 255, 80, 80);
     }
 
     lines.append(sf::Vertex{{pos.x, pos.y}, line_color});
-    lines.append(
-        sf::Vertex{{other->position().x, other->position().y}, line_color});
+    lines.append(sf::Vertex{{other_pos.x, other_pos.y}, line_color});
   }
 
   // Lines to nearby food

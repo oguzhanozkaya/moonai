@@ -31,8 +31,10 @@ void EnergySystem::update(Registry &registry, float dt) {
 
     vitals.energy[i] -= energy_cost * dt;
 
-    // Check for death by starvation or old age
-    if (vitals.energy[i] <= 0.0f || vitals.age[i] >= max_age_) {
+    // Check for death by starvation or old age (max_age_ == 0 means unlimited)
+    bool died_of_starvation = vitals.energy[i] <= 0.0f;
+    bool died_of_age = (max_age_ > 0.0f && vitals.age[i] >= max_age_);
+    if (died_of_starvation || died_of_age) {
       vitals.alive[i] = 0;
     }
 

@@ -1,4 +1,5 @@
 #include "simulation/spatial_grid_ecs.hpp"
+#include <algorithm>
 #include <cmath>
 
 namespace moonai {

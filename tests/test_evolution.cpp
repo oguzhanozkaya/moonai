@@ -5,6 +5,7 @@
 #include "evolution/mutation.hpp"
 #include "evolution/neural_network.hpp"
 #include "evolution/species.hpp"
+#include "simulation/entity.hpp"
 #include "simulation/physics.hpp"
 #include <gtest/gtest.h>
 
@@ -293,7 +294,7 @@ TEST(SpeciesTest, SummaryTracking) {
 
   Genome g1(2, 1);
   g1.set_fitness(5.0f);
-  s.add_member(1, g1);
+  s.add_member(Entity{1, 1}, g1);
   s.refresh_summary();
 
   EXPECT_FLOAT_EQ(s.average_fitness(), 5.0f);
@@ -310,8 +311,8 @@ TEST(SpeciesTest, AverageFitnessUsesMembers) {
   Genome g2(2, 1);
   g2.set_fitness(6.0f);
 
-  s.add_member(1, g1);
-  s.add_member(2, g2);
+  s.add_member(Entity{1, 1}, g1);
+  s.add_member(Entity{2, 1}, g2);
   s.refresh_summary();
 
   EXPECT_FLOAT_EQ(s.average_fitness(), 8.0f);
