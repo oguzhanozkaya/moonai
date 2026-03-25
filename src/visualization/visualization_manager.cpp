@@ -357,11 +357,13 @@ void VisualizationManager::handle_events() {
 
         case sf::Keyboard::Key::Equal: // + key
         case sf::Keyboard::Key::Up:
+        case sf::Keyboard::Key::Add:
           speed_multiplier_ = std::min(speed_multiplier_ * 2, 64);
           break;
 
         case sf::Keyboard::Key::Hyphen: // - key
         case sf::Keyboard::Key::Down:
+        case sf::Keyboard::Key::Subtract:
           speed_multiplier_ = std::max(speed_multiplier_ / 2, 1);
           break;
 
