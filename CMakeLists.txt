@@ -11,6 +11,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# ── Clang-format integration ─────────────────────────────────────────────────
+# Automatically format C++ source files during build (CMake 3.20+)
+find_program(CLANG_FORMAT_EXE clang-format)
+if(CLANG_FORMAT_EXE)
+    set(CMAKE_CXX_CLANG_FORMAT "${CLANG_FORMAT_EXE};--style=file")
+    message(STATUS "clang-format found: ${CLANG_FORMAT_EXE}")
+else()
+    message(STATUS "clang-format not found - automatic formatting disabled")
+endif()
+
 # ── Options ──────────────────────────────────────────────────────────────────
 option(MOONAI_BUILD_TESTS  "Build unit tests"                 ON)
 
@@ -115,28 +125,17 @@ if(MOONAI_BUILD_TESTS)
 endif()
 
 # ── Static Analysis ───────────────────────────────────────────────────────────
+# Built-in CMake integration for cppcheck - runs automatically during compilation
 find_program(CPPCHECK_EXECUTABLE cppcheck)
 
 if(CPPCHECK_EXECUTABLE)
-    # Create cppcheck build directory for whole-program analysis
-    # This enables accurate unusedFunction detection across all translation units
-    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/cppcheck-build)
-
-    add_custom_target(cppcheck
-        COMMAND ${CPPCHECK_EXECUTABLE}
-            --project=${CMAKE_BINARY_DIR}/compile_commands.json
-            --cppcheck-build-dir=${CMAKE_BINARY_DIR}/cppcheck-build
-            --enable=warning,style,performance
-            --std=c++17
-            --suppress=missingIncludeSystem
-            --suppress=*:*/vcpkg_installed/*
-            --quiet
-            --error-exitcode=1
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        COMMENT "Running cppcheck with whole-program analysis..."
-        VERBATIM
+    set(CMAKE_CXX_CPPCHECK "${CPPCHECK_EXECUTABLE}"
+        "--enable=warning,style,performance"
+        "--std=c++17"
+        "--suppress=missingIncludeSystem"
+        "--suppress=*:*/vcpkg_installed/*"
     )
     message(STATUS "cppcheck found: ${CPPCHECK_EXECUTABLE}")
 else()
-    message(STATUS "cppcheck not found - static analysis target disabled")
+    message(STATUS "cppcheck not found - static analysis disabled")
 endif()

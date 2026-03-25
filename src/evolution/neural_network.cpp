@@ -168,9 +168,8 @@ void NeuralNetwork::build_evaluation_order() {
                std::back_inserter(cycle_nodes),
                [&ordered_set](auto nid) { return !ordered_set.count(nid); });
   std::sort(cycle_nodes.begin(), cycle_nodes.end());
-  for (auto nid : cycle_nodes) {
-    evaluation_order_.push_back(nid);
-  }
+  evaluation_order_.insert(evaluation_order_.end(), cycle_nodes.begin(),
+                           cycle_nodes.end());
 
   // Build incoming adjacency list: incoming_[node_idx] = {from_idx, weight}
   // This is used by activate() to avoid per-call map allocation.

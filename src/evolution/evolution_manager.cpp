@@ -520,7 +520,7 @@ void EvolutionManager::evaluate_generation(SimulationManager &sim) {
         if (!sim.agents()[i]->alive())
           continue;
 
-        float *sensor_buf =
+        const float *sensor_buf =
             sensor_values.data() + static_cast<size_t>(i * num_inputs_);
         float *output_buf =
             output_values.data() + static_cast<size_t>(i * num_outputs_);
@@ -590,10 +590,11 @@ void EvolutionManager::build_networks() {
   MOONAI_PROFILE_SCOPE(ProfileEvent::BuildNetworks);
   networks_.clear();
   networks_.reserve(population_.size());
-  for (const auto &genome : population_) {
-    networks_.push_back(
-        std::make_unique<NeuralNetwork>(genome, config_.activation_function));
-  }
+  std::transform(population_.begin(), population_.end(),
+                 std::back_inserter(networks_), [this](const auto &genome) {
+                   return std::make_unique<NeuralNetwork>(
+                       genome, config_.activation_function);
+                 });
 }
 
 void EvolutionManager::compute_fitness(const SimulationManager &sim) {
@@ -665,17 +666,15 @@ void EvolutionManager::speciate() {
 
   // Assign each genome to a species
   for (auto &genome : population_) {
-    bool placed = false;
-    for (auto &s : species_) {
-      if (s.is_compatible(genome, config_.compatibility_threshold,
-                          config_.c1_excess, config_.c2_disjoint,
-                          config_.c3_weight)) {
-        s.add_member(&genome);
-        placed = true;
-        break;
-      }
-    }
-    if (!placed) {
+    auto it = std::find_if(
+        species_.begin(), species_.end(), [&genome, this](const auto &s) {
+          return s.is_compatible(genome, config_.compatibility_threshold,
+                                 config_.c1_excess, config_.c2_disjoint,
+                                 config_.c3_weight);
+        });
+    if (it != species_.end()) {
+      it->add_member(&genome);
+    } else {
       species_.emplace_back(genome);
       species_.back().add_member(&genome);
     }
@@ -764,7 +763,7 @@ void EvolutionManager::reproduce() {
 
   // Produce offspring for each species according to its quota
   for (size_t si = 0; si < species_.size(); ++si) {
-    auto &s = species_[si];
+    const auto &s = species_[si];
     const auto &members = s.members();
     if (members.empty())
       continue;
@@ -933,11 +932,10 @@ bool EvolutionManager::load_checkpoint(const std::string &path, Random &rng) {
   // Rebuild species members by matching saved species_id
   for (size_t gi = 0; gi < population_.size(); ++gi) {
     int sid = genome_species_ids[gi];
-    for (auto &s : species_) {
-      if (s.id() == sid) {
-        s.add_member(&population_[gi]);
-        break;
-      }
+    auto it = std::find_if(species_.begin(), species_.end(),
+                           [sid](const auto &s) { return s.id() == sid; });
+    if (it != species_.end()) {
+      it->add_member(&population_[gi]);
     }
   }
 

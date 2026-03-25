@@ -236,11 +236,6 @@ TEST(EnvironmentTest, WrapPositionWithLargeNegativeValues) {
 TEST(PhysicsTest, SensorDistIsNegativeOneWhenNoNeighbors) {
   // Regression for Fix 5: default sentinel should be -1 when no object is in
   // range.
-  SimulationConfig config;
-  config.grid_width = 1000;
-  config.grid_height = 1000;
-  config.boundary_mode = BoundaryMode::Clamp;
-
   SpatialGrid grid(1000, 1000, 50.0f);
 
   std::vector<std::unique_ptr<Agent>> agents;

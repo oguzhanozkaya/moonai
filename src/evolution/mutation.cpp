@@ -129,11 +129,13 @@ void Mutation::add_node(Genome &genome, Random &rng, InnovationTracker &tracker,
     return;
 
   // Pick a random enabled connection
+  std::vector<int> indices(conns.size());
+  std::iota(indices.begin(), indices.end(), 0);
   std::vector<int> enabled_indices;
-  for (int i = 0; i < static_cast<int>(conns.size()); ++i) {
-    if (conns[i].enabled)
-      enabled_indices.push_back(i);
-  }
+  enabled_indices.reserve(conns.size());
+  std::copy_if(indices.begin(), indices.end(),
+               std::back_inserter(enabled_indices),
+               [&conns](int i) { return conns[i].enabled; });
   if (enabled_indices.empty())
     return;
 

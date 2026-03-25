@@ -157,20 +157,22 @@ void Logger::log_best_genome(int generation, const Genome &genome) {
   j["num_connections"] = genome.connections().size();
 
   nlohmann::json nodes_json = nlohmann::json::array();
-  for (const auto &node : genome.nodes()) {
-    nodes_json.push_back(
-        {{"id", node.id}, {"type", static_cast<int>(node.type)}});
-  }
+  std::transform(genome.nodes().begin(), genome.nodes().end(),
+                 std::back_inserter(nodes_json), [](const auto &node) {
+                   return nlohmann::json{{"id", node.id},
+                                         {"type", static_cast<int>(node.type)}};
+                 });
   j["nodes"] = nodes_json;
 
   nlohmann::json conns_json = nlohmann::json::array();
-  for (const auto &conn : genome.connections()) {
-    conns_json.push_back({{"in", conn.in_node},
-                          {"out", conn.out_node},
-                          {"weight", conn.weight},
-                          {"enabled", conn.enabled},
-                          {"innovation", conn.innovation}});
-  }
+  std::transform(genome.connections().begin(), genome.connections().end(),
+                 std::back_inserter(conns_json), [](const auto &conn) {
+                   return nlohmann::json{{"in", conn.in_node},
+                                         {"out", conn.out_node},
+                                         {"weight", conn.weight},
+                                         {"enabled", conn.enabled},
+                                         {"innovation", conn.innovation}};
+                 });
   j["connections"] = conns_json;
 
   if (!genomes_first_entry_) {

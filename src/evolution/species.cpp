@@ -37,10 +37,9 @@ void Species::adjust_fitness() {
   }
 
   // Compute total adjusted fitness for proportional reproduction
-  total_adjusted_fitness_ = 0.0f;
-  for (const auto *member : members_) {
-    total_adjusted_fitness_ += member->adjusted_fitness();
-  }
+  total_adjusted_fitness_ = std::accumulate(
+      members_.begin(), members_.end(), 0.0f,
+      [](float sum, const Genome *g) { return sum + g->adjusted_fitness(); });
 
   // Average raw fitness for reporting
   float total_raw = std::accumulate(

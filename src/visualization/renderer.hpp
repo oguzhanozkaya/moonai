@@ -19,17 +19,18 @@ public:
   Renderer();
 
   void draw_background(sf::RenderTarget &target, int width, int height);
-  void draw_grid(sf::RenderTarget &target, int width, int height,
-                 float cell_size);
-  void draw_boundaries(sf::RenderTarget &target, int width, int height);
+  static void draw_grid(sf::RenderTarget &target, int width, int height,
+                        float cell_size);
+  static void draw_boundaries(sf::RenderTarget &target, int width, int height);
 
   void draw_food(sf::RenderTarget &target, const std::vector<Food> &food);
   void draw_agent(sf::RenderTarget &target, const Agent &agent,
                   bool selected = false);
-  void draw_vision_range(sf::RenderTarget &target, const Agent &agent);
-  void draw_sensor_lines(sf::RenderTarget &target, const Agent &agent,
-                         const std::vector<std::unique_ptr<Agent>> &agents,
-                         const std::vector<Food> &food);
+  static void draw_vision_range(sf::RenderTarget &target, const Agent &agent);
+  static void
+  draw_sensor_lines(sf::RenderTarget &target, const Agent &agent,
+                    const std::vector<std::unique_ptr<Agent>> &agents,
+                    const std::vector<Food> &food);
 
   // Color helpers
   static sf::Color species_color(int species_id);

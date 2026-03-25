@@ -116,9 +116,9 @@ std::vector<AgentId> SpatialGrid::query(Vec2 position) const {
       if (nx < 0 || nx >= cols_ || ny < 0 || ny >= rows_)
         continue;
       int idx = ny * cols_ + nx;
-      for (const auto &entry : cells_[idx]) {
-        result.push_back(entry.id);
-      }
+      std::transform(cells_[idx].begin(), cells_[idx].end(),
+                     std::back_inserter(result),
+                     [](const auto &entry) { return entry.id; });
     }
   }
 
@@ -175,9 +175,10 @@ void SpatialGrid::flatten(std::vector<int> &cell_offsets,
   entries.reserve(total_entries);
 
   for (const auto &cell : cells_) {
-    for (const auto &entry : cell) {
-      entries.push_back({entry.id, entry.pos.x, entry.pos.y});
-    }
+    std::transform(cell.begin(), cell.end(), std::back_inserter(entries),
+                   [](const auto &entry) {
+                     return FlatEntry{entry.id, entry.pos.x, entry.pos.y};
+                   });
     cell_offsets.push_back(static_cast<int>(entries.size()));
   }
 }

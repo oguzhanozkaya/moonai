@@ -42,11 +42,10 @@ build_test_network_data(const std::vector<std::unique_ptr<NeuralNetwork>> &nets,
     for (auto nid : eval_order) {
       num_conn += static_cast<int>(incoming[nidx.at(nid)].size());
     }
-    int num_out = 0;
-    for (const auto &node : nodes) {
-      if (node.type == NodeType::Output)
-        ++num_out;
-    }
+    int num_out = static_cast<int>(
+        std::count_if(nodes.begin(), nodes.end(), [](const auto &node) {
+          return node.type == NodeType::Output;
+        }));
 
     data.descs[i].num_nodes = static_cast<int>(nodes.size());
     data.descs[i].num_eval = static_cast<int>(eval_order.size());
@@ -340,7 +339,7 @@ TEST_F(GpuTest, ZeroConnectionNetwork) {
   batch.upload_network_data(data);
   ASSERT_TRUE(batch.ok()) << "GPU upload failed";
 
-  float in_data[kInputs] = {1.0f, 0.5f, -1.0f};
+  const float in_data[kInputs] = {1.0f, 0.5f, -1.0f};
   float out_data[kOutputs] = {};
 
   run_gpu_inference(batch, in_data, kInputs, out_data, kOutputs);
@@ -488,7 +487,7 @@ TEST_F(GpuTest, RejectsOversizedCopies) {
   batch.upload_network_data(data);
   ASSERT_TRUE(batch.ok()) << "GPU upload failed";
 
-  float oversized_inputs[4] = {1.0f, 0.5f, -1.0f, 0.0f};
+  const float oversized_inputs[4] = {1.0f, 0.5f, -1.0f, 0.0f};
   batch.pack_inputs_async(oversized_inputs, 4);
   EXPECT_FALSE(batch.ok());
 }

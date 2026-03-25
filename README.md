@@ -425,9 +425,6 @@ Experiments with 5K+ agents require significant compute. Recommendations:
 # Generate compile_commands.json for your IDE/LSP
 just compdb
 
-# Format code and run static analysis (requires clang-format and cppcheck)
-just check
-
 # Benchmark NN forward-pass timing (requires release build)
 just bench-nn
 
@@ -491,6 +488,35 @@ Each run writes to `output/{experiment_name}/` (named experiments) or `output/YY
 | `ticks.csv` | Per-tick agent states (only when `tick_log_enabled: true`) |
 
 ## C++ Code Style
+
+MoonAI follows the **LLVM coding style** (2-space indentation, LLVM brace breaking, etc.) enforced automatically during compilation.
+
+### Automatic Formatting and Static Analysis
+
+The build system automatically runs code quality tools on every source file during compilation:
+
+| Tool | Purpose | When It Runs |
+|------|---------|--------------|
+| **clang-format** | Code formatting (LLVM style) | Every file compilation |
+| **cppcheck** | Static analysis (warnings, style, performance) | Every file compilation |
+
+**No manual action required** — both tools run transparently when you build with `just build`, `just run`, or `just test`. The project uses CMake's built-in integration:
+
+```cmake
+# CMakeLists.txt
+set(CMAKE_CXX_CLANG_FORMAT "${CLANG_FORMAT_EXE};--style=file")
+set(CMAKE_CXX_CPPCHECK "${CPPCHECK_EXECUTABLE};--enable=warning,style,performance;...")
+```
+
+### Style Configuration
+
+- **`.clang-format`** — LLVM-based configuration in project root
+  - 2-space indentation
+  - 80 column limit
+  - Attached braces
+  - Right-aligned pointers/references
+
+### Code Style Conventions
 
 | Convention | Rule |
 |------------|------|
