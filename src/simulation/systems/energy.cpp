@@ -1,0 +1,46 @@
+#include "simulation/systems/energy.hpp"
+#include "simulation/components.hpp"
+
+namespace moonai {
+
+EnergySystem::EnergySystem(float predator_energy_cost, float prey_energy_cost,
+                           float max_age, float max_energy)
+    : predator_energy_cost_(predator_energy_cost),
+      prey_energy_cost_(prey_energy_cost), max_age_(max_age),
+      max_energy_(max_energy) {}
+
+void EnergySystem::update(Registry &registry, float dt) {
+  auto &vitals = registry.vitals();
+  auto &identity = registry.identity();
+  auto &stats = registry.stats();
+
+  const size_t count = registry.size();
+
+  for (size_t i = 0; i < count; ++i) {
+    if (!vitals.alive[i]) {
+      continue;
+    }
+
+    // Increment age
+    vitals.age[i]++;
+
+    // Consume energy based on agent type
+    float energy_cost = (identity.type[i] == IdentitySoA::TYPE_PREDATOR)
+                            ? predator_energy_cost_
+                            : prey_energy_cost_;
+
+    vitals.energy[i] -= energy_cost * dt;
+
+    // Check for death by starvation or old age
+    if (vitals.energy[i] <= 0.0f || vitals.age[i] >= max_age_) {
+      vitals.alive[i] = 0;
+    }
+
+    // Decrement reproduction cooldown
+    if (vitals.reproduction_cooldown[i] > 0) {
+      vitals.reproduction_cooldown[i]--;
+    }
+  }
+}
+
+} // namespace moonai

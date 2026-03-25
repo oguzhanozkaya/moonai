@@ -7,6 +7,12 @@ set(MOONAI_SIMULATION_SOURCES
     physics.cpp
     spatial_grid.cpp
     registry.cpp
+    system.cpp
+    spatial_grid_ecs.cpp
+    systems/movement.cpp
+    systems/sensor.cpp
+    systems/combat.cpp
+    systems/energy.cpp
 )
 
 add_library(moonai_simulation STATIC ${MOONAI_SIMULATION_SOURCES})

@@ -12,6 +12,7 @@ add_executable(moonai_tests
     test_ecs_sparse_set.cpp
     test_ecs_registry.cpp
     test_ecs_performance.cpp
+    test_ecs_systems.cpp
 )
 
 target_link_libraries(moonai_tests PRIVATE
