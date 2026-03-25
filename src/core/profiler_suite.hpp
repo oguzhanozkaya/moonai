@@ -12,7 +12,7 @@ struct ProfilerSuiteConfig {
   std::string config_path = "config.lua";
   std::string experiment_name;
   std::vector<std::uint64_t> seeds;
-  int generations = 24;
+  int windows = 24;
   std::string output_dir = "output/profiles";
 };
 

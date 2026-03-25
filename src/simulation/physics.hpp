@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 namespace moonai {
@@ -55,8 +56,16 @@ public:
       const Agent &agent, const std::vector<std::unique_ptr<Agent>> &agents,
       const std::vector<Food> &food,
       const std::vector<AgentId> &nearby_agent_ids,
+      const std::unordered_map<AgentId, std::size_t> &agent_slots,
       const std::vector<AgentId> &nearby_food_ids, float world_width,
       float world_height, float max_energy, bool has_walls);
+
+  static SensorInput build_sensors(
+      const Agent &agent, const std::vector<std::unique_ptr<Agent>> &agents,
+      const std::vector<Food> &food, const SpatialGrid &grid,
+      const SpatialGrid &food_grid,
+      const std::unordered_map<AgentId, std::size_t> &agent_slots,
+      float world_width, float world_height, float max_energy, bool has_walls);
 
   static SensorInput
   build_sensors(const Agent &agent,
@@ -73,11 +82,14 @@ public:
   // Process predator attacks: returns (killer, victim) pairs
   static std::vector<KillEvent>
   process_attacks(std::vector<std::unique_ptr<Agent>> &agents,
-                  const SpatialGrid &grid, float attack_range);
+                  const SpatialGrid &grid,
+                  const std::unordered_map<AgentId, std::size_t> &agent_slots,
+                  float attack_range);
 
   static std::vector<KillEvent> process_attacks_from_candidates(
       std::vector<std::unique_ptr<Agent>> &agents,
       const std::vector<std::vector<AgentId>> &nearby_agent_ids,
+      const std::unordered_map<AgentId, std::size_t> &agent_slots,
       const std::vector<std::size_t> &predator_indices, float attack_range);
 };
 

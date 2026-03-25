@@ -1,4 +1,5 @@
 #include "data/logger.hpp"
+#include "data/metrics.hpp"
 #include "evolution/genome.hpp"
 #include <gtest/gtest.h>
 
@@ -15,7 +16,9 @@ protected:
     std::filesystem::remove_all(test_dir_);
   }
 
-  void TearDown() override { std::filesystem::remove_all(test_dir_); }
+  void TearDown() override {
+    std::filesystem::remove_all(test_dir_);
+  }
 
   std::string test_dir_;
 };
@@ -35,7 +38,15 @@ TEST_F(LoggerTest, StatsCSVHasSeedAndHeader) {
   Logger logger(test_dir_, 12345);
   SimulationConfig config;
   logger.initialize(config);
-  logger.log_generation(0, 50, 150, 1.5f, 0.8f, 3, 5.2f);
+  StepMetrics metrics;
+  metrics.step = 0;
+  metrics.predator_count = 50;
+  metrics.prey_count = 150;
+  metrics.best_fitness = 1.5f;
+  metrics.avg_fitness = 0.8f;
+  metrics.num_species = 3;
+  metrics.avg_genome_complexity = 5.2f;
+  logger.log_report(metrics);
   logger.flush();
 
   // Read the file
@@ -48,7 +59,7 @@ TEST_F(LoggerTest, StatsCSVHasSeedAndHeader) {
 
   // Second line: header
   std::getline(f, line);
-  EXPECT_NE(line.find("generation"), std::string::npos);
+  EXPECT_NE(line.find("step"), std::string::npos);
   EXPECT_NE(line.find("best_fitness"), std::string::npos);
 
   // Third line: data
@@ -81,9 +92,8 @@ TEST_F(LoggerTest, GenomeExportIsValidJSON) {
   EXPECT_TRUE(j.is_array());
   EXPECT_EQ(j.size(), 1u);
   EXPECT_FLOAT_EQ(j[0]["fitness"].get<float>(), 1.23f);
-  EXPECT_EQ(j[0]["generation"].get<int>(), 0);
-  EXPECT_TRUE(j[0].contains("nodes"));
-  EXPECT_TRUE(j[0].contains("connections"));
+  EXPECT_EQ(j[0]["step"].get<int>(), 0);
+  EXPECT_TRUE(j[0].contains("genome"));
 }
 
 TEST_F(LoggerTest, ConfigSnapshotIsSaved) {

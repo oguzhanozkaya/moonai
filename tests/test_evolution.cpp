@@ -30,7 +30,7 @@ TEST(InnovationTrackerTest, DifferentConnectionGetsDifferentInnovation) {
 TEST(InnovationTrackerTest, ResetClearsGenerationCache) {
   InnovationTracker tracker;
   std::uint32_t i1 = tracker.get_innovation(0, 3);
-  tracker.reset_generation();
+  tracker.reset_mutation_window();
   std::uint32_t i2 = tracker.get_innovation(0, 3);
   // After reset, same structural mutation gets a new innovation number
   EXPECT_NE(i1, i2);
@@ -288,32 +288,21 @@ TEST(SpeciesTest, IncompatibleGenomesDontMatch) {
   EXPECT_FALSE(s.is_compatible(different, 0.1f, 1.0f, 1.0f, 0.4f));
 }
 
-TEST(SpeciesTest, StagnationTracking) {
+TEST(SpeciesTest, SummaryTracking) {
   Genome rep(2, 1);
   Species s(rep);
 
-  // Add member with some fitness
   Genome g1(2, 1);
   g1.set_fitness(5.0f);
-  s.add_member(&g1);
-  s.update_best_fitness();
+  s.add_member(1, g1);
+  s.refresh_summary();
 
-  EXPECT_EQ(s.generations_without_improvement(), 0);
-  EXPECT_FALSE(s.is_stagnant(15));
-
-  // Simulate no improvement for many generations
-  for (int i = 0; i < 16; ++i) {
-    s.clear_members();
-    Genome g2(2, 1);
-    g2.set_fitness(4.0f); // worse than best
-    s.add_member(&g2);
-    s.update_best_fitness();
-  }
-
-  EXPECT_TRUE(s.is_stagnant(15));
+  EXPECT_FLOAT_EQ(s.average_fitness(), 5.0f);
+  EXPECT_FLOAT_EQ(s.best_fitness_ever(), 5.0f);
+  EXPECT_EQ(s.members().size(), 1u);
 }
 
-TEST(SpeciesTest, AdjustFitnessSharesFitness) {
+TEST(SpeciesTest, AverageFitnessUsesMembers) {
   Genome rep(2, 1);
   Species s(rep);
 
@@ -322,13 +311,12 @@ TEST(SpeciesTest, AdjustFitnessSharesFitness) {
   Genome g2(2, 1);
   g2.set_fitness(6.0f);
 
-  s.add_member(&g1);
-  s.add_member(&g2);
-  s.adjust_fitness();
+  s.add_member(1, g1);
+  s.add_member(2, g2);
+  s.refresh_summary();
 
-  // Each member's adjusted fitness = raw / species_size
-  EXPECT_FLOAT_EQ(g1.adjusted_fitness(), 5.0f);
-  EXPECT_FLOAT_EQ(g2.adjusted_fitness(), 3.0f);
+  EXPECT_FLOAT_EQ(s.average_fitness(), 8.0f);
+  EXPECT_FLOAT_EQ(s.best_fitness_ever(), 10.0f);
 }
 
 // ── Regression Tests for Bug Fixes ─────────────────────────────────────
@@ -362,13 +350,17 @@ TEST(EvolutionManagerTest, InitializeCreatesPopulation) {
   config.seed = 42;
 
   Random rng(42);
+  SimulationManager sim(config);
+  sim.initialize();
   EvolutionManager evo(config, rng);
   evo.initialize(15, 2);
+  evo.seed_initial_population(sim);
 
-  EXPECT_EQ(static_cast<int>(evo.population().size()), 15);
+  EXPECT_EQ(static_cast<int>(sim.agents().size()), 15);
 
   // Each genome should have correct structure
-  for (const auto &g : evo.population()) {
+  for (const auto &agent : sim.agents()) {
+    const auto &g = agent->genome();
     EXPECT_EQ(g.num_inputs(), 15);
     EXPECT_EQ(g.num_outputs(), 2);
     EXPECT_GT(g.connections().size(), 0u);
@@ -382,38 +374,35 @@ TEST(EvolutionManagerTest, InitialGenomesProduceValidNetworks) {
   config.seed = 42;
 
   Random rng(42);
+  SimulationManager sim(config);
+  sim.initialize();
   EvolutionManager evo(config, rng);
   evo.initialize(15, 2);
+  evo.seed_initial_population(sim);
 
-  EXPECT_EQ(evo.networks().size(), evo.population().size());
-
-  for (size_t i = 0; i < evo.networks().size(); ++i) {
-    auto outputs = evo.networks()[i]->activate(std::vector<float>(15, 0.5f));
+  for (size_t i = 0; i < sim.agents().size(); ++i) {
+    auto outputs =
+        sim.agents()[i]->network()->activate(std::vector<float>(15, 0.5f));
     EXPECT_EQ(outputs.size(), 2u);
   }
 }
 
-TEST(EvolutionManagerTest, EvolveProducesNewGeneration) {
+TEST(EvolutionManagerTest, CreateOffspringAppendsPopulation) {
   SimulationConfig config;
   config.predator_count = 5;
   config.prey_count = 10;
   config.seed = 42;
 
   Random rng(42);
+  SimulationManager sim(config);
+  sim.initialize();
   EvolutionManager evo(config, rng);
   evo.initialize(4, 2);
+  evo.seed_initial_population(sim);
 
-  // Set some fitness values
-  for (auto &g : evo.population()) {
-    g.set_fitness(rng.next_float(0.0f, 10.0f));
-  }
-
-  EXPECT_EQ(evo.generation(), 0);
-  evo.evolve();
-  EXPECT_EQ(evo.generation(), 1);
-
-  // Population size should be preserved
-  EXPECT_EQ(static_cast<int>(evo.population().size()), 15);
+  const std::size_t before = sim.agents().size();
+  evo.create_offspring(sim, 0, 1, {10.0f, 10.0f});
+  EXPECT_EQ(sim.agents().size(), before + 1);
 }
 
 // ── Delete Connection Tests ─────────────────────────────────────────────

@@ -11,14 +11,15 @@ namespace moonai {
 // Flags indicating which Lua callbacks an experiment defines
 struct LuaCallbacks {
   bool has_fitness_fn = false;
-  bool has_on_generation_end = false;
+  bool has_on_report_window_end = false;
   bool has_on_experiment_start = false;
   bool has_on_experiment_end = false;
 };
 
-// Stats passed to generation-level hooks
-struct GenerationStats {
-  int generation;
+// Stats passed to report-window hooks
+struct ReportWindowStats {
+  int step;
+  int window_index;
   float best_fitness;
   float avg_fitness;
   int num_species;
@@ -57,10 +58,10 @@ public:
 
   // ── Event hooks ───────────────────────────────────────────────────
   // Returns true if the hook returned config overrides; fills overrides map.
-  bool call_on_generation_end(const GenerationStats &stats,
-                              std::map<std::string, float> &overrides);
+  bool call_on_report_window_end(const ReportWindowStats &stats,
+                                 std::map<std::string, float> &overrides);
   void call_on_experiment_start(const SimulationConfig &config);
-  void call_on_experiment_end(const GenerationStats &stats);
+  void call_on_experiment_end(const ReportWindowStats &stats);
 
 private:
   struct Impl;

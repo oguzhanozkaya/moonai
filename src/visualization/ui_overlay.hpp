@@ -20,9 +20,8 @@ namespace moonai {
 class SimulationManager;
 
 struct OverlayStats {
-  int generation = 0;
-  int tick = 0;
-  int max_ticks = 1500;
+  int step = 0;
+  int max_steps = 1500;
   int alive_predators = 0;
   int alive_prey = 0;
   float best_fitness = 0.0f;
@@ -54,11 +53,11 @@ struct OverlayStats {
   float predator_energy_dist[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
   float prey_energy_dist[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
 
-  // Event counts for current tick
-  int kills_this_tick = 0;
-  int food_eaten_this_tick = 0;
-  int births_this_tick = 0;
-  int deaths_this_tick = 0;
+  // Event counts for current step
+  int kills_this_step = 0;
+  int food_eaten_this_step = 0;
+  int births_this_step = 0;
+  int deaths_this_step = 0;
 };
 
 class UIOverlay {
@@ -77,10 +76,10 @@ public:
   // Set node activation values for the selected agent's NN panel
   void set_activations(const std::unordered_map<std::uint32_t, float> &vals);
 
-  // Push population data for the left column chart (called per tick)
+  // Push population data for the left column chart (called per step)
   void push_population(int predators, int prey);
 
-  // Push species count (called per generation)
+  // Push species count (called per report window)
   void push_species(int count);
 
   // Experiment selector overlay
@@ -108,9 +107,8 @@ private:
   void draw_energy_distribution(sf::RenderTarget &target,
                                 const OverlayStats &stats, float x, float y,
                                 float w, float h);
-  void draw_generation_timeline(sf::RenderTarget &target,
-                                const OverlayStats &stats, float x, float y,
-                                float w, float h);
+  void draw_step_timeline(sf::RenderTarget &target, const OverlayStats &stats,
+                          float x, float y, float w, float h);
   void draw_event_counts(sf::RenderTarget &target, const OverlayStats &stats,
                          float x, float y, float w, float h);
 

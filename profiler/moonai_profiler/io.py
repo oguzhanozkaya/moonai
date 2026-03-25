@@ -18,11 +18,11 @@ class SuiteMemberRun:
     seed: int
     run_dir: str
     profile_path: str
-    avg_generation_ms: float
+    avg_window_ms: float
     run_total_ms: float
-    generation_count: int
+    window_count: int
     disposition: str
-    generation_times_ms: list[float]
+    window_times_ms: list[float]
 
 
 @dataclass(frozen=True)
@@ -33,10 +33,10 @@ class ProfileSuite:
     suite_name: str
     config_path: str
     experiment_name: str
-    generations: int
+    windows: int
     config_fingerprint: str
-    avg_generation_ms: float
-    avg_generation_ms_stddev: float
+    avg_window_ms: float
+    avg_window_ms_stddev: float
     avg_run_total_ms: float
     aggregate_events: dict[str, dict[str, float]]
     aggregate_counters: dict[str, dict[str, float]]
@@ -84,11 +84,11 @@ def _build_profile_suite(path: Path, payload: dict) -> ProfileSuite:
             seed=int(run.get("seed", 0)),
             run_dir=str(run.get("run_dir", "")),
             profile_path=str(run.get("profile_path", "")),
-            avg_generation_ms=float(run.get("avg_generation_ms", 0.0)),
+            avg_window_ms=float(run.get("avg_window_ms", 0.0)),
             run_total_ms=float(run.get("run_total_ms", 0.0)),
-            generation_count=int(run.get("generation_count", 0)),
+            window_count=int(run.get("window_count", 0)),
             disposition=str(run.get("disposition", "kept")),
-            generation_times_ms=_load_generation_times(
+            window_times_ms=_load_window_times(
                 _resolve_profile_path(path.parent, str(run.get("profile_path", "")))
             ),
         )
@@ -105,10 +105,10 @@ def _build_profile_suite(path: Path, payload: dict) -> ProfileSuite:
         suite_name=str(suite_meta.get("name", path.parent.name)),
         config_path=str(suite_meta.get("config_path", "")),
         experiment_name=str(suite_meta.get("experiment_name", "")),
-        generations=int(suite_meta.get("generations", 0)),
+        windows=int(suite_meta.get("windows", 0)),
         config_fingerprint=str(suite_meta.get("config_fingerprint", "")),
-        avg_generation_ms=float(aggregate.get("avg_generation_ms", 0.0)),
-        avg_generation_ms_stddev=float(aggregate.get("avg_generation_ms_stddev", 0.0)),
+        avg_window_ms=float(aggregate.get("avg_window_ms", 0.0)),
+        avg_window_ms_stddev=float(aggregate.get("avg_window_ms_stddev", 0.0)),
         avg_run_total_ms=float(aggregate.get("avg_run_total_ms", 0.0)),
         aggregate_events={
             name: {key: float(value) for key, value in values.items()}
@@ -132,25 +132,25 @@ def _build_profile_suite(path: Path, payload: dict) -> ProfileSuite:
     )
 
 
-def _load_generation_times(profile_path: Path) -> list[float]:
+def _load_window_times(profile_path: Path) -> list[float]:
     try:
         with profile_path.open(encoding="utf-8") as handle:
             payload = json.load(handle)
     except Exception:
         return []
 
-    generations = payload.get("generations")
-    if not isinstance(generations, list):
+    windows = payload.get("windows")
+    if not isinstance(windows, list):
         return []
 
     values: list[float] = []
-    for generation in generations:
-        if not isinstance(generation, dict):
+    for window in windows:
+        if not isinstance(window, dict):
             continue
-        events = generation.get("events_ms")
+        events = window.get("events_ms")
         if not isinstance(events, dict):
             continue
-        values.append(float(events.get("generation_total", 0.0)))
+        values.append(float(events.get("window_total", 0.0)))
     return values
 
 

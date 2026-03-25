@@ -1,11 +1,10 @@
 #include "simulation/simulation_manager.hpp"
 #include "core/profiler.hpp"
-#include "simulation/predator.hpp"
-#include "simulation/prey.hpp"
-
 #include <algorithm>
 #include <chrono>
+#include <limits>
 #include <spdlog/spdlog.h>
+#include <unordered_set>
 
 #ifdef MOONAI_OPENMP_ENABLED
 #include <omp.h>
@@ -25,30 +24,16 @@ SimulationManager::SimulationManager(const SimulationConfig &config)
       food_grid_(config.grid_width, config.grid_height,
                  std::max(config.vision_range, 1.0f)) {}
 
-void SimulationManager::initialize() { initialize(true); }
+void SimulationManager::initialize() {
+  initialize(true);
+}
 
 void SimulationManager::initialize(bool log_initialization) {
   agents_.clear();
-  current_tick_ = 0;
+  agent_slots_.clear();
+  next_agent_id_ = 0;
+  current_step_ = 0;
   invalidate_neighbor_cache();
-
-  AgentId next_id = 0;
-
-  for (int i = 0; i < config_.predator_count; ++i) {
-    Vec2 pos{rng_.next_float(0, static_cast<float>(config_.grid_width)),
-             rng_.next_float(0, static_cast<float>(config_.grid_height))};
-    agents_.push_back(std::make_unique<Predator>(
-        next_id++, pos, config_.predator_speed, config_.vision_range,
-        config_.initial_energy, config_.attack_range));
-  }
-
-  for (int i = 0; i < config_.prey_count; ++i) {
-    Vec2 pos{rng_.next_float(0, static_cast<float>(config_.grid_width)),
-             rng_.next_float(0, static_cast<float>(config_.grid_height))};
-    agents_.push_back(std::make_unique<Prey>(next_id++, pos, config_.prey_speed,
-                                             config_.vision_range,
-                                             config_.initial_energy));
-  }
 
   environment_.initialize_food(rng_, config_.food_count);
 
@@ -59,15 +44,45 @@ void SimulationManager::initialize(bool log_initialization) {
   count_alive();
 
   if (log_initialization) {
-    spdlog::info(
-        "Simulation initialized: {} predators, {} prey, {} food (seed: {})",
-        config_.predator_count, config_.prey_count, config_.food_count,
-        rng_.seed());
+    spdlog::info("Simulation initialized: {} food pellets (seed: {})",
+                 config_.food_count, rng_.seed());
   }
 }
 
-void SimulationManager::tick(float dt) {
-  MOONAI_PROFILE_SCOPE(ProfileEvent::SimulationTick);
+AgentId SimulationManager::spawn_agent(std::unique_ptr<Agent> agent) {
+  const AgentId id = agent->id();
+  if (id != next_agent_id_) {
+    next_agent_id_ = std::max(next_agent_id_, static_cast<AgentId>(id + 1));
+  } else {
+    ++next_agent_id_;
+  }
+  const std::size_t slot = agents_.size();
+  grid_.insert(id, agent->position());
+  agent_slots_[id] = slot;
+  agents_.push_back(std::move(agent));
+  rebuild_alive_indices();
+  count_alive();
+  neighbor_cache_.valid = false;
+  return id;
+}
+
+std::size_t SimulationManager::slot_for_id(AgentId id) const {
+  const auto it = agent_slots_.find(id);
+  return it == agent_slots_.end() ? agents_.size() : it->second;
+}
+
+Agent *SimulationManager::agent_by_id(AgentId id) {
+  const std::size_t slot = slot_for_id(id);
+  return slot < agents_.size() ? agents_[slot].get() : nullptr;
+}
+
+const Agent *SimulationManager::agent_by_id(AgentId id) const {
+  const std::size_t slot = slot_for_id(id);
+  return slot < agents_.size() ? agents_[slot].get() : nullptr;
+}
+
+void SimulationManager::step(float dt) {
+  MOONAI_PROFILE_SCOPE(ProfileEvent::SimulationStep);
   last_events_.clear();
   rebuild_alive_indices();
   rebuild_neighbor_cache(config_.vision_range);
@@ -88,8 +103,8 @@ void SimulationManager::tick(float dt) {
 
   // Respawn food
   std::vector<AgentId> respawned_food;
-  environment_.tick_food_deterministic(
-      config_.seed, current_tick_, config_.food_respawn_rate, respawned_food);
+  environment_.step_food_deterministic(
+      config_.seed, current_step_, config_.food_respawn_rate, respawned_food);
   for (AgentId food_id : respawned_food) {
     const auto &food = environment_.food();
     if (food_id < food.size() && food[food_id].active) {
@@ -109,26 +124,17 @@ void SimulationManager::tick(float dt) {
     }
   }
 
-  // Check for energy death
-  {
-    MOONAI_PROFILE_SCOPE(ProfileEvent::DeathCheck);
-#pragma omp parallel for schedule(static) if (MOONAI_OPENMP_ENABLED)
-    for (size_t idx = 0; idx < alive_indices_.size(); ++idx) {
-      auto &agent = agents_[alive_indices_[idx]];
-      if (agent->is_dead()) {
-        agent->set_alive(false);
-        grid_.remove(agent->id());
-      }
-    }
-  }
+  process_step_deaths();
 
   rebuild_alive_indices();
   rebuild_neighbor_cache(config_.vision_range);
   count_alive();
-  ++current_tick_;
+  ++current_step_;
 }
 
-void SimulationManager::reset() { initialize(false); }
+void SimulationManager::reset() {
+  initialize(false);
+}
 
 SensorInput SimulationManager::get_sensors(size_t agent_index) const {
   if (agent_index >= agents_.size() || !agents_[agent_index]->alive()) {
@@ -140,7 +146,7 @@ SensorInput SimulationManager::get_sensors(size_t agent_index) const {
       agent_index < neighbor_cache_.nearby_food.size()) {
     return Physics::build_sensors_from_candidates(
         *agents_[agent_index], agents_, environment_.food(),
-        neighbor_cache_.nearby_agents[agent_index],
+        neighbor_cache_.nearby_agents[agent_index], agent_slots_,
         neighbor_cache_.nearby_food[agent_index],
         static_cast<float>(config_.grid_width),
         static_cast<float>(config_.grid_height), config_.initial_energy,
@@ -149,7 +155,7 @@ SensorInput SimulationManager::get_sensors(size_t agent_index) const {
 
   return Physics::build_sensors(
       *agents_[agent_index], agents_, environment_.food(), grid_, food_grid_,
-      static_cast<float>(config_.grid_width),
+      agent_slots_, static_cast<float>(config_.grid_width),
       static_cast<float>(config_.grid_height), config_.initial_energy,
       config_.boundary_mode == BoundaryMode::Clamp);
 }
@@ -254,8 +260,8 @@ void SimulationManager::process_energy(float dt) {
 #pragma omp parallel for schedule(static) if (MOONAI_OPENMP_ENABLED)
   for (size_t idx = 0; idx < alive_indices_.size(); ++idx) {
     auto &agent = agents_[alive_indices_[idx]];
-    // All agents drain energy per tick (cost of living)
-    agent->drain_energy(config_.energy_drain_per_tick * dt *
+    // All agents drain energy per step (cost of living)
+    agent->drain_energy(config_.energy_drain_per_step * dt *
                         static_cast<float>(config_.target_fps));
   }
 }
@@ -286,41 +292,144 @@ void SimulationManager::process_food() {
       agent->add_energy(config_.energy_gain_from_food);
       agent->add_food();
       MOONAI_PROFILE_INC(ProfileCounter::FoodEaten);
-      last_events_.push_back(
-          {SimEvent::Food, agent->id(), eaten_food, agent->position()});
+      last_events_.push_back(SimEvent{SimEvent::Food, agent->id(), eaten_food,
+                                      0, 0, agent->position()});
     }
   }
 }
 
 void SimulationManager::process_attacks() {
   MOONAI_PROFILE_SCOPE(ProfileEvent::ProcessAttacks);
-  auto kills =
-      (neighbor_cache_enabled_ && neighbor_cache_.valid)
-          ? Physics::process_attacks_from_candidates(
-                agents_, neighbor_cache_.nearby_agents, alive_predator_indices_,
-                config_.attack_range)
-          : Physics::process_attacks(agents_, grid_, config_.attack_range);
+  auto kills = (neighbor_cache_enabled_ && neighbor_cache_.valid)
+                   ? Physics::process_attacks_from_candidates(
+                         agents_, neighbor_cache_.nearby_agents, agent_slots_,
+                         alive_predator_indices_, config_.attack_range)
+                   : Physics::process_attacks(agents_, grid_, agent_slots_,
+                                              config_.attack_range);
 
   MOONAI_PROFILE_INC(ProfileCounter::Kills,
                      static_cast<std::int64_t>(kills.size()));
 
   for (const auto &kill : kills) {
     // Reward energy to the killer
-    if (kill.killer < agents_.size() && agents_[kill.killer]->alive()) {
-      agents_[kill.killer]->add_energy(config_.energy_gain_from_kill);
+    if (Agent *killer = agent_by_id(kill.killer);
+        killer != nullptr && killer->alive()) {
+      killer->add_energy(config_.energy_gain_from_kill);
     }
     // Record the kill event
-    if (kill.victim < agents_.size()) {
-      last_events_.push_back({SimEvent::Kill, kill.killer, kill.victim,
-                              agents_[kill.victim]->position()});
+    const auto victim_slot = slot_for_id(kill.victim);
+    if (victim_slot < agents_.size()) {
+      last_events_.push_back(SimEvent{SimEvent::Kill, kill.killer, kill.victim,
+                                      0, 0, agents_[victim_slot]->position()});
     }
   }
+}
+
+void SimulationManager::process_step_deaths() {
+  MOONAI_PROFILE_SCOPE(ProfileEvent::DeathCheck);
+  std::vector<std::size_t> dead_slots;
+  for (std::size_t idx : alive_indices_) {
+    auto &agent = agents_[idx];
+    if (!agent->alive() || !agent->is_dead()) {
+      continue;
+    }
+    const Vec2 death_pos = agent->position();
+    const AgentId death_id = agent->id();
+    agent->set_alive(false);
+    grid_.remove(death_id);
+    last_events_.push_back(
+        SimEvent{SimEvent::Death, death_id, death_id, 0, 0, death_pos});
+    dead_slots.push_back(idx);
+  }
+  std::sort(dead_slots.begin(), dead_slots.end());
+  for (auto it = dead_slots.rbegin(); it != dead_slots.rend(); ++it) {
+    remove_agent_slot(*it);
+  }
+}
+
+std::vector<SimulationManager::ReproductionPair>
+SimulationManager::find_reproduction_pairs() const {
+  std::vector<ReproductionPair> pairs;
+  std::unordered_set<AgentId> used;
+
+  for (std::size_t idx : alive_indices_) {
+    const auto &agent = agents_[idx];
+    if (!agent->alive() ||
+        agent->energy() < config_.reproduction_energy_threshold ||
+        agent->age() < config_.min_reproductive_age_steps ||
+        agent->reproduction_cooldown() > 0 ||
+        used.find(agent->id()) != used.end()) {
+      continue;
+    }
+
+    std::vector<AgentId> nearby;
+    grid_.query_radius_into(agent->position(), config_.mate_range, nearby);
+
+    AgentId best_mate = std::numeric_limits<AgentId>::max();
+    float best_dist_sq = config_.mate_range * config_.mate_range;
+    for (AgentId mate_id : nearby) {
+      if (mate_id == agent->id() || used.find(mate_id) != used.end()) {
+        continue;
+      }
+      const Agent *mate = agent_by_id(mate_id);
+      if (mate == nullptr) {
+        continue;
+      }
+      if (!mate->alive() || mate->type() != agent->type() ||
+          mate->energy() < config_.reproduction_energy_threshold ||
+          mate->age() < config_.min_reproductive_age_steps ||
+          mate->reproduction_cooldown() > 0) {
+        continue;
+      }
+
+      const Vec2 diff = mate->position() - agent->position();
+      const float dist_sq = diff.x * diff.x + diff.y * diff.y;
+      if (dist_sq < best_dist_sq) {
+        best_dist_sq = dist_sq;
+        best_mate = mate_id;
+      }
+    }
+
+    if (best_mate == std::numeric_limits<AgentId>::max()) {
+      continue;
+    }
+
+    const Vec2 a = agent->position();
+    const Agent *mate = agent_by_id(best_mate);
+    if (mate == nullptr) {
+      continue;
+    }
+    const Vec2 b = mate->position();
+    pairs.push_back(
+        {agent->id(), best_mate, {(a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f}});
+    used.insert(agent->id());
+    used.insert(best_mate);
+  }
+
+  return pairs;
 }
 
 void SimulationManager::count_alive() {
   MOONAI_PROFILE_SCOPE(ProfileEvent::CountAlive);
   alive_predators_ = static_cast<int>(alive_predator_indices_.size());
   alive_prey_ = static_cast<int>(alive_prey_indices_.size());
+}
+
+void SimulationManager::remove_agent_slot(std::size_t slot) {
+  if (slot >= agents_.size()) {
+    return;
+  }
+
+  const AgentId removed_id = agents_[slot]->id();
+  agent_slots_.erase(removed_id);
+
+  const std::size_t last = agents_.size() - 1;
+  if (slot != last) {
+    std::swap(agents_[slot], agents_[last]);
+    agent_slots_[agents_[slot]->id()] = slot;
+  }
+  agents_.pop_back();
+  invalidate_neighbor_cache();
 }
 
 } // namespace moonai

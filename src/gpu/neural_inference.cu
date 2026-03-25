@@ -87,7 +87,7 @@ void batch_neural_inference(GpuBatch &batch) {
       batch.d_descs(), batch.d_node_vals(), batch.d_eval_order(),
       batch.d_conn_ptr(), batch.d_in_count(), batch.d_conn_from(),
       batch.d_conn_w(), batch.d_out_indices(),
-      batch.d_inference_agent_indices(), batch.d_inputs(), batch.d_outputs(),
+      nullptr, batch.d_inputs(), batch.d_outputs(),
       agent_count, batch.num_inputs(), batch.activation_fn_id());
 
   CUDA_CHECK(cudaGetLastError());

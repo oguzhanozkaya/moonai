@@ -35,8 +35,8 @@ local function scale_base(pred, prey)
 end
 
 -- ── Experiments ───────────────────────────────────────────────────────────────
--- All experiments start from moonai_defaults (4300×2400, 500 predators, 1500 prey,
--- 1500 ticks/gen) and override exactly the variable(s) under study.
+-- All experiments start from moonai_defaults (4300x2400, 500 predators, 1500 prey,
+-- 1500-step report windows) and override exactly the variable(s) under study.
 -- 66 conditions × 5 seeds = 330 deterministic runs.
 
 -- Pre-compute scale bases for commonly used population sizes
@@ -104,21 +104,21 @@ local conditions = {
     vast_5k   = extend(moonai_defaults, { predator_count = 1250, prey_count = 3750,
                     grid_width = 15000, grid_height = 8400, food_count = 6250 }),
 
-    -- ── Group F: Generation length ───────────────────────────────────────
-    ticks_500_2k  = extend(moonai_defaults, { generation_ticks = 500 }),
-    ticks_2000_2k = extend(moonai_defaults, { generation_ticks = 2000 }),
-    ticks_3000_2k = extend(moonai_defaults, { generation_ticks = 3000 }),
-    ticks_500_5k  = extend(moonai_defaults, base_5k, { generation_ticks = 500 }),
-    ticks_2000_5k = extend(moonai_defaults, base_5k, { generation_ticks = 2000 }),
-    ticks_3000_5k = extend(moonai_defaults, base_5k, { generation_ticks = 3000 }),
+    -- ── Group F: Run length ──────────────────────────────────────────────
+    steps_500_2k  = extend(moonai_defaults, { max_steps = 500 }),
+    steps_2000_2k = extend(moonai_defaults, { max_steps = 2000 }),
+    steps_3000_2k = extend(moonai_defaults, { max_steps = 3000 }),
+    steps_500_5k  = extend(moonai_defaults, base_5k, { max_steps = 500 }),
+    steps_2000_5k = extend(moonai_defaults, base_5k, { max_steps = 2000 }),
+    steps_3000_5k = extend(moonai_defaults, base_5k, { max_steps = 3000 }),
 
     -- ── Group G: Energy / resource dynamics ──────────────────────────────
     energy_scarce_2k   = extend(moonai_defaults, { initial_energy = 75.0, food_respawn_rate = 0.01 }),
     energy_abundant_2k = extend(moonai_defaults, { initial_energy = 300.0, food_respawn_rate = 0.05 }),
     energy_scarce_5k   = extend(moonai_defaults, base_5k, { initial_energy = 75.0, food_respawn_rate = 0.01 }),
     energy_abundant_5k = extend(moonai_defaults, base_5k, { initial_energy = 300.0, food_respawn_rate = 0.05 }),
-    energy_extreme_5k  = extend(moonai_defaults, base_5k, { initial_energy = 50.0, food_respawn_rate = 0.005, energy_drain_per_tick = 0.15 }),
-    energy_rich_5k     = extend(moonai_defaults, base_5k, { initial_energy = 500.0, food_respawn_rate = 0.08, energy_drain_per_tick = 0.03 }),
+    energy_extreme_5k  = extend(moonai_defaults, base_5k, { initial_energy = 50.0, food_respawn_rate = 0.005, energy_drain_per_step = 0.15 }),
+    energy_rich_5k     = extend(moonai_defaults, base_5k, { initial_energy = 500.0, food_respawn_rate = 0.08, energy_drain_per_step = 0.03 }),
 
     -- ── Group H: Agent speed / interaction range (5K) ────────────────────
     fast_agents_5k   = extend(moonai_defaults, base_5k, { predator_speed = 6.0, prey_speed = 7.0 }),
@@ -144,7 +144,7 @@ for name, cfg in pairs(conditions) do
     for _, seed in ipairs(seeds) do
         experiments[name .. "_seed" .. seed] = extend(cfg, {
             seed            = seed,
-            max_generations = 200,
+            max_steps       = 200 * 1500,
         })
     end
 end
@@ -155,7 +155,7 @@ end
 --
 -- Optional Lua callbacks:
 --   fitness_fn(stats, weights) → number     Custom fitness formula (replaces C++ default)
---   on_generation_end(gen, stats) → table?  Called after each generation; return overrides or nil
+--   on_report_window_end(step, window_index, stats) -> table?  Called after each report window; return overrides or nil
 --   on_experiment_start(config)             Called once before the main loop
 --   on_experiment_end(stats)                Called once after the main loop
 experiments["default"] = extend(moonai_defaults, {
@@ -170,9 +170,9 @@ experiments["default"] = extend(moonai_defaults, {
              - weights.complexity_penalty * stats.complexity
     end,
 
-    -- Example generation hook: boost mutation when average fitness stagnates.
-    -- on_generation_end = function(gen, stats)
-    --     if stats.avg_fitness < 2.0 and gen > 20 then
+    -- Example report-window hook: boost mutation when average fitness stagnates.
+    -- on_report_window_end = function(step, window_index, stats)
+    --     if stats.avg_fitness < 2.0 and window_index > 20 then
     --         return { mutation_rate = 0.5 }
     --     end
     --     return nil

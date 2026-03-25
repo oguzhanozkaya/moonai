@@ -26,18 +26,22 @@ void InnovationTracker::init_from_population(
 std::uint32_t InnovationTracker::get_innovation(std::uint32_t in_node,
                                                 std::uint32_t out_node) {
   auto key = std::make_pair(in_node, out_node);
-  auto it = generation_innovations_.find(key);
-  if (it != generation_innovations_.end()) {
+  auto it = innovation_cache_.find(key);
+  if (it != innovation_cache_.end()) {
     return it->second;
   }
   std::uint32_t innov = innovation_counter_++;
-  generation_innovations_[key] = innov;
+  innovation_cache_[key] = innov;
   return innov;
 }
 
-std::uint32_t InnovationTracker::next_node_id() { return node_counter_++; }
+std::uint32_t InnovationTracker::next_node_id() {
+  return node_counter_++;
+}
 
-void InnovationTracker::reset_generation() { generation_innovations_.clear(); }
+void InnovationTracker::reset_mutation_window() {
+  innovation_cache_.clear();
+}
 
 void Mutation::mutate_weights(Genome &genome, Random &rng, float power) {
   for (auto &conn : genome.connections()) {

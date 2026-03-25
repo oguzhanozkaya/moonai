@@ -282,7 +282,7 @@
       This report presents profiling data from {{ run_count }} profiler
       suite{{ 's' if run_count != 1 else '' }}.
       Each suite runs six fixed seeds from <code>profiler.lua</code>, drops the
-      fastest and slowest run by average generation time, and reports aggregate
+      fastest and slowest run by average report-window time, and reports aggregate
       timings, charts, and counters from the remaining four runs.
       {{ skipped_count }} profile{{ 's' if skipped_count != 1 else '' }} could not be analysed and
       {{ 'are' if skipped_count != 1 else 'is' }} listed in Excluded Profiles.
@@ -309,25 +309,25 @@
   <section id="summary">
     <h2>Run Summary</h2>
     <table>
-      <caption>Per-suite overview of trimmed generation timing and dominant hotspots.</caption>
+      <caption>Per-suite overview of trimmed report-window timing and dominant hotspots.</caption>
       <thead>
         <tr>
           <th>Run</th>
-          <th>Gens / Run</th>
+          <th>Windows / Run</th>
           <th>Kept Runs</th>
-          <th>Avg Gen (ms)</th>
+          <th>Avg Window (ms)</th>
           <th>Top Event</th>
-          <th>Top Event Avg (ms/gen)</th>
+          <th>Top Event Avg (ms/window)</th>
         </tr>
       </thead>
       <tbody>
         {% for row in summary_rows %}
         <tr>
           <td>{{ row.label }}</td>
-          <td>{{ row.total_generations }}</td>
-          <td>{{ row.trimmed_generations }}</td>
-          <td>{{ row.avg_generation_ms }}</td>
-          <td>{{ row.top_event }} ({{ row.top_event_nonzero_generation_count }} active avg)</td>
+          <td>{{ row.total_windows }}</td>
+          <td>{{ row.kept_runs }}</td>
+          <td>{{ row.avg_window_ms }}</td>
+          <td>{{ row.top_event }} ({{ row.top_event_nonzero_window_count }} active avg)</td>
           <td>{{ row.top_event_avg_ms }}</td>
         </tr>
         {% endfor %}
@@ -357,11 +357,11 @@
           <em>Suite dir:</em> {{ run.name }} &ensp;|&ensp;
           <em>Mode:</em> {{ run.mode }} &ensp;|&ensp;
           <em>{{ run.trim_note }}</em> &ensp;|&ensp;
-          <em>Avg generation:</em> {{ run.avg_generation_ms }} ms
+          <em>Avg window:</em> {{ run.avg_window_ms }} ms
         </p>
         <p class="run-meta">
-          <em>Top event:</em> {{ run.top_event_name }} ({{ run.top_event_avg_ms }} ms/gen,
-          {{ run.top_event_nonzero_generation_count }} active avg,
+          <em>Top event:</em> {{ run.top_event_name }} ({{ run.top_event_avg_ms }} ms/window,
+          {{ run.top_event_nonzero_window_count }} active avg,
           {{ run.top_event_total_ms }} ms total)
         </p>
 
@@ -387,9 +387,9 @@
           <thead>
             <tr>
               <th>Seed</th>
-              <th>Avg Gen (ms)</th>
+              <th>Avg Window (ms)</th>
               <th>Run Total (ms)</th>
-              <th>Generation Count</th>
+              <th>Window Count</th>
               <th>Disposition</th>
             </tr>
           </thead>
@@ -397,9 +397,9 @@
             {% for member in run.members %}
             <tr>
               <td>{{ member.seed }}</td>
-              <td>{{ member.avg_generation_ms }}</td>
+              <td>{{ member.avg_window_ms }}</td>
               <td>{{ member.run_total_ms }}</td>
-              <td>{{ member.generation_count }}</td>
+              <td>{{ member.window_count }}</td>
               <td>{{ member.disposition }}</td>
             </tr>
             {% endfor %}
@@ -439,9 +439,9 @@
             <tr>
               <th>Event</th>
               <th>%</th>
-              <th>Avg / Generation</th>
-              <th>Nonzero Generations</th>
-              <th>Avg / Nonzero Generation</th>
+              <th>Avg / Window</th>
+              <th>Nonzero Windows</th>
+              <th>Avg / Nonzero Window</th>
               <th>Total (ms)</th>
             </tr>
           </thead>
@@ -450,9 +450,9 @@
             <tr>
               <td>{{ row.name }}</td>
               <td>{{ row.percentage }}</td>
-              <td>{{ row.avg_ms_per_generation }}</td>
-              <td>{{ row.nonzero_generation_count }}</td>
-              <td>{{ row.avg_ms_per_nonzero_generation }}</td>
+              <td>{{ row.avg_ms_per_window }}</td>
+              <td>{{ row.nonzero_window_count }}</td>
+              <td>{{ row.avg_ms_per_nonzero_window }}</td>
               <td>{{ row.total_ms }}</td>
             </tr>
             {% endfor %}
@@ -466,9 +466,9 @@
             <tr>
               <th>Counter</th>
               <th>Total</th>
-              <th>Avg / Generation</th>
-              <th>Nonzero Generations</th>
-              <th>Avg / Nonzero Generation</th>
+              <th>Avg / Window</th>
+              <th>Nonzero Windows</th>
+              <th>Avg / Nonzero Window</th>
             </tr>
           </thead>
           <tbody>
@@ -476,9 +476,9 @@
             <tr>
               <td>{{ row.name }}</td>
               <td>{{ row.total }}</td>
-              <td>{{ row.avg_per_generation }}</td>
-              <td>{{ row.nonzero_generation_count }}</td>
-              <td>{{ row.avg_per_nonzero_generation }}</td>
+              <td>{{ row.avg_per_window }}</td>
+              <td>{{ row.nonzero_window_count }}</td>
+              <td>{{ row.avg_per_nonzero_window }}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -487,18 +487,18 @@
         <h3>Resident GPU Tick Breakdown</h3>
         {% if run.summary_gpu_stage_timings %}
         <div class="note">
-          These stage timings are device elapsed measurements collected inside the real resident GPU tick path.
-          They decompose <code>gpu_resident_tick</code> and may not sum exactly to the top-level event table.
+          These stage timings are device elapsed measurements collected inside the real resident GPU step path.
+          They decompose <code>gpu_resident_step</code> and may not sum exactly to the top-level event table.
         </div>
         <table>
           <caption>Aggregate resident GPU stage timings computed from the four kept suite runs.</caption>
           <thead>
             <tr>
               <th>Stage</th>
-              <th>% of gpu_resident_tick</th>
-              <th>Avg / Generation</th>
-              <th>Nonzero Generations</th>
-              <th>Avg / Nonzero Generation</th>
+              <th>% of gpu_resident_step</th>
+              <th>Avg / Window</th>
+              <th>Nonzero Windows</th>
+              <th>Avg / Nonzero Window</th>
               <th>Total (ms)</th>
             </tr>
           </thead>
@@ -507,9 +507,9 @@
             <tr>
               <td>{{ row.name }}</td>
               <td>{{ row.percentage }}</td>
-              <td>{{ row.avg_ms_per_generation }}</td>
-              <td>{{ row.nonzero_generation_count }}</td>
-              <td>{{ row.avg_ms_per_nonzero_generation }}</td>
+              <td>{{ row.avg_ms_per_window }}</td>
+              <td>{{ row.nonzero_window_count }}</td>
+              <td>{{ row.avg_ms_per_nonzero_window }}</td>
               <td>{{ row.total_ms }}</td>
             </tr>
             {% endfor %}

@@ -180,8 +180,8 @@ void UIOverlay::draw_left_column(sf::RenderTarget &target,
   draw_energy_distribution(target, stats, x, y, COL_WIDTH, 80.0f);
   y += 80.0f + MARGIN;
 
-  // Generation timeline
-  draw_generation_timeline(target, stats, x, y, COL_WIDTH, 40.0f);
+  // Step timeline
+  draw_step_timeline(target, stats, x, y, COL_WIDTH, 40.0f);
   y += 40.0f + MARGIN;
 
   // Event counts
@@ -208,8 +208,8 @@ void UIOverlay::draw_stats_panel(sf::RenderTarget &target,
   }
   ty += line_h + 4;
 
-  std::snprintf(buf, sizeof(buf), "Gen: %d  Tick: %d%s", stats.generation,
-                stats.tick, stats.fast_forward ? "  [FF]" : "");
+  std::snprintf(buf, sizeof(buf), "Step: %d%s", stats.step,
+                stats.fast_forward ? "  [FF]" : "");
   draw_text(target, buf, tx, ty, 13,
             stats.fast_forward ? sf::Color(100, 220, 255) : sf::Color::White);
   ty += line_h;
@@ -412,9 +412,9 @@ void UIOverlay::draw_energy_distribution(sf::RenderTarget &target,
   draw_text(target, "Y", tx - 12.0f, y + 36.0f, 10, sf::Color(80, 220, 100));
 }
 
-void UIOverlay::draw_generation_timeline(sf::RenderTarget &target,
-                                         const OverlayStats &stats, float x,
-                                         float y, float w, float h) {
+void UIOverlay::draw_step_timeline(sf::RenderTarget &target,
+                                   const OverlayStats &stats, float x, float y,
+                                   float w, float h) {
   if (!font_loaded_)
     return;
 
@@ -432,7 +432,9 @@ void UIOverlay::draw_generation_timeline(sf::RenderTarget &target,
   target.draw(bg);
 
   // Progress fill
-  float progress = static_cast<float>(stats.tick) / stats.max_ticks;
+  float progress = (stats.max_steps > 0)
+                       ? static_cast<float>(stats.step) / stats.max_steps
+                       : 0.0f;
   progress = std::clamp(progress, 0.0f, 1.0f);
   sf::RectangleShape fill({bar_w * progress, bar_h});
   fill.setPosition({bar_x, bar_y});
@@ -441,8 +443,7 @@ void UIOverlay::draw_generation_timeline(sf::RenderTarget &target,
 
   // Labels
   char buf[32];
-  std::snprintf(buf, sizeof(buf), "Gen %d: %d/%d", stats.generation, stats.tick,
-                stats.max_ticks);
+  std::snprintf(buf, sizeof(buf), "Step %d/%d", stats.step, stats.max_steps);
   draw_text(target, buf, x + 4.0f, y + 4.0f, 11, sf::Color(180, 180, 200));
 }
 
@@ -453,7 +454,7 @@ void UIOverlay::draw_event_counts(sf::RenderTarget &target,
     return;
 
   draw_panel(target, x, y, w, h);
-  draw_text(target, "Events (This Gen)", x + 4.0f, y + 2.0f, 11,
+  draw_text(target, "Events (This Step)", x + 4.0f, y + 2.0f, 11,
             sf::Color(180, 180, 200));
 
   float tx = x + 8.0f;
@@ -461,22 +462,22 @@ void UIOverlay::draw_event_counts(sf::RenderTarget &target,
   char buf[32];
 
   // Two columns of event counts
-  std::snprintf(buf, sizeof(buf), "Kills: %d", stats.kills_this_tick);
+  std::snprintf(buf, sizeof(buf), "Kills: %d", stats.kills_this_step);
   draw_text(target, buf, tx, ty, 11, sf::Color(220, 100, 100));
   ty += 16.0f;
 
-  std::snprintf(buf, sizeof(buf), "Food: %d", stats.food_eaten_this_tick);
+  std::snprintf(buf, sizeof(buf), "Food: %d", stats.food_eaten_this_step);
   draw_text(target, buf, tx, ty, 11, sf::Color(100, 220, 100));
 
   // Second column
   tx = x + w / 2.0f;
   ty = y + 22.0f;
 
-  std::snprintf(buf, sizeof(buf), "Births: %d", stats.births_this_tick);
+  std::snprintf(buf, sizeof(buf), "Births: %d", stats.births_this_step);
   draw_text(target, buf, tx, ty, 11, sf::Color(100, 180, 220));
   ty += 16.0f;
 
-  std::snprintf(buf, sizeof(buf), "Deaths: %d", stats.deaths_this_tick);
+  std::snprintf(buf, sizeof(buf), "Deaths: %d", stats.deaths_this_step);
   draw_text(target, buf, tx, ty, 11, sf::Color(180, 180, 180));
 }
 

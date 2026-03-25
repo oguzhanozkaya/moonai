@@ -59,7 +59,7 @@ SimulationConfig table_to_config(const sol::table &tbl) {
   lua_get(tbl, "vision_range", config.vision_range);
   lua_get(tbl, "attack_range", config.attack_range);
   lua_get(tbl, "initial_energy", config.initial_energy);
-  lua_get(tbl, "energy_drain_per_tick", config.energy_drain_per_tick);
+  lua_get(tbl, "energy_drain_per_step", config.energy_drain_per_step);
   lua_get(tbl, "energy_gain_from_kill", config.energy_gain_from_kill);
   lua_get(tbl, "energy_gain_from_food", config.energy_gain_from_food);
   lua_get(tbl, "food_pickup_range", config.food_pickup_range);
@@ -72,25 +72,34 @@ SimulationConfig table_to_config(const sol::table &tbl) {
   lua_get(tbl, "add_connection_rate", config.add_connection_rate);
   lua_get(tbl, "delete_connection_rate", config.delete_connection_rate);
   lua_get(tbl, "max_hidden_nodes", config.max_hidden_nodes);
-  lua_get(tbl, "generation_ticks", config.generation_ticks);
-  lua_get(tbl, "max_generations", config.max_generations);
+  lua_get(tbl, "max_steps", config.max_steps);
   lua_get(tbl, "compatibility_threshold", config.compatibility_threshold);
   lua_get(tbl, "c1_excess", config.c1_excess);
   lua_get(tbl, "c2_disjoint", config.c2_disjoint);
   lua_get(tbl, "c3_weight", config.c3_weight);
-  lua_get(tbl, "stagnation_limit", config.stagnation_limit);
+  lua_get(tbl, "species_update_interval_steps",
+          config.species_update_interval_steps);
   lua_get(tbl, "target_fps", config.target_fps);
   lua_get_uint64(tbl, "seed", config.seed);
   lua_get(tbl, "output_dir", config.output_dir);
-  lua_get(tbl, "log_interval", config.log_interval);
+  lua_get(tbl, "report_interval_steps", config.report_interval_steps);
+  lua_get(tbl, "mate_range", config.mate_range);
+  lua_get(tbl, "reproduction_energy_threshold",
+          config.reproduction_energy_threshold);
+  lua_get(tbl, "reproduction_energy_cost", config.reproduction_energy_cost);
+  lua_get(tbl, "offspring_initial_energy", config.offspring_initial_energy);
+  lua_get(tbl, "min_reproductive_age_steps", config.min_reproductive_age_steps);
+  lua_get(tbl, "reproduction_cooldown_steps",
+          config.reproduction_cooldown_steps);
+  lua_get(tbl, "birth_spawn_radius", config.birth_spawn_radius);
   lua_get(tbl, "fitness_survival_weight", config.fitness_survival_weight);
   lua_get(tbl, "fitness_kill_weight", config.fitness_kill_weight);
   lua_get(tbl, "fitness_energy_weight", config.fitness_energy_weight);
   lua_get(tbl, "fitness_distance_weight", config.fitness_distance_weight);
   lua_get(tbl, "complexity_penalty_weight", config.complexity_penalty_weight);
   lua_get(tbl, "activation_function", config.activation_function);
-  lua_get_bool(tbl, "tick_log_enabled", config.tick_log_enabled);
-  lua_get(tbl, "tick_log_interval", config.tick_log_interval);
+  lua_get_bool(tbl, "step_log_enabled", config.step_log_enabled);
+  lua_get(tbl, "step_log_interval", config.step_log_interval);
 
   return config;
 }
@@ -109,7 +118,7 @@ void inject_defaults(sol::state &lua) {
   t["vision_range"] = d.vision_range;
   t["attack_range"] = d.attack_range;
   t["initial_energy"] = d.initial_energy;
-  t["energy_drain_per_tick"] = d.energy_drain_per_tick;
+  t["energy_drain_per_step"] = d.energy_drain_per_step;
   t["energy_gain_from_kill"] = d.energy_gain_from_kill;
   t["energy_gain_from_food"] = d.energy_gain_from_food;
   t["food_pickup_range"] = d.food_pickup_range;
@@ -122,25 +131,31 @@ void inject_defaults(sol::state &lua) {
   t["add_connection_rate"] = d.add_connection_rate;
   t["delete_connection_rate"] = d.delete_connection_rate;
   t["max_hidden_nodes"] = d.max_hidden_nodes;
-  t["generation_ticks"] = d.generation_ticks;
-  t["max_generations"] = d.max_generations;
+  t["max_steps"] = d.max_steps;
   t["compatibility_threshold"] = d.compatibility_threshold;
   t["c1_excess"] = d.c1_excess;
   t["c2_disjoint"] = d.c2_disjoint;
   t["c3_weight"] = d.c3_weight;
-  t["stagnation_limit"] = d.stagnation_limit;
+  t["species_update_interval_steps"] = d.species_update_interval_steps;
   t["target_fps"] = d.target_fps;
   t["seed"] = static_cast<double>(d.seed);
   t["output_dir"] = d.output_dir;
-  t["log_interval"] = d.log_interval;
+  t["report_interval_steps"] = d.report_interval_steps;
+  t["mate_range"] = d.mate_range;
+  t["reproduction_energy_threshold"] = d.reproduction_energy_threshold;
+  t["reproduction_energy_cost"] = d.reproduction_energy_cost;
+  t["offspring_initial_energy"] = d.offspring_initial_energy;
+  t["min_reproductive_age_steps"] = d.min_reproductive_age_steps;
+  t["reproduction_cooldown_steps"] = d.reproduction_cooldown_steps;
+  t["birth_spawn_radius"] = d.birth_spawn_radius;
   t["fitness_survival_weight"] = d.fitness_survival_weight;
   t["fitness_kill_weight"] = d.fitness_kill_weight;
   t["fitness_energy_weight"] = d.fitness_energy_weight;
   t["fitness_distance_weight"] = d.fitness_distance_weight;
   t["complexity_penalty_weight"] = d.complexity_penalty_weight;
   t["activation_function"] = d.activation_function;
-  t["tick_log_enabled"] = d.tick_log_enabled;
-  t["tick_log_interval"] = d.tick_log_interval;
+  t["step_log_enabled"] = d.step_log_enabled;
+  t["step_log_interval"] = d.step_log_interval;
   lua["moonai_defaults"] = t;
 }
 
@@ -157,7 +172,7 @@ sol::table config_to_table(sol::state &lua, const SimulationConfig &c) {
   t["vision_range"] = c.vision_range;
   t["attack_range"] = c.attack_range;
   t["initial_energy"] = c.initial_energy;
-  t["energy_drain_per_tick"] = c.energy_drain_per_tick;
+  t["energy_drain_per_step"] = c.energy_drain_per_step;
   t["energy_gain_from_kill"] = c.energy_gain_from_kill;
   t["energy_gain_from_food"] = c.energy_gain_from_food;
   t["food_pickup_range"] = c.food_pickup_range;
@@ -170,25 +185,31 @@ sol::table config_to_table(sol::state &lua, const SimulationConfig &c) {
   t["add_connection_rate"] = c.add_connection_rate;
   t["delete_connection_rate"] = c.delete_connection_rate;
   t["max_hidden_nodes"] = c.max_hidden_nodes;
-  t["generation_ticks"] = c.generation_ticks;
-  t["max_generations"] = c.max_generations;
+  t["max_steps"] = c.max_steps;
   t["compatibility_threshold"] = c.compatibility_threshold;
   t["c1_excess"] = c.c1_excess;
   t["c2_disjoint"] = c.c2_disjoint;
   t["c3_weight"] = c.c3_weight;
-  t["stagnation_limit"] = c.stagnation_limit;
+  t["species_update_interval_steps"] = c.species_update_interval_steps;
   t["target_fps"] = c.target_fps;
   t["seed"] = static_cast<double>(c.seed);
   t["output_dir"] = c.output_dir;
-  t["log_interval"] = c.log_interval;
+  t["report_interval_steps"] = c.report_interval_steps;
+  t["mate_range"] = c.mate_range;
+  t["reproduction_energy_threshold"] = c.reproduction_energy_threshold;
+  t["reproduction_energy_cost"] = c.reproduction_energy_cost;
+  t["offspring_initial_energy"] = c.offspring_initial_energy;
+  t["min_reproductive_age_steps"] = c.min_reproductive_age_steps;
+  t["reproduction_cooldown_steps"] = c.reproduction_cooldown_steps;
+  t["birth_spawn_radius"] = c.birth_spawn_radius;
   t["fitness_survival_weight"] = c.fitness_survival_weight;
   t["fitness_kill_weight"] = c.fitness_kill_weight;
   t["fitness_energy_weight"] = c.fitness_energy_weight;
   t["fitness_distance_weight"] = c.fitness_distance_weight;
   t["complexity_penalty_weight"] = c.complexity_penalty_weight;
   t["activation_function"] = c.activation_function;
-  t["tick_log_enabled"] = c.tick_log_enabled;
-  t["tick_log_interval"] = c.tick_log_interval;
+  t["step_log_enabled"] = c.step_log_enabled;
+  t["step_log_interval"] = c.step_log_interval;
   return t;
 }
 
@@ -202,7 +223,7 @@ struct LuaRuntime::Impl {
   struct ExperimentFunctions {
     LuaCallbacks flags;
     sol::protected_function fitness_fn;
-    sol::protected_function on_generation_end;
+    sol::protected_function on_report_window_end;
     sol::protected_function on_experiment_start;
     sol::protected_function on_experiment_end;
   };
@@ -264,10 +285,10 @@ LuaRuntime::load_config(const std::string &filepath) {
         ef.flags.has_fitness_fn = true;
       }
 
-      auto gen_end = exp_tbl["on_generation_end"];
-      if (gen_end.valid() && gen_end.get_type() == sol::type::function) {
-        ef.on_generation_end = gen_end.get<sol::protected_function>();
-        ef.flags.has_on_generation_end = true;
+      auto window_end = exp_tbl["on_report_window_end"];
+      if (window_end.valid() && window_end.get_type() == sol::type::function) {
+        ef.on_report_window_end = window_end.get<sol::protected_function>();
+        ef.flags.has_on_report_window_end = true;
       }
 
       auto exp_start = exp_tbl["on_experiment_start"];
@@ -305,8 +326,8 @@ void LuaRuntime::select_experiment(const std::string &name) {
     const auto &flags = impl_->experiment_fns[name].flags;
     if (flags.has_fitness_fn)
       spdlog::info("Lua fitness_fn active for '{}'", name);
-    if (flags.has_on_generation_end)
-      spdlog::info("Lua on_generation_end hook active for '{}'", name);
+    if (flags.has_on_report_window_end)
+      spdlog::info("Lua on_report_window_end hook active for '{}'", name);
     if (flags.has_on_experiment_start)
       spdlog::info("Lua on_experiment_start hook active for '{}'", name);
     if (flags.has_on_experiment_end)
@@ -359,27 +380,30 @@ float LuaRuntime::call_fitness(float age_ratio, float kills_or_food,
 
 // ── Event hooks ──────────────────────────────────────────────────────────────
 
-bool LuaRuntime::call_on_generation_end(
-    const GenerationStats &gs, std::map<std::string, float> &overrides) {
+bool LuaRuntime::call_on_report_window_end(
+    const ReportWindowStats &stats_in,
+    std::map<std::string, float> &overrides) {
   auto it = impl_->experiment_fns.find(impl_->selected);
   if (it == impl_->experiment_fns.end() ||
-      !it->second.flags.has_on_generation_end)
+      !it->second.flags.has_on_report_window_end)
     return false;
 
   auto &lua = impl_->lua;
   sol::table stats = lua.create_table();
-  stats["generation"] = gs.generation;
-  stats["best_fitness"] = gs.best_fitness;
-  stats["avg_fitness"] = gs.avg_fitness;
-  stats["num_species"] = gs.num_species;
-  stats["alive_predators"] = gs.alive_predators;
-  stats["alive_prey"] = gs.alive_prey;
-  stats["avg_complexity"] = gs.avg_complexity;
+  stats["step"] = stats_in.step;
+  stats["window_index"] = stats_in.window_index;
+  stats["best_fitness"] = stats_in.best_fitness;
+  stats["avg_fitness"] = stats_in.avg_fitness;
+  stats["num_species"] = stats_in.num_species;
+  stats["alive_predators"] = stats_in.alive_predators;
+  stats["alive_prey"] = stats_in.alive_prey;
+  stats["avg_complexity"] = stats_in.avg_complexity;
 
-  auto result = it->second.on_generation_end(gs.generation, stats);
+  auto result = it->second.on_report_window_end(stats_in.step,
+                                                stats_in.window_index, stats);
   if (!result.valid()) {
     sol::error err = result;
-    spdlog::error("Lua on_generation_end error: {}", err.what());
+    spdlog::error("Lua on_report_window_end error: {}", err.what());
     return false;
   }
 
@@ -411,7 +435,7 @@ void LuaRuntime::call_on_experiment_start(const SimulationConfig &config) {
   }
 }
 
-void LuaRuntime::call_on_experiment_end(const GenerationStats &gs) {
+void LuaRuntime::call_on_experiment_end(const ReportWindowStats &stats_in) {
   auto it = impl_->experiment_fns.find(impl_->selected);
   if (it == impl_->experiment_fns.end() ||
       !it->second.flags.has_on_experiment_end)
@@ -419,13 +443,14 @@ void LuaRuntime::call_on_experiment_end(const GenerationStats &gs) {
 
   auto &lua = impl_->lua;
   sol::table stats = lua.create_table();
-  stats["generation"] = gs.generation;
-  stats["best_fitness"] = gs.best_fitness;
-  stats["avg_fitness"] = gs.avg_fitness;
-  stats["num_species"] = gs.num_species;
-  stats["alive_predators"] = gs.alive_predators;
-  stats["alive_prey"] = gs.alive_prey;
-  stats["avg_complexity"] = gs.avg_complexity;
+  stats["step"] = stats_in.step;
+  stats["window_index"] = stats_in.window_index;
+  stats["best_fitness"] = stats_in.best_fitness;
+  stats["avg_fitness"] = stats_in.avg_fitness;
+  stats["num_species"] = stats_in.num_species;
+  stats["alive_predators"] = stats_in.alive_predators;
+  stats["alive_prey"] = stats_in.alive_prey;
+  stats["avg_complexity"] = stats_in.avg_complexity;
 
   auto result = it->second.on_experiment_end(stats);
   if (!result.valid()) {

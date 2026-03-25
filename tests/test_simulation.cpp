@@ -1,4 +1,5 @@
 #include "core/config.hpp"
+#include "evolution/evolution_manager.hpp"
 #include "simulation/environment.hpp"
 #include "simulation/physics.hpp"
 #include "simulation/predator.hpp"
@@ -164,6 +165,10 @@ TEST(SimulationManagerTest, InitializeCreatesAgents) {
 
   SimulationManager sim(config);
   sim.initialize();
+  Random rng(config.seed);
+  EvolutionManager evolution(config, rng);
+  evolution.initialize(SensorInput::SIZE, 2);
+  evolution.seed_initial_population(sim);
 
   EXPECT_EQ(sim.agents().size(), 15u);
   EXPECT_EQ(sim.alive_predators(), 5);
@@ -178,10 +183,14 @@ TEST(SimulationManagerTest, TickAdvances) {
 
   SimulationManager sim(config);
   sim.initialize();
+  Random rng(config.seed);
+  EvolutionManager evolution(config, rng);
+  evolution.initialize(SensorInput::SIZE, 2);
+  evolution.seed_initial_population(sim);
 
-  EXPECT_EQ(sim.current_tick(), 0);
-  sim.tick(0.016f);
-  EXPECT_EQ(sim.current_tick(), 1);
+  EXPECT_EQ(sim.current_step(), 0);
+  sim.step(0.016f);
+  EXPECT_EQ(sim.current_step(), 1);
 }
 
 TEST(SimulationManagerTest, SensorsHaveCorrectSize) {
@@ -192,6 +201,10 @@ TEST(SimulationManagerTest, SensorsHaveCorrectSize) {
 
   SimulationManager sim(config);
   sim.initialize();
+  Random rng(config.seed);
+  EvolutionManager evolution(config, rng);
+  evolution.initialize(SensorInput::SIZE, 2);
+  evolution.seed_initial_population(sim);
 
   auto sensors = sim.get_sensors(0);
   auto vec = sensors.to_vector();
@@ -206,14 +219,18 @@ TEST(SimulationManagerTest, ResetRestoresState) {
 
   SimulationManager sim(config);
   sim.initialize();
-  sim.tick(0.016f);
-  sim.tick(0.016f);
+  Random rng(config.seed);
+  EvolutionManager evolution(config, rng);
+  evolution.initialize(SensorInput::SIZE, 2);
+  evolution.seed_initial_population(sim);
+  sim.step(0.016f);
+  sim.step(0.016f);
 
-  EXPECT_EQ(sim.current_tick(), 2);
+  EXPECT_EQ(sim.current_step(), 2);
 
   sim.reset();
-  EXPECT_EQ(sim.current_tick(), 0);
-  EXPECT_EQ(sim.agents().size(), 15u);
+  EXPECT_EQ(sim.current_step(), 0);
+  EXPECT_TRUE(sim.agents().empty());
 }
 
 // ── Regression Tests for Bug Fixes ──────────────────────────────────────
@@ -274,12 +291,17 @@ TEST(SimulationManagerTest, EventsRecordedOnTick) {
 
   SimulationManager sim(config);
   sim.initialize();
+  Random rng(config.seed);
+  EvolutionManager evolution(config, rng);
+  evolution.initialize(SensorInput::SIZE, 2);
+  evolution.seed_initial_population(sim);
 
-  // Events should be empty or populated after a tick
-  sim.tick(1.0f / 60.0f);
+  // Events should be empty or populated after a step
+  sim.step(1.0f / 60.0f);
   // Just verify the accessor works (events may or may not occur)
   const auto &events = sim.last_events();
   for (const auto &e : events) {
-    EXPECT_TRUE(e.type == SimEvent::Kill || e.type == SimEvent::Food);
+    EXPECT_TRUE(e.type == SimEvent::Kill || e.type == SimEvent::Food ||
+                e.type == SimEvent::Birth || e.type == SimEvent::Death);
   }
 }

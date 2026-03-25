@@ -177,11 +177,11 @@ compdb:
     cmake --preset {{preset}} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
     ln -sf {{build-dir}}/compile_commands.json compile_commands.json
 
-# Benchmark NN forward pass: 1 generation of pop_large, verbose timing
+# Benchmark NN forward pass over 60 steps, verbose timing
 [group('dev')]
 bench-nn: release
     ./build/linux-release/moonai config.lua \
-        --experiment pop_large_seed42 --headless -g 1 -v 2>&1 | grep -E "CPU eval|GPU eval|CUDA"
+        --experiment pop_large_seed42 --headless --steps 60 -v 2>&1 | grep -E "CPU eval|GPU eval|CUDA"
 
 # Run the built-in profiler on the baseline experiment
 [group('dev')]
@@ -198,7 +198,7 @@ ncu: release
         --launch-skip 0 \
         --launch-count 1 \
         --set basic \
-        ./build/linux-release/moonai config.lua --experiment baseline_seed42 --headless -g 1 --name nsight-baseline
+        ./build/linux-release/moonai config.lua --experiment baseline_seed42 --headless --steps 60 --name nsight-baseline
     @echo "Note: Output files may be owned by root. Run: sudo chown -R $(whoami):$(whoami) output/nsight-baseline*"
 
 # Run a deeper Nsight Compute pass on the hottest GPU kernel (requires sudo for GPU perf counters)
@@ -210,7 +210,7 @@ ncu-full: release
         --launch-skip 0 \
         --launch-count 1 \
         --set full \
-        ./build/linux-release/moonai config.lua --experiment baseline_seed42 --headless -g 1 --name nsight-baseline
+        ./build/linux-release/moonai config.lua --experiment baseline_seed42 --headless --steps 60 --name nsight-baseline
     @echo "Note: Output files may be owned by root. Run: sudo chown -R $(whoami):$(whoami) output/nsight-baseline*"
 
 # Run Nsight Systems for one profiler suite and print CLI stats (requires sudo for GPU perf counters)
@@ -223,7 +223,7 @@ nsys: release
         --stats=true \
         --force-overwrite=true \
         --output=output/nsight/nsys-baseline \
-        ./build/linux-release/moonai config.lua --experiment baseline_seed42 --headless -g 1 --name nsight-baseline
+        ./build/linux-release/moonai config.lua --experiment baseline_seed42 --headless --steps 60 --name nsight-baseline
     @echo "Note: Output files may be owned by root. Run: sudo chown -R $(whoami):$(whoami) output/nsight*"
 
 # Full profiler pipeline: run profiler -> generate profiler report
@@ -235,12 +235,12 @@ profile-pipeline: profile analyse-profile
 bench-fps: build
     timeout 10 ./build/linux-debug/moonai config.lua --experiment default 2>&1 | grep -i fps || true
 
-# Build with AddressSanitizer and run headless for 5 generations
+# Build with AddressSanitizer and run headless for 300 steps
 [group('dev')]
 check-memory:
     cmake --preset linux-debug -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined" -B build/linux-asan
     cmake --build build/linux-asan --parallel
-    ./build/linux-asan/moonai config.lua --experiment default --headless -g 5 --seed 42
+    ./build/linux-asan/moonai config.lua --experiment default --headless --steps 300 --seed 42
 
 # ─── Info ───────────────────────────────────────────────────────────────────
 

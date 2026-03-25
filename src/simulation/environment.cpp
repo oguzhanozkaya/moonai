@@ -42,12 +42,12 @@ void Environment::initialize_food(Random &rng, int count) {
   }
 }
 
-void Environment::tick_food(Random &rng, float respawn_rate) {
+void Environment::step_food(Random &rng, float respawn_rate) {
   std::vector<AgentId> ignored;
-  tick_food(rng, respawn_rate, ignored);
+  step_food(rng, respawn_rate, ignored);
 }
 
-void Environment::tick_food(Random &rng, float respawn_rate,
+void Environment::step_food(Random &rng, float respawn_rate,
                             std::vector<AgentId> &respawned_ids) {
   respawned_ids.clear();
   for (auto &f : food_) {
@@ -60,19 +60,19 @@ void Environment::tick_food(Random &rng, float respawn_rate,
   }
 }
 
-void Environment::tick_food_deterministic(std::uint64_t seed, int tick_index,
+void Environment::step_food_deterministic(std::uint64_t seed, int step_index,
                                           float respawn_rate,
                                           std::vector<AgentId> &respawned_ids) {
   respawned_ids.clear();
   for (std::uint32_t i = 0; i < food_.size(); ++i) {
     auto &f = food_[i];
     if (f.active ||
-        !respawn::should_respawn(seed, tick_index, i, respawn_rate)) {
+        !respawn::should_respawn(seed, step_index, i, respawn_rate)) {
       continue;
     }
     f.position = {
-        respawn::respawn_x(seed, tick_index, i, static_cast<float>(width_)),
-        respawn::respawn_y(seed, tick_index, i, static_cast<float>(height_))};
+        respawn::respawn_x(seed, step_index, i, static_cast<float>(width_)),
+        respawn::respawn_y(seed, step_index, i, static_cast<float>(height_))};
     f.active = true;
     respawned_ids.push_back(i);
   }

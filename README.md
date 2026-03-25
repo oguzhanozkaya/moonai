@@ -1,6 +1,6 @@
 # MoonAI
 
-A modular and extensible simulation platform for studying evolutionary algorithms and neural network evolution through predator-prey dynamics.
+A modular and extensible simulation platform for studying continuous evolutionary algorithms and neural network evolution through predator-prey dynamics.
 
 **CMPE 491/492 - Senior Design Project | TED University**
 
@@ -8,7 +8,7 @@ A modular and extensible simulation platform for studying evolutionary algorithm
 
 ## Overview
 
-MoonAI uses a simplified predator-prey environment as a synthetic benchmark to evaluate evolutionary computation methods. Agents (predators and prey) are controlled by neural networks whose structure and weights evolve over generations using the **NeuroEvolution of Augmenting Topologies (NEAT)** algorithm.
+MoonAI uses a simplified predator-prey environment as a synthetic benchmark to evaluate evolutionary computation methods. Agents (predators and prey) are controlled by neural networks whose structure and weights evolve continuously through births and deaths using the **NeuroEvolution of Augmenting Topologies (NEAT)** algorithm.
 
 The platform enables researchers to:
 
@@ -21,11 +21,11 @@ The platform enables researchers to:
 
 - **NEAT Implementation** - Evolves both topology and weights of neural networks simultaneously
 - **Real-Time Visualization** - SFML-based rendering with interactive controls and live NN activation display
-- **GPU Acceleration** - CUDA backend for GPU-resident sensing, inference, and headless tick processing at large populations, with runtime CPU fallback on GPU failures
+- **GPU Acceleration** - CUDA backend for GPU-resident sensing, inference, and headless step processing at large populations, with runtime CPU fallback on GPU failures
 - **Cross-Platform** - Runs on Linux and Windows with matched features and stable runtime behavior
 - **Reproducible Experiments** - Seeded RNG with deterministic behavior within each execution backend; CPU and GPU runs are kept numerically close but are not bit-exact twins
-- **Lua Scripting** - Config, custom fitness functions, and generation hooks — all in Lua without recompilation
-- **Data Export** - CSV/JSON output (including optional per-tick trajectories) compatible with Python analysis tools
+- **Lua Scripting** - Config, custom fitness functions, and runtime hooks — all in Lua without recompilation
+- **Data Export** - CSV/JSON output (including optional per-step trajectories) compatible with Python analysis tools
 
 ## Architecture
 
@@ -148,7 +148,7 @@ Mode selection happens at runtime via flags — no need to rebuild:
 | `just run-server` | Headless + CPU-only (for servers without a display or GPU) |
 | `just run-config <path>` | Run with a custom config file |
 
-CUDA is enabled at runtime when available. In headless runs, the fast path keeps sensing, inference, and tick processing on the GPU for the whole generation. If GPU upload, sensing, inference, or resident tick execution fails during runtime, MoonAI disables the CUDA path and continues with CPU execution.
+CUDA is enabled at runtime when available. In headless runs, the fast path keeps sensing, inference, and step processing on the GPU. If GPU upload, sensing, inference, or resident step execution fails during runtime, MoonAI disables the CUDA path and continues with CPU execution.
 
 ### Visualization Controls
 
@@ -156,8 +156,8 @@ CUDA is enabled at runtime when available. In headless runs, the fast path keeps
 |-----|--------|
 | `Space` | Pause / resume |
 | `↑` / `↓` or `+` / `-` | Increase / decrease simulation speed |
-| `.` | Step one tick (while paused) |
-| `H` | Toggle fast-forward mode (skip rendering for current generation) |
+| `.` | Step one step (while paused) |
+| `H` | Toggle fast-forward mode (skip rendering) |
 | `G` | Toggle grid overlay |
 | `V` | Toggle vision range / sensor lines for selected agent |
 | `E` | Open experiment selector (multi-config only) |
@@ -178,7 +178,7 @@ Configuration uses a single **`config.lua`** file at the project root. It return
 
 ```lua
 -- moonai_defaults is injected by the runtime (mirrors C++ SimulationConfig defaults)
--- Defaults: 500 predators, 1500 prey (2000 total), 4300×2400 world, 1500 ticks/gen
+-- Defaults: 500 predators, 1500 prey (2000 total), 4300×2400 world, 1500 steps per report window
 local function extend(t, overrides) ... end
 
 -- Helper: scale world and food proportionally to population
@@ -270,12 +270,12 @@ experiments["adaptive"] = extend(moonai_defaults, {
 
 Set `seed` to `0` for random seed, or a fixed value for reproducible experiments.
 
-### Per-Tick Logging
+### Per-Step Logging
 
-Enable `tick_log_enabled = true` to write `ticks.csv` alongside the usual outputs. Every `tick_log_interval` ticks, one row per agent is appended:
+Enable `step_log_enabled = true` to write `steps.csv` alongside the usual outputs. Every `step_log_interval` steps, one row per agent is appended:
 
 ```
-generation,tick,agent_id,type,alive,x,y,energy,kills,food_eaten
+step,agent_id,type,alive,x,y,energy,kills,food_eaten
 ```
 
 Writes are buffered (flush every 500 rows) to minimise I/O overhead.
@@ -302,7 +302,7 @@ just list-experiments       # shows all experiments in config.lua
 
 **3. Run experiments**
 ```bash
-just experiments            # 66 conditions × 5 seeds × 200 generations → output/
+just experiments            # 66 conditions × 5 seeds × 200 report windows → output/
 # or run a single experiment:
 just run-experiment baseline_seed42
 ```
@@ -365,11 +365,11 @@ aggregate artifact:
 
 | File | Contents |
 |------|----------|
-| `raw/*/profile.json` | Full raw run payload: run metadata, event/counter definitions, per-generation records, and summary statistics |
+| `raw/*/profile.json` | Full raw run payload: run metadata, event/counter definitions, per-window records, and summary statistics |
 | `profile_suite.json` | Suite manifest: six raw runs, dropped fastest/slowest runs, and aggregate timing/counter summaries from the remaining four runs |
 
 The profiler suite uses six fixed seeds from `profiler.lua`, drops the fastest and
-slowest runs by average generation time, and reports aggregate timing/counter data
+slowest runs by average window time, and reports aggregate timing/counter data
 from the remaining four runs. Standard simulation builds do not include profiler
 instrumentation, so normal runtime overhead stays unchanged.
 
@@ -395,14 +395,14 @@ The profiler package lives under `profiler/moonai_profiler/` and includes:
 
 66 conditions defined in `config.lua` across 9 groups, each × 5 seeds = **330 deterministic runs**.
 
-The default baseline is 2000 agents (500 predators, 1500 prey) on a 4300×2400 world with 1500 ticks/generation. Scaled experiments use `scale_base()` to maintain agent density by proportionally adjusting world size and food count.
+The default baseline is 2000 agents (500 predators, 1500 prey) on a 4300×2400 world with 1500 steps per report window. Scaled experiments use `scale_base()` to maintain agent density by proportionally adjusting world size and food count.
 
 - Group A — Baseline sweeps (2K agents)
 - Group B — Scale experiments (proportional world)
 - Group C — Parameter sweeps at 5K
 - Group D — Parameter sweeps at 10K
 - Group E — World density (5K agents, varying world size)
-- Group F — Generation length
+- Group F — Reporting window length
 - Group G — Energy / resource dynamics
 - Group H — Agent speed / interaction range (5K)
 - Group I — Topology complexity
@@ -440,7 +440,7 @@ just profile-pipeline
 # Quick FPS benchmark in visual mode (requires display)
 just bench-fps
 
-# Build with AddressSanitizer + UBSan and run 5 headless generations
+# Build with AddressSanitizer + UBSan and run 5 headless step windows
 just check-memory
 
 # Run GPU tests locally (requires CUDA)
@@ -482,10 +482,10 @@ Each run writes to `output/{experiment_name}/` (named experiments) or `output/YY
 | File | Contents |
 |------|----------|
 | `config.json` | Full config snapshot for this run |
-| `stats.csv` | One row per generation: `generation, predator_count, prey_count, best_fitness, avg_fitness, num_species, avg_complexity` |
+| `stats.csv` | One row per report window: `step, predator_count, prey_count, births, deaths, best_fitness, avg_fitness, num_species, avg_complexity, avg_predator_energy, avg_prey_energy` |
 | `species.csv` | One row per species per generation |
 | `genomes.json` | Best genome snapshots (nodes + connections JSON) |
-| `ticks.csv` | Per-tick agent states (only when `tick_log_enabled: true`) |
+| `steps.csv` | Per-step agent states (only when `step_log_enabled: true`) |
 
 ## C++ Code Style
 

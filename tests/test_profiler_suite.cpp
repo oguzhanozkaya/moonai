@@ -17,7 +17,7 @@ TEST(ProfilerSuiteConfigTest, LoadsProfilerSuitesFromLua) {
             "  baseline = {\n"
             "    config_path = 'config.lua',\n"
             "    experiment = 'baseline_seed42',\n"
-            "    generations = 24,\n"
+            "    windows = 24,\n"
             "    output_dir = 'output/profiles',\n"
             "    seeds = { 41, 42, 43, 44, 45, 46 },\n"
             "  },\n"
@@ -30,7 +30,7 @@ TEST(ProfilerSuiteConfigTest, LoadsProfilerSuitesFromLua) {
   ASSERT_NE(it, suites.end());
   EXPECT_EQ(it->second.config_path, "config.lua");
   EXPECT_EQ(it->second.experiment_name, "baseline_seed42");
-  EXPECT_EQ(it->second.generations, 24);
+  EXPECT_EQ(it->second.windows, 24);
   EXPECT_EQ(it->second.output_dir, "output/profiles");
   ASSERT_EQ(it->second.seeds.size(), 6u);
   EXPECT_EQ(it->second.seeds.front(), 41u);

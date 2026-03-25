@@ -25,7 +25,7 @@ protected:
   std::string test_dir_;
 };
 
-TEST_F(ProfilerTest, WritesSingleJsonProfileWithSummaryAndGenerations) {
+TEST_F(ProfilerTest, WritesSingleJsonProfileWithSummaryAndWindows) {
   auto &profiler = Profiler::instance();
   ProfileRunSpec spec;
   spec.experiment_name = "baseline_seed42";
@@ -34,7 +34,7 @@ TEST_F(ProfilerTest, WritesSingleJsonProfileWithSummaryAndGenerations) {
   spec.predator_count = 500;
   spec.prey_count = 1500;
   spec.food_count = 2500;
-  spec.generation_ticks = 1500;
+  spec.report_interval_steps = 1500;
   spec.gpu_allowed = true;
   spec.cuda_compiled = true;
   spec.openmp_compiled = true;
@@ -45,12 +45,12 @@ TEST_F(ProfilerTest, WritesSingleJsonProfileWithSummaryAndGenerations) {
   profiler.start_run(spec);
   const std::string run_dir = profiler.output_dir();
 
-  profiler.start_generation(0);
+  profiler.start_window(0);
   profiler.mark_cpu_used(true);
-  profiler.add_duration(ProfileEvent::BuildNetworks, 2'000'000);
+  profiler.add_duration(ProfileEvent::PrepareGpuWindow, 2'000'000);
   profiler.add_duration(ProfileEvent::CpuEvalTotal, 5'000'000);
-  profiler.increment(ProfileCounter::TicksExecuted, 3);
-  profiler.finish_generation({0, 490, 1400, 7, 12.5f, 4.0f, 18.0f});
+  profiler.increment(ProfileCounter::StepsExecuted, 3);
+  profiler.finish_window({0, 490, 1400, 7, 12.5f, 4.0f, 18.0f});
   profiler.finish_run(8'000'000);
 
   ASSERT_TRUE(std::filesystem::exists(run_dir + "/profile.json"));
@@ -59,23 +59,23 @@ TEST_F(ProfilerTest, WritesSingleJsonProfileWithSummaryAndGenerations) {
   ASSERT_TRUE(handle.is_open());
   const auto profile = nlohmann::json::parse(handle);
 
-  EXPECT_EQ(profile["schema_version"], 3);
+  EXPECT_EQ(profile["schema_version"], 4);
   EXPECT_EQ(profile["run"]["experiment_name"], "baseline_seed42");
   EXPECT_EQ(profile["run"]["suite_name"], "baseline_suite");
   EXPECT_EQ(profile["run"]["config_fingerprint"], "abc123");
   EXPECT_EQ(profile["run"]["seed"], 42);
-  EXPECT_EQ(profile["summary"]["generation_count"], 1);
-  EXPECT_EQ(profile["summary"]["cpu_generation_count"], 1);
-  EXPECT_EQ(profile["summary"]["gpu_generation_count"], 0);
-  EXPECT_EQ(profile["generations"].size(), 1u);
-  EXPECT_EQ(profile["generations"][0]["species_count"], 7);
+  EXPECT_EQ(profile["summary"]["window_count"], 1);
+  EXPECT_EQ(profile["summary"]["cpu_window_count"], 1);
+  EXPECT_EQ(profile["summary"]["gpu_window_count"], 0);
+  EXPECT_EQ(profile["windows"].size(), 1u);
+  EXPECT_EQ(profile["windows"][0]["species_count"], 7);
   EXPECT_TRUE(profile.contains("gpu_stage_definitions"));
   EXPECT_TRUE(profile["summary"].contains("gpu_stage_timings"));
   EXPECT_DOUBLE_EQ(profile["summary"]["events"]["cpu_eval_total"]
-                          ["avg_ms_per_nonzero_generation"]
+                          ["avg_ms_per_nonzero_window"]
                               .get<double>(),
                    5.0);
-  EXPECT_EQ(profile["summary"]["counters"]["ticks_executed"]["total"], 3);
+  EXPECT_EQ(profile["summary"]["counters"]["steps_executed"]["total"], 3);
 }
 
 TEST_F(ProfilerTest, CreatesUniqueRunDirectories) {
@@ -87,7 +87,7 @@ TEST_F(ProfilerTest, CreatesUniqueRunDirectories) {
   spec.predator_count = 500;
   spec.prey_count = 1500;
   spec.food_count = 2500;
-  spec.generation_ticks = 1500;
+  spec.report_interval_steps = 1500;
   spec.gpu_allowed = true;
   spec.cuda_compiled = true;
   spec.openmp_compiled = true;

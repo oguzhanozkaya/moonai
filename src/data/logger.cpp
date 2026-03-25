@@ -1,4 +1,6 @@
 #include "data/logger.hpp"
+
+#include "data/metrics.hpp"
 #include "evolution/genome.hpp"
 #include "evolution/species.hpp"
 #include "simulation/agent.hpp"
@@ -13,12 +15,30 @@
 
 namespace moonai {
 
+namespace {
+
+const char *event_name(SimEvent::Type type) {
+  switch (type) {
+    case SimEvent::Kill:
+      return "kill";
+    case SimEvent::Food:
+      return "food";
+    case SimEvent::Birth:
+      return "birth";
+    case SimEvent::Death:
+      return "death";
+  }
+  return "unknown";
+}
+
+} // namespace
+
 Logger::Logger(const std::string &output_dir, std::uint64_t seed,
                const std::string &name)
     : base_dir_(output_dir), name_(name), seed_(seed) {}
 
 Logger::~Logger() {
-  flush_ticks();
+  flush_steps();
   if (events_file_.is_open() && !events_buffer_.empty()) {
     events_file_ << events_buffer_;
   }
@@ -32,8 +52,8 @@ Logger::~Logger() {
   if (species_file_.is_open()) {
     species_file_.close();
   }
-  if (ticks_file_.is_open()) {
-    ticks_file_.close();
+  if (steps_file_.is_open()) {
+    steps_file_.close();
   }
   if (events_file_.is_open()) {
     events_file_.close();
@@ -41,7 +61,6 @@ Logger::~Logger() {
 }
 
 bool Logger::initialize(const SimulationConfig &config) {
-  // Create timestamped run directory
   auto now = std::chrono::system_clock::now();
   auto time = std::chrono::system_clock::to_time_t(now);
   std::tm tm{};
@@ -53,17 +72,14 @@ bool Logger::initialize(const SimulationConfig &config) {
 
   std::string dir_name;
   if (!name_.empty()) {
-    // Named experiment: use name as-is (e.g., "baseline_seed42")
     dir_name = name_;
   } else {
-    // Anonymous run: output/YYYYMMDD_HHMMSS_seed42/
     std::ostringstream oss;
     oss << std::put_time(&tm, "%Y%m%d_%H%M%S") << "_seed" << seed_;
     dir_name = oss.str();
   }
   run_dir_ = base_dir_ + "/" + dir_name;
 
-  // Overwrite protection: append suffix if directory exists
   if (std::filesystem::exists(run_dir_)) {
     for (int suffix = 2; suffix < 1000; ++suffix) {
       std::string candidate =
@@ -76,191 +92,162 @@ bool Logger::initialize(const SimulationConfig &config) {
   }
 
   std::filesystem::create_directories(run_dir_);
-
-  // Save config snapshot
   save_config(config, run_dir_ + "/config.json");
 
-  // Open stats CSV
-  std::string stats_path = run_dir_ + "/stats.csv";
-  stats_file_.open(stats_path);
+  stats_file_.open(run_dir_ + "/stats.csv");
   if (!stats_file_.is_open()) {
-    spdlog::error("Failed to open log file: {}", stats_path);
     return false;
   }
-
   stats_file_ << "# master_seed=" << seed_ << "\n";
-  stats_file_ << "generation,predator_count,prey_count,"
-                 "best_fitness,avg_fitness,num_species,avg_complexity\n";
+  stats_file_ << "step,predator_count,prey_count,births,deaths,best_fitness,"
+                 "avg_fitness,num_species,avg_complexity,avg_predator_energy,"
+                 "avg_prey_energy\n";
 
-  // Open species CSV
-  std::string species_path = run_dir_ + "/species.csv";
-  species_file_.open(species_path);
+  species_file_.open(run_dir_ + "/species.csv");
   if (species_file_.is_open()) {
     species_file_ << "# master_seed=" << seed_ << "\n";
-    species_file_ << "generation,species_id,size,avg_fitness,"
-                     "best_fitness,stagnation_count\n";
+    species_file_ << "step,species_id,size,avg_fitness,best_fitness\n";
   }
 
-  // Open genomes JSON (streaming array)
-  std::string genomes_path = run_dir_ + "/genomes.json";
-  genomes_file_.open(genomes_path);
+  genomes_file_.open(run_dir_ + "/genomes.json");
   if (!genomes_file_.is_open()) {
-    spdlog::error("Failed to open genomes file: {}", genomes_path);
     return false;
   }
   genomes_file_ << "[";
 
-  // Open ticks CSV only when per-tick logging is enabled
-  if (config.tick_log_enabled) {
-    std::string ticks_path = run_dir_ + "/ticks.csv";
-    ticks_file_.open(ticks_path);
-    if (!ticks_file_.is_open()) {
-      spdlog::error("Failed to open ticks file: {}", ticks_path);
+  if (config.step_log_enabled) {
+    steps_file_.open(run_dir_ + "/steps.csv");
+    events_file_.open(run_dir_ + "/events.csv");
+    if (!steps_file_.is_open() || !events_file_.is_open()) {
       return false;
     }
-    ticks_file_
-        << "generation,tick,agent_id,type,alive,x,y,energy,kills,food_eaten\n";
-
-    // Also open events CSV for interaction logging
-    std::string events_path = run_dir_ + "/events.csv";
-    events_file_.open(events_path);
-    if (!events_file_.is_open()) {
-      spdlog::error("Failed to open events file: {}", events_path);
-      return false;
-    }
-    events_file_ << "generation,tick,event_type,agent_id,target_id,x,y\n";
+    steps_file_ << "step,agent_id,type,alive,x,y,energy,kills,food_eaten,"
+                   "offspring_count,species_id\n";
+    events_file_
+        << "step,event_type,agent_id,target_id,parent_a_id,parent_b_id,x,y\n";
   }
 
-  spdlog::info("Logger initialized, output: {}", run_dir_);
   return true;
 }
 
-void Logger::log_generation(int generation, int predator_count, int prey_count,
-                            float best_fitness, float avg_fitness,
-                            int num_species, float avg_complexity) {
-  if (!stats_file_.is_open())
+void Logger::log_report(const StepMetrics &metrics) {
+  if (!stats_file_.is_open()) {
     return;
-
-  stats_file_ << generation << "," << predator_count << "," << prey_count << ","
-              << best_fitness << "," << avg_fitness << "," << num_species << ","
-              << avg_complexity << "\n";
+  }
+  stats_file_ << metrics.step << ',' << metrics.predator_count << ','
+              << metrics.prey_count << ',' << metrics.births << ','
+              << metrics.deaths << ',' << metrics.best_fitness << ','
+              << metrics.avg_fitness << ',' << metrics.num_species << ','
+              << metrics.avg_genome_complexity << ','
+              << metrics.avg_predator_energy << ',' << metrics.avg_prey_energy
+              << '\n';
 }
 
-void Logger::log_best_genome(int generation, const Genome &genome) {
-  if (!genomes_file_.is_open())
+void Logger::log_best_genome(int step, const Genome &genome) {
+  if (!genomes_file_.is_open()) {
     return;
+  }
 
   nlohmann::json j;
-  j["generation"] = generation;
+  j["step"] = step;
   j["fitness"] = genome.fitness();
   j["num_nodes"] = genome.nodes().size();
   j["num_connections"] = genome.connections().size();
-
-  nlohmann::json nodes_json = nlohmann::json::array();
-  std::transform(genome.nodes().begin(), genome.nodes().end(),
-                 std::back_inserter(nodes_json), [](const auto &node) {
-                   return nlohmann::json{{"id", node.id},
-                                         {"type", static_cast<int>(node.type)}};
-                 });
-  j["nodes"] = nodes_json;
-
-  nlohmann::json conns_json = nlohmann::json::array();
-  std::transform(genome.connections().begin(), genome.connections().end(),
-                 std::back_inserter(conns_json), [](const auto &conn) {
-                   return nlohmann::json{{"in", conn.in_node},
-                                         {"out", conn.out_node},
-                                         {"weight", conn.weight},
-                                         {"enabled", conn.enabled},
-                                         {"innovation", conn.innovation}};
-                 });
-  j["connections"] = conns_json;
+  j["genome"] = nlohmann::json::parse(genome.to_json());
 
   if (!genomes_first_entry_) {
-    genomes_file_ << ",";
+    genomes_file_ << ',';
   }
-  genomes_file_ << "\n" << j.dump(2);
+  genomes_file_ << '\n' << j.dump(2);
   genomes_first_entry_ = false;
 }
 
-void Logger::log_species(int generation, const std::vector<Species> &species) {
-  if (!species_file_.is_open())
+void Logger::log_species(int step, const std::vector<Species> &species) {
+  if (!species_file_.is_open()) {
     return;
-
-  for (const auto &s : species) {
-    species_file_ << generation << "," << s.id() << "," << s.members().size()
-                  << "," << s.average_fitness() << "," << s.best_fitness_ever()
-                  << "," << s.generations_without_improvement() << "\n";
+  }
+  for (const auto &entry : species) {
+    species_file_ << step << ',' << entry.id() << ',' << entry.members().size()
+                  << ',' << entry.average_fitness() << ','
+                  << entry.best_fitness_ever() << '\n';
   }
 }
 
-void Logger::log_tick(int generation, int tick,
+void Logger::log_step(int step,
                       const std::vector<std::unique_ptr<Agent>> &agents) {
-  if (!ticks_file_.is_open())
+  if (!steps_file_.is_open()) {
     return;
-
+  }
   for (const auto &agent : agents) {
-    ticks_buffer_ +=
-        std::to_string(generation) + "," + std::to_string(tick) + "," +
-        std::to_string(agent->id()) + "," +
+    steps_buffer_ +=
+        std::to_string(step) + "," + std::to_string(agent->id()) + "," +
         (agent->type() == AgentType::Predator ? "predator" : "prey") + "," +
         (agent->alive() ? "1" : "0") + "," +
         std::to_string(agent->position().x) + "," +
         std::to_string(agent->position().y) + "," +
         std::to_string(agent->energy()) + "," + std::to_string(agent->kills()) +
-        "," + std::to_string(agent->food_eaten()) + "\n";
-    ++ticks_buffered_;
+        "," + std::to_string(agent->food_eaten()) + "," +
+        std::to_string(agent->offspring_count()) + "," +
+        std::to_string(agent->species_id()) + "\n";
+    ++steps_buffered_;
   }
-
-  if (ticks_buffered_ >= TICK_FLUSH_EVERY) {
-    flush_ticks();
+  if (steps_buffered_ >= STEP_FLUSH_EVERY) {
+    flush_steps();
   }
 }
 
-void Logger::log_events(int generation, int tick,
-                        const std::vector<SimEvent> &events) {
-  if (!events_file_.is_open() || events.empty())
+void Logger::log_events(int step, const std::vector<SimEvent> &events) {
+  if (!events_file_.is_open() || events.empty()) {
     return;
-
-  for (const auto &e : events) {
-    events_buffer_ += std::to_string(generation) + "," + std::to_string(tick) +
-                      "," + (e.type == SimEvent::Kill ? "kill" : "food") + "," +
-                      std::to_string(e.agent_id) + "," +
-                      std::to_string(e.target_id) + "," +
-                      std::to_string(e.position.x) + "," +
-                      std::to_string(e.position.y) + "\n";
+  }
+  for (const auto &event : events) {
+    events_buffer_ += std::to_string(step) + "," + event_name(event.type) +
+                      "," + std::to_string(event.agent_id) + "," +
+                      std::to_string(event.target_id) + "," +
+                      std::to_string(event.parent_a_id) + "," +
+                      std::to_string(event.parent_b_id) + "," +
+                      std::to_string(event.position.x) + "," +
+                      std::to_string(event.position.y) + "\n";
     ++events_buffered_;
   }
-
-  if (events_buffered_ >= TICK_FLUSH_EVERY) {
+  if (events_buffered_ >= STEP_FLUSH_EVERY) {
     events_file_ << events_buffer_;
     events_buffer_.clear();
     events_buffered_ = 0;
   }
 }
 
-void Logger::flush_ticks() {
-  if (!ticks_file_.is_open() || ticks_buffer_.empty())
+void Logger::flush_steps() {
+  if (!steps_file_.is_open() || steps_buffer_.empty()) {
     return;
-  ticks_file_ << ticks_buffer_;
-  ticks_buffer_.clear();
-  ticks_buffered_ = 0;
+  }
+  steps_file_ << steps_buffer_;
+  steps_buffer_.clear();
+  steps_buffered_ = 0;
 }
 
 void Logger::flush() {
-  if (stats_file_.is_open())
+  if (stats_file_.is_open()) {
     stats_file_.flush();
-  if (genomes_file_.is_open())
+  }
+  if (genomes_file_.is_open()) {
     genomes_file_.flush();
-  if (species_file_.is_open())
+  }
+  if (species_file_.is_open()) {
     species_file_.flush();
-  flush_ticks();
+  }
+  flush_steps();
   if (events_file_.is_open() && !events_buffer_.empty()) {
     events_file_ << events_buffer_;
     events_buffer_.clear();
     events_buffered_ = 0;
   }
-  if (ticks_file_.is_open())
-    ticks_file_.flush();
+  if (steps_file_.is_open()) {
+    steps_file_.flush();
+  }
+  if (events_file_.is_open()) {
+    events_file_.flush();
+  }
 }
 
 } // namespace moonai

@@ -44,7 +44,7 @@ def run_analysis(input_dir: Path, output_dir: Path) -> None:
             fitness = float(genome.get("fitness", 0.0))
             title = (
                 f"{aggregate.label} - Best Genome ({aggregate.representative_run.name}, "
-                f"Gen {genome.get('generation', '?')}, Fitness {fitness:.3f})"
+                f"Step {genome.get('step', '?')}, Fitness {fitness:.3f})"
             )
             genome_chart = {
                 "title": "Genome",
@@ -56,7 +56,7 @@ def run_analysis(input_dir: Path, output_dir: Path) -> None:
                 "label": aggregate.label,
                 "run_count": len(aggregate.runs),
                 "representative_run": aggregate.representative_run.name,
-                "final_generation": int(aggregate.summary_frame["generation"].max()),
+                "final_step": int(aggregate.summary_frame["step"].max()),
                 "charts": [chart.__dict__ for chart in charts],
                 "genome_chart": genome_chart,
             }
@@ -73,7 +73,7 @@ def run_analysis(input_dir: Path, output_dir: Path) -> None:
             "run_count": len(runs),
             "condition_count": len(aggregates),
             "skipped_count": len(skipped_runs),
-            "summary_generation": summary.generation,
+            "summary_step": summary.step,
             "summary_headers": summary.headers,
             "summary_rows": [
                 {

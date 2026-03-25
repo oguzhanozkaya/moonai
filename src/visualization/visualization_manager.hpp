@@ -30,9 +30,6 @@ public:
   void handle_events();
 
   // Update overlay stats from external sources
-  void set_generation(int gen) {
-    overlay_stats_.generation = gen;
-  }
   void set_fitness(float best, float avg) {
     overlay_stats_.best_fitness = best;
     overlay_stats_.avg_fitness = avg;
@@ -70,7 +67,7 @@ public:
     fast_forward_ = false;
   }
   int selected_agent() const {
-    return selected_agent_;
+    return selected_agent_id_;
   }
 
   // Provide activation values for the selected agent's NN panel
@@ -78,7 +75,7 @@ public:
       const std::vector<float> &vals,
       const std::unordered_map<std::uint32_t, int> &idx_map);
 
-  // Update population data for the left column chart (called per tick)
+  // Update population data for the left column chart (called per step)
   void update_population_chart(int predators, int prey) {
     overlay_.push_population(predators, prey);
   }
@@ -103,10 +100,10 @@ public:
 
   // Update event counts
   void set_event_counts(int kills, int food, int births, int deaths) {
-    overlay_stats_.kills_this_tick = kills;
-    overlay_stats_.food_eaten_this_tick = food;
-    overlay_stats_.births_this_tick = births;
-    overlay_stats_.deaths_this_tick = deaths;
+    overlay_stats_.kills_this_step = kills;
+    overlay_stats_.food_eaten_this_step = food;
+    overlay_stats_.births_this_step = births;
+    overlay_stats_.deaths_this_step = deaths;
   }
 
   // Get left column width for viewport adjustment
@@ -151,7 +148,7 @@ private:
   bool step_requested_ = false;
   bool fast_forward_ = false;
   int speed_multiplier_ = 1;
-  int selected_agent_ = -1;
+  int selected_agent_id_ = -1;
 
   // Activation values for selected agent's NN visualization
   std::unordered_map<std::uint32_t, float> selected_node_activations_;
@@ -180,12 +177,11 @@ private:
   int experiment_hover_index_ = -1;
   int experiment_scroll_offset_ = 0;
 
-  // Per-generation event counters (reset at generation boundaries)
-  int current_generation_ = -1;
-  int gen_kills_ = 0;
-  int gen_food_eaten_ = 0;
-  int gen_births_ = 0;
-  int gen_deaths_ = 0;
+  // Last-step event counters
+  int step_kills_ = 0;
+  int step_food_eaten_ = 0;
+  int step_births_ = 0;
+  int step_deaths_ = 0;
 };
 
 } // namespace moonai

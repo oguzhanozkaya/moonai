@@ -16,7 +16,7 @@ TEST(ConfigTest, DefaultValues) {
   EXPECT_EQ(config.prey_count, 1500);
   EXPECT_GT(config.mutation_rate, 0.0f);
   EXPECT_EQ(config.boundary_mode, BoundaryMode::Wrap);
-  EXPECT_EQ(config.max_generations, 0);
+  EXPECT_EQ(config.max_steps, 0);
   EXPECT_FLOAT_EQ(config.initial_energy, 150.0f);
 }
 
@@ -191,12 +191,12 @@ TEST(CLIArgsTest, PositionalConfigPath) {
 
 TEST(CLIArgsTest, AllFlags) {
   const char *argv[] = {"moonai", "--headless", "-v", "-s",      "12345",
-                        "-g",     "100",        "-c", "test.lua"};
+                        "-n",     "100",        "-c", "test.lua"};
   auto args = parse_args(9, argv);
   EXPECT_TRUE(args.headless);
   EXPECT_TRUE(args.verbose);
   EXPECT_EQ(args.seed_override, 12345u);
-  EXPECT_EQ(args.max_generations_override, 100);
+  EXPECT_EQ(args.max_steps_override, 100);
   EXPECT_EQ(args.config_path, "test.lua");
 }
 
@@ -245,7 +245,7 @@ TEST(ApplyOverrides, ValidOverrides) {
   SimulationConfig config;
   std::vector<std::pair<std::string, std::string>> overrides = {
       {"mutation_rate", "0.1"},        {"prey_count", "75"},
-      {"activation_function", "tanh"}, {"tick_log_enabled", "true"},
+      {"activation_function", "tanh"}, {"step_log_enabled", "true"},
       {"boundary_mode", "clamp"},      {"seed", "42"},
   };
 
@@ -254,7 +254,7 @@ TEST(ApplyOverrides, ValidOverrides) {
   EXPECT_FLOAT_EQ(config.mutation_rate, 0.1f);
   EXPECT_EQ(config.prey_count, 75);
   EXPECT_EQ(config.activation_function, "tanh");
-  EXPECT_TRUE(config.tick_log_enabled);
+  EXPECT_TRUE(config.step_log_enabled);
   EXPECT_EQ(config.boundary_mode, BoundaryMode::Clamp);
   EXPECT_EQ(config.seed, 42u);
 }
@@ -299,7 +299,7 @@ TEST(LuaRuntimeTest, LoadWithFitnessFn) {
   ASSERT_EQ(configs.size(), 1u);
   rt.select_experiment("test");
   EXPECT_TRUE(rt.callbacks().has_fitness_fn);
-  EXPECT_FALSE(rt.callbacks().has_on_generation_end);
+  EXPECT_FALSE(rt.callbacks().has_on_report_window_end);
 
   std::filesystem::remove(path);
 }
@@ -363,13 +363,13 @@ TEST(LuaRuntimeTest, FitnessFnErrorReturnsFallback) {
   std::filesystem::remove(path);
 }
 
-TEST(LuaRuntimeTest, GenerationHookReturnsOverrides) {
+TEST(LuaRuntimeTest, ReportWindowHookReturnsOverrides) {
   std::string path =
       (std::filesystem::temp_directory_path() / "moonai_rt_hook.lua").string();
   {
     std::ofstream f(path);
     f << "return { test = {\n"
-      << "  on_generation_end = function(gen, stats)\n"
+      << "  on_report_window_end = function(step, window_index, stats)\n"
       << "    return { mutation_rate = 0.9 }\n"
       << "  end\n"
       << "} }\n";
@@ -378,11 +378,11 @@ TEST(LuaRuntimeTest, GenerationHookReturnsOverrides) {
   LuaRuntime rt;
   rt.load_config(path);
   rt.select_experiment("test");
-  EXPECT_TRUE(rt.callbacks().has_on_generation_end);
+  EXPECT_TRUE(rt.callbacks().has_on_report_window_end);
 
-  GenerationStats gs{5, 1.0f, 0.5f, 3, 10, 20, 5.0f};
+  ReportWindowStats stats{300, 5, 1.0f, 0.5f, 3, 10, 20, 5.0f};
   std::map<std::string, float> overrides;
-  bool has_overrides = rt.call_on_generation_end(gs, overrides);
+  bool has_overrides = rt.call_on_report_window_end(stats, overrides);
   EXPECT_TRUE(has_overrides);
   ASSERT_TRUE(overrides.count("mutation_rate"));
   EXPECT_FLOAT_EQ(overrides["mutation_rate"], 0.9f);
@@ -390,13 +390,13 @@ TEST(LuaRuntimeTest, GenerationHookReturnsOverrides) {
   std::filesystem::remove(path);
 }
 
-TEST(LuaRuntimeTest, GenerationHookReturnsNil) {
+TEST(LuaRuntimeTest, ReportWindowHookReturnsNil) {
   std::string path =
       (std::filesystem::temp_directory_path() / "moonai_rt_nil.lua").string();
   {
     std::ofstream f(path);
     f << "return { test = {\n"
-      << "  on_generation_end = function(gen, stats)\n"
+      << "  on_report_window_end = function(step, window_index, stats)\n"
       << "    return nil\n"
       << "  end\n"
       << "} }\n";
@@ -406,9 +406,9 @@ TEST(LuaRuntimeTest, GenerationHookReturnsNil) {
   rt.load_config(path);
   rt.select_experiment("test");
 
-  GenerationStats gs{5, 1.0f, 0.5f, 3, 10, 20, 5.0f};
+  ReportWindowStats stats{300, 5, 1.0f, 0.5f, 3, 10, 20, 5.0f};
   std::map<std::string, float> overrides;
-  bool has_overrides = rt.call_on_generation_end(gs, overrides);
+  bool has_overrides = rt.call_on_report_window_end(stats, overrides);
   EXPECT_FALSE(has_overrides);
   EXPECT_TRUE(overrides.empty());
 

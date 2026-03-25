@@ -58,7 +58,21 @@ Physics::build_sensors(const Agent &agent,
                        const std::vector<Food> &food, const SpatialGrid &grid,
                        const SpatialGrid &food_grid, float world_width,
                        float world_height, float max_energy, bool has_walls) {
+  std::unordered_map<AgentId, std::size_t> agent_slots;
+  agent_slots.reserve(agents.size());
+  for (std::size_t slot = 0; slot < agents.size(); ++slot) {
+    agent_slots[agents[slot]->id()] = slot;
+  }
+  return build_sensors(agent, agents, food, grid, food_grid, agent_slots,
+                       world_width, world_height, max_energy, has_walls);
+}
 
+SensorInput Physics::build_sensors(
+    const Agent &agent, const std::vector<std::unique_ptr<Agent>> &agents,
+    const std::vector<Food> &food, const SpatialGrid &grid,
+    const SpatialGrid &food_grid,
+    const std::unordered_map<AgentId, std::size_t> &agent_slots,
+    float world_width, float world_height, float max_energy, bool has_walls) {
   thread_local std::vector<AgentId> nearby_ids;
   thread_local std::vector<AgentId> nearby_food_ids;
   const Vec2 pos = agent.position();
@@ -66,17 +80,17 @@ Physics::build_sensors(const Agent &agent,
   grid.query_radius_into(pos, vision, nearby_ids);
   food_grid.query_radius_into(pos, vision, nearby_food_ids);
 
-  return build_sensors_from_candidates(agent, agents, food, nearby_ids,
-                                       nearby_food_ids, world_width,
-                                       world_height, max_energy, has_walls);
+  return build_sensors_from_candidates(
+      agent, agents, food, nearby_ids, agent_slots, nearby_food_ids,
+      world_width, world_height, max_energy, has_walls);
 }
 
 SensorInput Physics::build_sensors_from_candidates(
     const Agent &agent, const std::vector<std::unique_ptr<Agent>> &agents,
     const std::vector<Food> &food, const std::vector<AgentId> &nearby_agent_ids,
+    const std::unordered_map<AgentId, std::size_t> &agent_slots,
     const std::vector<AgentId> &nearby_food_ids, float world_width,
     float world_height, float max_energy, bool has_walls) {
-
   SensorInput s;
   float vision = agent.vision_range();
   float vision_sq = vision * vision;
@@ -101,9 +115,10 @@ SensorInput Physics::build_sensors_from_candidates(
   int local_prey = 0;
 
   for (AgentId nid : nearby_agent_ids) {
-    if (nid >= agents.size())
+    const auto slot_it = agent_slots.find(nid);
+    if (slot_it == agent_slots.end())
       continue;
-    const auto &other = agents[nid];
+    const auto &other = agents[slot_it->second];
     if (!other->alive() || other->id() == agent.id())
       continue;
 
@@ -189,9 +204,10 @@ SensorInput Physics::build_sensors_from_candidates(
   return s;
 }
 
-std::vector<Physics::KillEvent>
-Physics::process_attacks(std::vector<std::unique_ptr<Agent>> &agents,
-                         const SpatialGrid &grid, float attack_range) {
+std::vector<Physics::KillEvent> Physics::process_attacks(
+    std::vector<std::unique_ptr<Agent>> &agents, const SpatialGrid &grid,
+    const std::unordered_map<AgentId, std::size_t> &agent_slots,
+    float attack_range) {
   std::vector<std::size_t> predator_indices;
   predator_indices.reserve(agents.size());
   std::vector<std::vector<AgentId>> nearby_agent_ids(agents.size());
@@ -205,13 +221,14 @@ Physics::process_attacks(std::vector<std::unique_ptr<Agent>> &agents,
                            nearby_agent_ids[i]);
   }
 
-  return process_attacks_from_candidates(agents, nearby_agent_ids,
+  return process_attacks_from_candidates(agents, nearby_agent_ids, agent_slots,
                                          predator_indices, attack_range);
 }
 
 std::vector<Physics::KillEvent> Physics::process_attacks_from_candidates(
     std::vector<std::unique_ptr<Agent>> &agents,
     const std::vector<std::vector<AgentId>> &nearby_agent_ids,
+    const std::unordered_map<AgentId, std::size_t> &agent_slots,
     const std::vector<std::size_t> &predator_indices, float attack_range) {
   std::vector<KillEvent> kills;
   const float attack_range_sq = attack_range * attack_range;
@@ -231,9 +248,10 @@ std::vector<Physics::KillEvent> Physics::process_attacks_from_candidates(
                        static_cast<std::int64_t>(nearby.size()));
 
     for (AgentId nid : nearby) {
-      if (nid >= agents.size())
+      const auto slot_it = agent_slots.find(nid);
+      if (slot_it == agent_slots.end())
         continue;
-      auto &target = agents[nid];
+      auto &target = agents[slot_it->second];
       if (!target->alive() || target->type() != AgentType::Prey)
         continue;
 
@@ -243,7 +261,7 @@ std::vector<Physics::KillEvent> Physics::process_attacks_from_candidates(
         target->set_alive(false);
         predator->add_kill();
         kills.push_back({predator->id(), target->id()});
-        break; // one kill per tick per predator
+        break; // one kill per step per predator
       }
     }
   }

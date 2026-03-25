@@ -52,7 +52,7 @@ bool VisualizationManager::initialize() {
   window_->setView(camera_view_);
 
   overlay_.initialize();
-  overlay_stats_.max_ticks = config_.generation_ticks;
+  overlay_stats_.max_steps = config_.max_steps;
 
   running_ = true;
   spdlog::info("Visualization initialized ({}x{} window, {}x{} world)",
@@ -123,7 +123,8 @@ void VisualizationManager::render(const SimulationManager &sim,
     if (!agents[i]->alive())
       continue;
 
-    bool is_selected = (static_cast<int>(i) == selected_agent_);
+    bool is_selected =
+        (static_cast<int>(agents[i]->id()) == selected_agent_id_);
     renderer_.draw_agent(*window_, *agents[i], is_selected);
 
     // Draw debug visualization for selected agent
@@ -155,26 +156,30 @@ void VisualizationManager::render(const SimulationManager &sim,
   }
 
   // Update overlay stats from simulation
-  overlay_stats_.tick = sim.current_tick();
+  overlay_stats_.step = sim.current_step();
   overlay_stats_.alive_predators = sim.alive_predators();
   overlay_stats_.alive_prey = sim.alive_prey();
   overlay_stats_.speed_multiplier = speed_multiplier_;
   overlay_stats_.paused = paused_;
   overlay_stats_.fast_forward = fast_forward_;
-  overlay_stats_.selected_agent = selected_agent_;
+  overlay_stats_.selected_agent = selected_agent_id_;
   overlay_stats_.experiment_name = selected_experiment_name_;
 
   // Update selected agent info
-  if (selected_agent_ >= 0 &&
-      selected_agent_ < static_cast<int>(agents.size())) {
-    const auto &sel = agents[selected_agent_];
-    overlay_stats_.selected_energy = sel->energy();
-    overlay_stats_.selected_age = sel->age();
-    overlay_stats_.selected_kills = sel->kills();
-    overlay_stats_.selected_food_eaten = sel->food_eaten();
+  if (selected_agent_id_ >= 0) {
+    const Agent *sel =
+        sim.agent_by_id(static_cast<AgentId>(selected_agent_id_));
+    if (sel != nullptr) {
+      overlay_stats_.selected_energy = sel->energy();
+      overlay_stats_.selected_age = sel->age();
+      overlay_stats_.selected_kills = sel->kills();
+      overlay_stats_.selected_food_eaten = sel->food_eaten();
+      overlay_stats_.selected_fitness = sel->genome().fitness();
+      overlay_stats_.selected_genome_complexity = sel->genome().complexity();
+    }
   }
 
-  // Update population chart (per tick)
+  // Update population chart (per step)
   overlay_.push_population(sim.alive_predators(), sim.alive_prey());
 
   // Calculate energy distribution
@@ -214,33 +219,31 @@ void VisualizationManager::render(const SimulationManager &sim,
   }
   set_energy_distribution(pred_dist, prey_dist);
 
-  // Check if generation changed and reset counters
-  int gen = evolution.generation();
-  if (gen != current_generation_) {
-    current_generation_ = gen;
-    gen_kills_ = 0;
-    gen_food_eaten_ = 0;
-    gen_births_ = 0;
-    gen_deaths_ = 0;
-  }
+  step_kills_ = 0;
+  step_food_eaten_ = 0;
+  step_births_ = 0;
+  step_deaths_ = 0;
 
-  // Accumulate events from last tick to per-generation counters
+  // Show events from the last simulation step.
   for (const auto &event : sim.last_events()) {
     switch (event.type) {
       case SimEvent::Kill:
-        gen_kills_++;
+        step_kills_++;
         break;
       case SimEvent::Food:
-        gen_food_eaten_++;
+        step_food_eaten_++;
+        break;
+      case SimEvent::Birth:
+        step_births_++;
+        break;
+      case SimEvent::Death:
+        step_deaths_++;
         break;
       default:
         break;
     }
   }
-
-  // Note: Births and deaths would need to be tracked by the simulation
-  // For now, we'll show what we have
-  set_event_counts(gen_kills_, gen_food_eaten_, gen_births_, gen_deaths_);
+  set_event_counts(step_kills_, step_food_eaten_, step_births_, step_deaths_);
 
   // Get fitness by type from evolution manager
   float best_pred, avg_pred, best_prey_f, avg_prey_f;
@@ -249,7 +252,7 @@ void VisualizationManager::render(const SimulationManager &sim,
   set_fitness_by_type(best_pred, avg_pred, best_prey_f, avg_prey_f);
 
   // Draw UI overlay (with selected genome for NN topology panel)
-  const Genome *sel_genome = evolution.genome_at(selected_agent_);
+  const Genome *sel_genome = evolution.genome_at(sim, selected_agent_id_);
   overlay_.set_activations(selected_node_activations_);
   overlay_.draw(*window_, overlay_stats_, sel_genome);
 
@@ -395,9 +398,8 @@ void VisualizationManager::handle_events() {
             sf::Texture texture(window_->getSize());
             texture.update(*window_);
             sf::Image img = texture.copyToImage();
-            std::string fname =
-                "screenshot_gen" + std::to_string(overlay_stats_.generation) +
-                "_tick" + std::to_string(overlay_stats_.tick) + ".png";
+            std::string fname = "screenshot_step" +
+                                std::to_string(overlay_stats_.step) + ".png";
             (void)img.saveToFile(fname);
             spdlog::info("Screenshot saved: {}", fname);
           }
@@ -483,7 +485,7 @@ void VisualizationManager::handle_mouse_click(float world_x, float world_y,
                                               const SimulationManager &sim) {
   // Find closest agent to click position
   float best_dist = 20.0f * zoom_level_; // click threshold in world units
-  int best_idx = -1;
+  int best_id = -1;
 
   const auto &agents = sim.agents();
   for (size_t i = 0; i < agents.size(); ++i) {
@@ -494,11 +496,11 @@ void VisualizationManager::handle_mouse_click(float world_x, float world_y,
     float dist = std::sqrt(dx * dx + dy * dy);
     if (dist < best_dist) {
       best_dist = dist;
-      best_idx = static_cast<int>(i);
+      best_id = static_cast<int>(agents[i]->id());
     }
   }
 
-  selected_agent_ = best_idx;
+  selected_agent_id_ = best_id;
 }
 
 void VisualizationManager::set_selected_activations(

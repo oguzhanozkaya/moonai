@@ -2,9 +2,6 @@
 #include "gpu/gpu_batch.hpp"
 #include "gpu/sensor_common.cuh"
 
-#include "core/deterministic_respawn.hpp"
-#include "core/profiler.hpp"
-
 #include <cub/cub.cuh>
 
 #include <vector>
@@ -14,58 +11,6 @@ namespace moonai::gpu {
 namespace {
 
 constexpr int kBlockSize = 256;
-
-enum class AgentBinMode {
-  AllAgents,
-  PreyOnly,
-};
-
-#ifdef MOONAI_BUILD_PROFILER
-__device__ __forceinline__ unsigned long long read_globaltimer_ns() {
-  unsigned long long value;
-  asm volatile("mov.u64 %0, %%globaltimer;" : "=l"(value));
-  return value;
-}
-
-__global__ void
-resident_stage_begin_kernel(unsigned long long *last_timestamp_ns) {
-  if (blockIdx.x == 0 && threadIdx.x == 0) {
-    const unsigned long long now = read_globaltimer_ns();
-    *last_timestamp_ns = now == 0ULL ? 1ULL : now;
-  }
-}
-
-__global__ void resident_stage_end_kernel(unsigned long long *stage_accum_ns,
-                                          unsigned long long *last_timestamp_ns,
-                                          int stage_index) {
-  if (blockIdx.x == 0 && threadIdx.x == 0) {
-    const unsigned long long now = read_globaltimer_ns();
-    const unsigned long long last = *last_timestamp_ns;
-    if (last != 0ULL) {
-      stage_accum_ns[stage_index] += now - last;
-    }
-    *last_timestamp_ns = now;
-  }
-}
-
-__host__ __forceinline__ void record_stage_begin(GpuBatch &batch,
-                                                 cudaStream_t stream) {
-  resident_stage_begin_kernel<<<1, 1, 0, stream>>>(
-      batch.d_resident_stage_last_timestamp_ns());
-}
-
-__host__ __forceinline__ void
-record_stage_end(GpuBatch &batch, cudaStream_t stream, GpuStageTiming stage) {
-  resident_stage_end_kernel<<<1, 1, 0, stream>>>(
-      batch.d_resident_stage_accum_ns(),
-      batch.d_resident_stage_last_timestamp_ns(), static_cast<int>(stage));
-}
-#else
-__host__ __forceinline__ void record_stage_begin(GpuBatch &, cudaStream_t) {}
-template <typename Stage>
-__host__ __forceinline__ void record_stage_end(GpuBatch &, cudaStream_t,
-                                               Stage) {}
-#endif
 
 __device__ __forceinline__ void normalize_inplace(float &x, float &y) {
   const float len_sq = x * x + y * y;
@@ -201,22 +146,13 @@ __global__ void scatter_food_kernel(const float *pos_x, const float *pos_y,
   sensor_entries[write_index] = GpuSensorFoodEntry{pos_x[idx], pos_y[idx]};
 }
 
-template <bool HasWalls>
-__global__ void sensor_build_kernel(SensorBuildView view) {
-  const int agent_idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (agent_idx >= view.num_agents) {
-    return;
-  }
-  build_sensor_inputs_for_agent<HasWalls>(view, agent_idx);
-}
-
 __global__ void movement_kernel(float *pos_x, float *pos_y, float *vel_x,
                                 float *vel_y, const float *speed, float *energy,
                                 float *distance_traveled, int *age,
                                 unsigned int *alive, const float *outputs,
                                 int num_agents, int num_outputs, float dt,
                                 float world_width, float world_height,
-                                bool has_walls, float energy_drain_per_tick,
+                                bool has_walls, float energy_drain_per_step,
                                 int target_fps) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= num_agents || alive[idx] == 0U) {
@@ -235,11 +171,11 @@ __global__ void movement_kernel(float *pos_x, float *pos_y, float *vel_x,
   pos_y[idx] += vel_y[idx] * dt;
   distance_traveled[idx] += speed[idx] * dt;
   age[idx] += 1;
-  energy[idx] -= energy_drain_per_tick * dt * static_cast<float>(target_fps);
+  energy[idx] -= energy_drain_per_step * dt * static_cast<float>(target_fps);
 
   if (has_walls) {
-    pos_x[idx] = sensor_clampf(pos_x[idx], 0.0f, world_width);
-    pos_y[idx] = sensor_clampf(pos_y[idx], 0.0f, world_height);
+    pos_x[idx] = fminf(fmaxf(pos_x[idx], 0.0f), world_width);
+    pos_y[idx] = fminf(fmaxf(pos_y[idx], 0.0f), world_height);
   } else {
     if (pos_x[idx] < 0.0f)
       pos_x[idx] += world_width;
@@ -383,29 +319,66 @@ __global__ void predator_attack_kernel(
   }
 }
 
+__device__ __forceinline__ unsigned long long rotl(unsigned long long x,
+                                                     int k) {
+  return (x << k) | (x >> (64 - k));
+}
+
+__device__ unsigned long long xoshiro256ss(unsigned long long s[4]) {
+  unsigned long long result = rotl(s[1] * 5, 7) * 9;
+  unsigned long long t = s[1] << 17;
+  s[2] ^= s[0];
+  s[3] ^= s[1];
+  s[1] ^= s[2];
+  s[0] ^= s[3];
+  s[2] ^= t;
+  s[3] = rotl(s[3], 45);
+  return result;
+}
+
+__device__ void init_rng(unsigned long long s[4], std::uint64_t seed,
+                         int tick_index, int idx) {
+  s[0] = seed + static_cast<unsigned long long>(tick_index) * 0x9e3779b97f4a7c15ULL +
+         static_cast<unsigned long long>(idx) * 0xbf58476d1ce4e5b9ULL;
+  s[1] = seed + static_cast<unsigned long long>(tick_index) * 0xbf58476d1ce4e5b9ULL +
+         static_cast<unsigned long long>(idx) * 0x94d049bb133111ebULL;
+  s[2] = seed + static_cast<unsigned long long>(tick_index) * 0x94d049bb133111ebULL +
+         static_cast<unsigned long long>(idx) * 0x9e3779b97f4a7c15ULL;
+  s[3] = seed + static_cast<unsigned long long>(tick_index) * 0x9e3779b97f4a7c15ULL +
+         static_cast<unsigned long long>(idx) * 0xbf58476d1ce4e5b9ULL;
+}
+
+__device__ float rng_float(unsigned long long s[4]) {
+  return static_cast<float>(xoshiro256ss(s) & 0xFFFFFFFFULL) /
+         static_cast<float>(0xFFFFFFFFULL);
+}
+
 __global__ void respawn_food_kernel(float *food_pos_x, float *food_pos_y,
                                     unsigned int *food_active, int food_count,
                                     float respawn_rate, float world_width,
                                     float world_height, std::uint64_t seed,
-                                    const int *tick_index_ptr) {
+                                    int step_index) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= food_count || food_active[idx] != 0U) {
     return;
   }
-  const int tick_index = *tick_index_ptr;
-  if (!respawn::should_respawn(seed, tick_index,
-                               static_cast<std::uint32_t>(idx), respawn_rate)) {
+
+  unsigned long long rng_state[4];
+  init_rng(rng_state, seed, step_index, idx);
+
+  // Check if this food should respawn
+  if (rng_float(rng_state) >= respawn_rate) {
     return;
   }
-  food_pos_x[idx] = respawn::respawn_x(
-      seed, tick_index, static_cast<std::uint32_t>(idx), world_width);
-  food_pos_y[idx] = respawn::respawn_y(
-      seed, tick_index, static_cast<std::uint32_t>(idx), world_height);
+
+  // Generate new position
+  food_pos_x[idx] = rng_float(rng_state) * world_width;
+  food_pos_y[idx] = rng_float(rng_state) * world_height;
   food_active[idx] = 1U;
 }
 
 void rebuild_agent_bins(GpuBatch &batch, cudaStream_t stream,
-                        AgentBinMode mode) {
+                        bool prey_only) {
   const size_t agent_cell_bytes =
       static_cast<size_t>(batch.agent_cols() * batch.agent_rows()) *
       sizeof(int);
@@ -414,7 +387,7 @@ void rebuild_agent_bins(GpuBatch &batch, cudaStream_t stream,
 
   const int agent_grid = (batch.num_agents() + kBlockSize - 1) / kBlockSize;
 
-  if (mode == AgentBinMode::AllAgents) {
+  if (!prey_only) {
     bin_agents_kernel<<<agent_grid, kBlockSize, 0, stream>>>(
         batch.d_agent_pos_x(), batch.d_agent_pos_y(), batch.d_agent_alive(),
         batch.num_agents(), batch.agent_cols(), batch.agent_rows(),
@@ -436,7 +409,7 @@ void rebuild_agent_bins(GpuBatch &batch, cudaStream_t stream,
   CUDA_CHECK(cudaMemsetAsync(batch.d_agent_cell_write_counts(), 0,
                              agent_cell_bytes, stream));
 
-  if (mode == AgentBinMode::AllAgents) {
+  if (!prey_only) {
     scatter_agents_kernel<<<agent_grid, kBlockSize, 0, stream>>>(
         batch.d_agent_pos_x(), batch.d_agent_pos_y(), batch.d_agent_types(),
         batch.d_agent_alive(), batch.num_agents(), batch.agent_cols(),
@@ -483,198 +456,232 @@ void rebuild_food_bins(GpuBatch &batch, cudaStream_t stream) {
 }
 
 void rebuild_bins(GpuBatch &batch, cudaStream_t stream) {
-  rebuild_agent_bins(batch, stream, AgentBinMode::AllAgents);
+  rebuild_agent_bins(batch, stream, false);
   rebuild_food_bins(batch, stream);
-  CUDA_CHECK(cudaGetLastError());
-}
-
-void launch_resident_tick_sequence(GpuBatch &batch,
-                                   const ResidentTickParams &params,
-                                   cudaStream_t stream) {
-  const int agent_grid = (batch.num_agents() + kBlockSize - 1) / kBlockSize;
-  const int food_grid = (batch.food_count() + kBlockSize - 1) / kBlockSize;
-
-  CUDA_CHECK(cudaMemcpyAsync(batch.d_tick_index(), batch.host_tick_index(),
-                             sizeof(int), cudaMemcpyHostToDevice, stream));
-
-  record_stage_begin(batch, stream);
-  rebuild_agent_bins(batch, stream, AgentBinMode::AllAgents);
-  rebuild_food_bins(batch, stream);
-  record_stage_end(batch, stream, GpuStageTiming::ResidentTickBinRebuildPre);
-
-  SensorBuildView view{
-      batch.d_agent_pos_x(),
-      batch.d_agent_pos_y(),
-      batch.d_agent_vel_x(),
-      batch.d_agent_vel_y(),
-      batch.d_agent_speed(),
-      batch.d_agent_vision(),
-      batch.d_agent_energy(),
-      batch.d_agent_ids(),
-      batch.d_agent_types(),
-      batch.d_agent_alive(),
-      batch.d_food_pos_x(),
-      batch.d_food_pos_y(),
-      batch.d_food_active(),
-      batch.d_agent_cell_offsets(),
-      batch.d_sensor_agent_entries(),
-      batch.d_food_cell_offsets(),
-      batch.d_sensor_food_entries(),
-      batch.d_inputs(),
-      batch.num_agents(),
-      batch.food_count(),
-      batch.agent_cols(),
-      batch.agent_rows(),
-      batch.agent_cell_size(),
-      batch.food_cols(),
-      batch.food_rows(),
-      batch.food_cell_size(),
-      batch.num_inputs(),
-      params.world_width,
-      params.world_height,
-      params.max_energy,
-      params.has_walls,
-  };
-
-  if (params.has_walls) {
-    sensor_build_kernel<true><<<agent_grid, kBlockSize, 0, stream>>>(view);
-  } else {
-    sensor_build_kernel<false><<<agent_grid, kBlockSize, 0, stream>>>(view);
-  }
-  record_stage_end(batch, stream, GpuStageTiming::ResidentTickSensorBuild);
-
-  batch_neural_inference(batch);
-  record_stage_end(batch, stream, GpuStageTiming::ResidentTickInference);
-
-  movement_kernel<<<agent_grid, kBlockSize, 0, stream>>>(
-      batch.d_agent_pos_x(), batch.d_agent_pos_y(), batch.d_agent_vel_x(),
-      batch.d_agent_vel_y(), batch.d_agent_speed(), batch.d_agent_energy(),
-      batch.d_agent_distance_traveled(), batch.d_agent_age(),
-      batch.d_agent_alive(), batch.d_outputs(), batch.num_agents(),
-      batch.num_outputs(), params.dt, params.world_width, params.world_height,
-      params.has_walls, params.energy_drain_per_tick, params.target_fps);
-  record_stage_end(batch, stream, GpuStageTiming::ResidentTickMovement);
-
-  rebuild_agent_bins(batch, stream, AgentBinMode::PreyOnly);
-  record_stage_end(batch, stream, GpuStageTiming::ResidentTickBinRebuildPost);
-
-  if (params.has_walls) {
-    prey_food_kernel<true><<<agent_grid, kBlockSize, 0, stream>>>(
-        batch.d_agent_alive(), batch.d_agent_types(), batch.d_agent_pos_x(),
-        batch.d_agent_pos_y(), batch.d_agent_energy(),
-        batch.d_agent_food_eaten(), batch.d_food_pos_x(), batch.d_food_pos_y(),
-        batch.d_food_active(), batch.num_agents(), batch.d_food_cell_offsets(),
-        batch.d_food_cell_ids(), batch.food_cols(), batch.food_rows(),
-        batch.food_cell_size(), params.food_pickup_range,
-        params.energy_gain_from_food, params.world_width, params.world_height,
-        params.has_walls);
-  } else {
-    prey_food_kernel<false><<<agent_grid, kBlockSize, 0, stream>>>(
-        batch.d_agent_alive(), batch.d_agent_types(), batch.d_agent_pos_x(),
-        batch.d_agent_pos_y(), batch.d_agent_energy(),
-        batch.d_agent_food_eaten(), batch.d_food_pos_x(), batch.d_food_pos_y(),
-        batch.d_food_active(), batch.num_agents(), batch.d_food_cell_offsets(),
-        batch.d_food_cell_ids(), batch.food_cols(), batch.food_rows(),
-        batch.food_cell_size(), params.food_pickup_range,
-        params.energy_gain_from_food, params.world_width, params.world_height,
-        params.has_walls);
-  }
-  record_stage_end(batch, stream, GpuStageTiming::ResidentTickPreyFood);
-  if (params.has_walls) {
-    predator_attack_kernel<true><<<agent_grid, kBlockSize, 0, stream>>>(
-        batch.d_agent_alive(), batch.d_agent_types(), batch.d_agent_pos_x(),
-        batch.d_agent_pos_y(), batch.d_agent_energy(), batch.d_agent_kills(),
-        batch.num_agents(), batch.d_agent_cell_offsets(),
-        batch.d_agent_cell_ids(), batch.agent_cols(), batch.agent_rows(),
-        batch.agent_cell_size(), params.attack_range,
-        params.energy_gain_from_kill, params.world_width, params.world_height,
-        params.has_walls);
-  } else {
-    predator_attack_kernel<false><<<agent_grid, kBlockSize, 0, stream>>>(
-        batch.d_agent_alive(), batch.d_agent_types(), batch.d_agent_pos_x(),
-        batch.d_agent_pos_y(), batch.d_agent_energy(), batch.d_agent_kills(),
-        batch.num_agents(), batch.d_agent_cell_offsets(),
-        batch.d_agent_cell_ids(), batch.agent_cols(), batch.agent_rows(),
-        batch.agent_cell_size(), params.attack_range,
-        params.energy_gain_from_kill, params.world_width, params.world_height,
-        params.has_walls);
-  }
-  record_stage_end(batch, stream, GpuStageTiming::ResidentTickPredatorAttack);
-  respawn_food_kernel<<<food_grid, kBlockSize, 0, stream>>>(
-      batch.d_food_pos_x(), batch.d_food_pos_y(), batch.d_food_active(),
-      batch.food_count(), params.food_respawn_rate, params.world_width,
-      params.world_height, params.seed, batch.d_tick_index());
-  record_stage_end(batch, stream, GpuStageTiming::ResidentTickRespawn);
   CUDA_CHECK(cudaGetLastError());
 }
 
 } // namespace
 
-void batch_build_sensors_resident(GpuBatch &batch, float world_width,
-                                  float world_height, float max_energy,
-                                  bool has_walls) {
-  batch_build_sensors(batch, world_width, world_height, max_energy, has_walls);
-}
+// ── Public API Implementation ───────────────────────────────────────────────
 
 void batch_rebuild_compact_bins(GpuBatch &batch) {
   cudaStream_t stream = static_cast<cudaStream_t>(batch.stream_handle());
   rebuild_bins(batch, stream);
 }
 
-void batch_prepare_resident_tick_graph(GpuBatch &batch,
-                                       const ResidentTickParams &params) {
-  cudaStream_t stream = static_cast<cudaStream_t>(batch.stream_handle());
-  cudaGraph_t graph = nullptr;
-  CUDA_CHECK(cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal));
-  launch_resident_tick_sequence(batch, params, stream);
-  CUDA_CHECK(cudaStreamEndCapture(stream, &graph));
-  if (graph == nullptr) {
+void GpuBatch::rebuild_bins_async(float world_width, float world_height) {
+  if (had_error_) {
     return;
   }
 
-  cudaGraphExec_t exec = nullptr;
-  CUDA_CHECK(cudaGraphInstantiate(&exec, graph, nullptr, nullptr, 0));
-  if (exec == nullptr) {
-    cudaGraphDestroy(graph);
-    return;
+  // Ensure bin arrays are allocated with appropriate sizes
+  const float cell_size = 100.0f;
+  int cols = static_cast<int>(world_width / cell_size) + 1;
+  int rows = static_cast<int>(world_height / cell_size) + 1;
+  int cell_bins = cols * rows;
+
+  // Allocate agent bin arrays if needed
+  if (d_agent_cell_offsets_ == nullptr || agent_cell_capacity_ < cell_bins) {
+    if (d_agent_cell_offsets_)
+      cudaFree(d_agent_cell_offsets_);
+    if (d_agent_cell_counts_)
+      cudaFree(d_agent_cell_counts_);
+    if (d_agent_cell_write_counts_)
+      cudaFree(d_agent_cell_write_counts_);
+    if (d_agent_cell_ids_)
+      cudaFree(d_agent_cell_ids_);
+    if (d_sensor_agent_entries_)
+      cudaFree(d_sensor_agent_entries_);
+
+    CUDA_CHECK(cudaMalloc(&d_agent_cell_offsets_, (cell_bins + 1) * sizeof(int)));
+    CUDA_CHECK(cudaMalloc(&d_agent_cell_counts_, cell_bins * sizeof(int)));
+    CUDA_CHECK(cudaMalloc(&d_agent_cell_write_counts_, cell_bins * sizeof(int)));
+    CUDA_CHECK(cudaMalloc(&d_agent_cell_ids_, num_agents_ * sizeof(unsigned int)));
+    CUDA_CHECK(cudaMalloc(&d_sensor_agent_entries_, num_agents_ * sizeof(GpuSensorAgentEntry)));
+
+    agent_cols_ = cols;
+    agent_rows_ = rows;
+    agent_cell_size_ = cell_size;
+    agent_cell_capacity_ = cell_bins;
   }
 
-  batch.resident_tick_graph_ = static_cast<void *>(graph);
-  batch.resident_tick_graph_exec_ = static_cast<void *>(exec);
-  batch.resident_graph_valid_ = true;
+  // Allocate food bin arrays if needed
+  if (d_food_cell_offsets_ == nullptr || food_cell_capacity_ < cell_bins) {
+    if (d_food_cell_offsets_)
+      cudaFree(d_food_cell_offsets_);
+    if (d_food_cell_counts_)
+      cudaFree(d_food_cell_counts_);
+    if (d_food_cell_write_counts_)
+      cudaFree(d_food_cell_write_counts_);
+    if (d_food_cell_ids_)
+      cudaFree(d_food_cell_ids_);
+    if (d_sensor_food_entries_)
+      cudaFree(d_sensor_food_entries_);
+
+    int food_capacity = std::max(food_count_, 1);
+    CUDA_CHECK(cudaMalloc(&d_food_cell_offsets_, (cell_bins + 1) * sizeof(int)));
+    CUDA_CHECK(cudaMalloc(&d_food_cell_counts_, cell_bins * sizeof(int)));
+    CUDA_CHECK(cudaMalloc(&d_food_cell_write_counts_, cell_bins * sizeof(int)));
+    CUDA_CHECK(cudaMalloc(&d_food_cell_ids_, food_capacity * sizeof(unsigned int)));
+    CUDA_CHECK(cudaMalloc(&d_sensor_food_entries_, food_capacity * sizeof(GpuSensorFoodEntry)));
+
+    food_cols_ = cols;
+    food_rows_ = rows;
+    food_cell_size_ = cell_size;
+    food_cell_capacity_ = cell_bins;
+  }
+
+  batch_rebuild_compact_bins(*this);
 }
 
-void batch_simulate_tick_resident(GpuBatch &batch, float dt, float world_width,
-                                  float world_height, bool has_walls,
-                                  float energy_drain_per_tick, int target_fps,
-                                  float food_pickup_range, float attack_range,
-                                  float energy_gain_from_food,
-                                  float energy_gain_from_kill,
-                                  float food_respawn_rate, std::uint64_t seed,
-                                  int tick_index) {
-  cudaStream_t stream = static_cast<cudaStream_t>(batch.stream_handle());
-  *batch.host_tick_index() = tick_index;
-  if (batch.resident_graph_valid_ && batch.resident_tick_graph_exec_) {
-    CUDA_CHECK(cudaGraphLaunch(
-        static_cast<cudaGraphExec_t>(batch.resident_tick_graph_exec_), stream));
-  } else {
-    const ResidentTickParams params{
-        dt,
-        world_width,
-        world_height,
-        has_walls,
-        energy_drain_per_tick,
-        target_fps,
-        food_pickup_range,
-        attack_range,
-        batch.resident_tick_params_.max_energy,
-        energy_gain_from_food,
-        energy_gain_from_kill,
-        food_respawn_rate,
-        seed,
-    };
-    launch_resident_tick_sequence(batch, params, stream);
+void GpuBatch::rebuild_prey_bins_async(float world_width, float world_height) {
+  (void)world_width;
+  (void)world_height;
+  if (had_error_) {
+    return;
   }
+  cudaStream_t stream = static_cast<cudaStream_t>(stream_handle());
+  rebuild_agent_bins(*this, stream, true);
+}
+
+void GpuBatch::build_sensors_async(float world_width, float world_height,
+                                   float max_energy, bool has_walls) {
+  if (had_error_) {
+    return;
+  }
+  batch_build_sensors(*this, world_width, world_height, max_energy, has_walls);
+}
+
+void GpuBatch::apply_movement_async(const EcologyStepParams &params) {
+  if (had_error_) {
+    return;
+  }
+  const int agent_grid = (num_agents_ + kBlockSize - 1) / kBlockSize;
+  cudaStream_t stream = static_cast<cudaStream_t>(stream_handle());
+
+  movement_kernel<<<agent_grid, kBlockSize, 0, stream>>>(
+      d_agent_pos_x_, d_agent_pos_y_, d_agent_vel_x_, d_agent_vel_y_,
+      d_agent_speed_, d_agent_energy_, d_agent_distance_traveled_, d_agent_age_,
+      d_agent_alive_, d_outputs_, num_agents_, num_outputs_, params.dt,
+      params.world_width, params.world_height, params.has_walls,
+      params.energy_drain_per_step, params.target_fps);
+
+  CUDA_CHECK(cudaGetLastError());
+}
+
+void GpuBatch::process_prey_food_async(float world_width, float world_height,
+                                       bool has_walls, float food_pickup_range,
+                                       float energy_gain_from_food) {
+  if (had_error_) {
+    return;
+  }
+  const int agent_grid = (num_agents_ + kBlockSize - 1) / kBlockSize;
+  cudaStream_t stream = static_cast<cudaStream_t>(stream_handle());
+
+  if (has_walls) {
+    prey_food_kernel<true><<<agent_grid, kBlockSize, 0, stream>>>(
+        d_agent_alive_, d_agent_types_, d_agent_pos_x_, d_agent_pos_y_,
+        d_agent_energy_, d_agent_food_eaten_, d_food_pos_x_, d_food_pos_y_,
+        d_food_active_, num_agents_, d_food_cell_offsets_, d_food_cell_ids_,
+        food_cols_, food_rows_, food_cell_size_, food_pickup_range,
+        energy_gain_from_food, world_width, world_height, has_walls);
+  } else {
+    prey_food_kernel<false><<<agent_grid, kBlockSize, 0, stream>>>(
+        d_agent_alive_, d_agent_types_, d_agent_pos_x_, d_agent_pos_y_,
+        d_agent_energy_, d_agent_food_eaten_, d_food_pos_x_, d_food_pos_y_,
+        d_food_active_, num_agents_, d_food_cell_offsets_, d_food_cell_ids_,
+        food_cols_, food_rows_, food_cell_size_, food_pickup_range,
+        energy_gain_from_food, world_width, world_height, has_walls);
+  }
+
+  CUDA_CHECK(cudaGetLastError());
+}
+
+void GpuBatch::process_predator_attacks_async(float world_width,
+                                              float world_height, bool has_walls,
+                                              float attack_range,
+                                              float energy_gain_from_kill) {
+  if (had_error_) {
+    return;
+  }
+  const int agent_grid = (num_agents_ + kBlockSize - 1) / kBlockSize;
+  cudaStream_t stream = static_cast<cudaStream_t>(stream_handle());
+
+  if (has_walls) {
+    predator_attack_kernel<true><<<agent_grid, kBlockSize, 0, stream>>>(
+        d_agent_alive_, d_agent_types_, d_agent_pos_x_, d_agent_pos_y_,
+        d_agent_energy_, d_agent_kills_, num_agents_, d_agent_cell_offsets_,
+        d_agent_cell_ids_, agent_cols_, agent_rows_, agent_cell_size_,
+        attack_range, energy_gain_from_kill, world_width, world_height,
+        has_walls);
+  } else {
+    predator_attack_kernel<false><<<agent_grid, kBlockSize, 0, stream>>>(
+        d_agent_alive_, d_agent_types_, d_agent_pos_x_, d_agent_pos_y_,
+        d_agent_energy_, d_agent_kills_, num_agents_, d_agent_cell_offsets_,
+        d_agent_cell_ids_, agent_cols_, agent_rows_, agent_cell_size_,
+        attack_range, energy_gain_from_kill, world_width, world_height,
+        has_walls);
+  }
+
+  CUDA_CHECK(cudaGetLastError());
+}
+
+void GpuBatch::respawn_food_async(float world_width, float world_height,
+                                  float respawn_rate, std::uint64_t seed,
+                                  int step_index) {
+  if (had_error_) {
+    return;
+  }
+  if (food_count_ <= 0) {
+    return;
+  }
+
+  const int food_grid = (food_count_ + kBlockSize - 1) / kBlockSize;
+  cudaStream_t stream = static_cast<cudaStream_t>(stream_handle());
+
+  respawn_food_kernel<<<food_grid, kBlockSize, 0, stream>>>(
+      d_food_pos_x_, d_food_pos_y_, d_food_active_, food_count_, respawn_rate,
+      world_width, world_height, seed, step_index);
+
+  CUDA_CHECK(cudaGetLastError());
+}
+
+void GpuBatch::launch_ecology_step_async(const EcologyStepParams &params) {
+  if (had_error_) {
+    return;
+  }
+
+  // Launch the full sequence of kernels
+  // 1. Rebuild spatial bins
+  rebuild_bins_async(params.world_width, params.world_height);
+
+  // 2. Build sensors
+  build_sensors_async(params.world_width, params.world_height, params.max_energy,
+                      params.has_walls);
+
+  // 3. Neural inference
+  launch_inference_async();
+
+  // 4. Apply movement
+  apply_movement_async(params);
+
+  // 5. Rebuild bins for prey-only queries
+  rebuild_prey_bins_async(params.world_width, params.world_height);
+
+  // 6. Process prey food
+  process_prey_food_async(params.world_width, params.world_height,
+                          params.has_walls, params.food_pickup_range,
+                          params.energy_gain_from_food);
+
+  // 7. Process predator attacks
+  process_predator_attacks_async(params.world_width, params.world_height,
+                                 params.has_walls, params.attack_range,
+                                 params.energy_gain_from_kill);
+
+  // 8. Respawn food
+  respawn_food_async(params.world_width, params.world_height,
+                     params.food_respawn_rate, params.seed, params.step_index);
 }
 
 } // namespace moonai::gpu

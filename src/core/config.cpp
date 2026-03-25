@@ -71,7 +71,7 @@ SimulationConfig table_to_config(const sol::table &tbl) {
   lua_get(tbl, "vision_range", config.vision_range);
   lua_get(tbl, "attack_range", config.attack_range);
   lua_get(tbl, "initial_energy", config.initial_energy);
-  lua_get(tbl, "energy_drain_per_tick", config.energy_drain_per_tick);
+  lua_get(tbl, "energy_drain_per_step", config.energy_drain_per_step);
   lua_get(tbl, "energy_gain_from_kill", config.energy_gain_from_kill);
   lua_get(tbl, "energy_gain_from_food", config.energy_gain_from_food);
   lua_get(tbl, "food_pickup_range", config.food_pickup_range);
@@ -84,25 +84,34 @@ SimulationConfig table_to_config(const sol::table &tbl) {
   lua_get(tbl, "add_connection_rate", config.add_connection_rate);
   lua_get(tbl, "delete_connection_rate", config.delete_connection_rate);
   lua_get(tbl, "max_hidden_nodes", config.max_hidden_nodes);
-  lua_get(tbl, "generation_ticks", config.generation_ticks);
-  lua_get(tbl, "max_generations", config.max_generations);
+  lua_get(tbl, "max_steps", config.max_steps);
   lua_get(tbl, "compatibility_threshold", config.compatibility_threshold);
   lua_get(tbl, "c1_excess", config.c1_excess);
   lua_get(tbl, "c2_disjoint", config.c2_disjoint);
   lua_get(tbl, "c3_weight", config.c3_weight);
-  lua_get(tbl, "stagnation_limit", config.stagnation_limit);
+  lua_get(tbl, "species_update_interval_steps",
+          config.species_update_interval_steps);
   lua_get(tbl, "target_fps", config.target_fps);
   lua_get_uint64(tbl, "seed", config.seed);
   lua_get(tbl, "output_dir", config.output_dir);
-  lua_get(tbl, "log_interval", config.log_interval);
+  lua_get(tbl, "report_interval_steps", config.report_interval_steps);
+  lua_get(tbl, "mate_range", config.mate_range);
+  lua_get(tbl, "reproduction_energy_threshold",
+          config.reproduction_energy_threshold);
+  lua_get(tbl, "reproduction_energy_cost", config.reproduction_energy_cost);
+  lua_get(tbl, "offspring_initial_energy", config.offspring_initial_energy);
+  lua_get(tbl, "min_reproductive_age_steps", config.min_reproductive_age_steps);
+  lua_get(tbl, "reproduction_cooldown_steps",
+          config.reproduction_cooldown_steps);
+  lua_get(tbl, "birth_spawn_radius", config.birth_spawn_radius);
   lua_get(tbl, "fitness_survival_weight", config.fitness_survival_weight);
   lua_get(tbl, "fitness_kill_weight", config.fitness_kill_weight);
   lua_get(tbl, "fitness_energy_weight", config.fitness_energy_weight);
   lua_get(tbl, "fitness_distance_weight", config.fitness_distance_weight);
   lua_get(tbl, "complexity_penalty_weight", config.complexity_penalty_weight);
   lua_get(tbl, "activation_function", config.activation_function);
-  lua_get_bool(tbl, "tick_log_enabled", config.tick_log_enabled);
-  lua_get(tbl, "tick_log_interval", config.tick_log_interval);
+  lua_get_bool(tbl, "step_log_enabled", config.step_log_enabled);
+  lua_get(tbl, "step_log_interval", config.step_log_interval);
 
   return config;
 }
@@ -136,7 +145,7 @@ load_all_configs_lua(const std::string &filepath) {
     t["vision_range"] = d.vision_range;
     t["attack_range"] = d.attack_range;
     t["initial_energy"] = d.initial_energy;
-    t["energy_drain_per_tick"] = d.energy_drain_per_tick;
+    t["energy_drain_per_step"] = d.energy_drain_per_step;
     t["energy_gain_from_kill"] = d.energy_gain_from_kill;
     t["energy_gain_from_food"] = d.energy_gain_from_food;
     t["food_pickup_range"] = d.food_pickup_range;
@@ -149,25 +158,31 @@ load_all_configs_lua(const std::string &filepath) {
     t["add_connection_rate"] = d.add_connection_rate;
     t["delete_connection_rate"] = d.delete_connection_rate;
     t["max_hidden_nodes"] = d.max_hidden_nodes;
-    t["generation_ticks"] = d.generation_ticks;
-    t["max_generations"] = d.max_generations;
+    t["max_steps"] = d.max_steps;
     t["compatibility_threshold"] = d.compatibility_threshold;
     t["c1_excess"] = d.c1_excess;
     t["c2_disjoint"] = d.c2_disjoint;
     t["c3_weight"] = d.c3_weight;
-    t["stagnation_limit"] = d.stagnation_limit;
+    t["species_update_interval_steps"] = d.species_update_interval_steps;
     t["target_fps"] = d.target_fps;
     t["seed"] = static_cast<double>(d.seed);
     t["output_dir"] = d.output_dir;
-    t["log_interval"] = d.log_interval;
+    t["report_interval_steps"] = d.report_interval_steps;
+    t["mate_range"] = d.mate_range;
+    t["reproduction_energy_threshold"] = d.reproduction_energy_threshold;
+    t["reproduction_energy_cost"] = d.reproduction_energy_cost;
+    t["offspring_initial_energy"] = d.offspring_initial_energy;
+    t["min_reproductive_age_steps"] = d.min_reproductive_age_steps;
+    t["reproduction_cooldown_steps"] = d.reproduction_cooldown_steps;
+    t["birth_spawn_radius"] = d.birth_spawn_radius;
     t["fitness_survival_weight"] = d.fitness_survival_weight;
     t["fitness_kill_weight"] = d.fitness_kill_weight;
     t["fitness_energy_weight"] = d.fitness_energy_weight;
     t["fitness_distance_weight"] = d.fitness_distance_weight;
     t["complexity_penalty_weight"] = d.complexity_penalty_weight;
     t["activation_function"] = d.activation_function;
-    t["tick_log_enabled"] = d.tick_log_enabled;
-    t["tick_log_interval"] = d.tick_log_interval;
+    t["step_log_enabled"] = d.step_log_enabled;
+    t["step_log_interval"] = d.step_log_interval;
     lua["moonai_defaults"] = t;
   }
 
@@ -226,7 +241,7 @@ nlohmann::json config_to_json(const SimulationConfig &config) {
   j["vision_range"] = config.vision_range;
   j["attack_range"] = config.attack_range;
   j["initial_energy"] = config.initial_energy;
-  j["energy_drain_per_tick"] = config.energy_drain_per_tick;
+  j["energy_drain_per_step"] = config.energy_drain_per_step;
   j["energy_gain_from_kill"] = config.energy_gain_from_kill;
   j["energy_gain_from_food"] = config.energy_gain_from_food;
   j["food_pickup_range"] = config.food_pickup_range;
@@ -239,25 +254,31 @@ nlohmann::json config_to_json(const SimulationConfig &config) {
   j["add_connection_rate"] = config.add_connection_rate;
   j["delete_connection_rate"] = config.delete_connection_rate;
   j["max_hidden_nodes"] = config.max_hidden_nodes;
-  j["generation_ticks"] = config.generation_ticks;
-  j["max_generations"] = config.max_generations;
+  j["max_steps"] = config.max_steps;
   j["compatibility_threshold"] = config.compatibility_threshold;
   j["c1_excess"] = config.c1_excess;
   j["c2_disjoint"] = config.c2_disjoint;
   j["c3_weight"] = config.c3_weight;
-  j["stagnation_limit"] = config.stagnation_limit;
+  j["species_update_interval_steps"] = config.species_update_interval_steps;
   j["target_fps"] = config.target_fps;
   j["seed"] = config.seed;
   j["output_dir"] = config.output_dir;
-  j["log_interval"] = config.log_interval;
+  j["report_interval_steps"] = config.report_interval_steps;
+  j["mate_range"] = config.mate_range;
+  j["reproduction_energy_threshold"] = config.reproduction_energy_threshold;
+  j["reproduction_energy_cost"] = config.reproduction_energy_cost;
+  j["offspring_initial_energy"] = config.offspring_initial_energy;
+  j["min_reproductive_age_steps"] = config.min_reproductive_age_steps;
+  j["reproduction_cooldown_steps"] = config.reproduction_cooldown_steps;
+  j["birth_spawn_radius"] = config.birth_spawn_radius;
   j["fitness_survival_weight"] = config.fitness_survival_weight;
   j["fitness_kill_weight"] = config.fitness_kill_weight;
   j["fitness_energy_weight"] = config.fitness_energy_weight;
   j["fitness_distance_weight"] = config.fitness_distance_weight;
   j["complexity_penalty_weight"] = config.complexity_penalty_weight;
   j["activation_function"] = config.activation_function;
-  j["tick_log_enabled"] = config.tick_log_enabled;
-  j["tick_log_interval"] = config.tick_log_interval;
+  j["step_log_enabled"] = config.step_log_enabled;
+  j["step_log_interval"] = config.step_log_interval;
 
   return j;
 }
@@ -308,7 +329,7 @@ std::vector<ConfigError> validate_config(const SimulationConfig &config) {
   check(config.attack_range < config.vision_range, "attack_range",
         "must be less than vision_range");
   check(config.initial_energy > 0.0f, "initial_energy", "must be > 0");
-  check(config.energy_drain_per_tick >= 0.0f, "energy_drain_per_tick",
+  check(config.energy_drain_per_step >= 0.0f, "energy_drain_per_step",
         "must be >= 0");
 
   // Food
@@ -331,20 +352,33 @@ std::vector<ConfigError> validate_config(const SimulationConfig &config) {
         "delete_connection_rate", "must be in [0, 1]");
   check(config.weight_mutation_power > 0.0f, "weight_mutation_power",
         "must be > 0");
-  check(config.generation_ticks >= 10, "generation_ticks", "must be >= 10");
-  check(config.max_generations >= 0, "max_generations",
-        "must be >= 0 (0 = infinite)");
+  check(config.max_steps >= 0, "max_steps", "must be >= 0 (0 = infinite)");
 
   // Speciation
   check(config.compatibility_threshold > 0.0f, "compatibility_threshold",
         "must be > 0");
-  check(config.stagnation_limit >= 1, "stagnation_limit", "must be >= 1");
+  check(config.species_update_interval_steps >= 1,
+        "species_update_interval_steps", "must be >= 1");
 
   // Simulation
   check(config.target_fps >= 1 && config.target_fps <= 1000, "target_fps",
         "must be in [1, 1000]");
-  check(config.log_interval >= 1, "log_interval", "must be >= 1");
-  check(config.tick_log_interval >= 1, "tick_log_interval", "must be >= 1");
+  check(config.report_interval_steps >= 1, "report_interval_steps",
+        "must be >= 1");
+  check(config.step_log_interval >= 1, "step_log_interval", "must be >= 1");
+  check(config.mate_range > 0.0f, "mate_range", "must be > 0");
+  check(config.reproduction_energy_threshold > 0.0f,
+        "reproduction_energy_threshold", "must be > 0");
+  check(config.reproduction_energy_cost > 0.0f, "reproduction_energy_cost",
+        "must be > 0");
+  check(config.offspring_initial_energy > 0.0f, "offspring_initial_energy",
+        "must be > 0");
+  check(config.min_reproductive_age_steps >= 0, "min_reproductive_age_steps",
+        "must be >= 0");
+  check(config.reproduction_cooldown_steps >= 0, "reproduction_cooldown_steps",
+        "must be >= 0");
+  check(config.birth_spawn_radius >= 0.0f, "birth_spawn_radius",
+        "must be >= 0");
 
   return errors;
 }
@@ -371,18 +405,20 @@ std::vector<ConfigError> apply_overrides(
         config.food_count = std::stoi(val);
       else if (key == "max_hidden_nodes")
         config.max_hidden_nodes = std::stoi(val);
-      else if (key == "generation_ticks")
-        config.generation_ticks = std::stoi(val);
-      else if (key == "max_generations")
-        config.max_generations = std::stoi(val);
-      else if (key == "stagnation_limit")
-        config.stagnation_limit = std::stoi(val);
+      else if (key == "max_steps")
+        config.max_steps = std::stoi(val);
+      else if (key == "species_update_interval_steps")
+        config.species_update_interval_steps = std::stoi(val);
       else if (key == "target_fps")
         config.target_fps = std::stoi(val);
-      else if (key == "log_interval")
-        config.log_interval = std::stoi(val);
-      else if (key == "tick_log_interval")
-        config.tick_log_interval = std::stoi(val);
+      else if (key == "report_interval_steps")
+        config.report_interval_steps = std::stoi(val);
+      else if (key == "step_log_interval")
+        config.step_log_interval = std::stoi(val);
+      else if (key == "min_reproductive_age_steps")
+        config.min_reproductive_age_steps = std::stoi(val);
+      else if (key == "reproduction_cooldown_steps")
+        config.reproduction_cooldown_steps = std::stoi(val);
       // uint64 fields
       else if (key == "seed")
         config.seed = std::stoull(val);
@@ -397,8 +433,8 @@ std::vector<ConfigError> apply_overrides(
         config.attack_range = std::stof(val);
       else if (key == "initial_energy")
         config.initial_energy = std::stof(val);
-      else if (key == "energy_drain_per_tick")
-        config.energy_drain_per_tick = std::stof(val);
+      else if (key == "energy_drain_per_step")
+        config.energy_drain_per_step = std::stof(val);
       else if (key == "energy_gain_from_kill")
         config.energy_gain_from_kill = std::stof(val);
       else if (key == "energy_gain_from_food")
@@ -437,6 +473,16 @@ std::vector<ConfigError> apply_overrides(
         config.fitness_distance_weight = std::stof(val);
       else if (key == "complexity_penalty_weight")
         config.complexity_penalty_weight = std::stof(val);
+      else if (key == "mate_range")
+        config.mate_range = std::stof(val);
+      else if (key == "reproduction_energy_threshold")
+        config.reproduction_energy_threshold = std::stof(val);
+      else if (key == "reproduction_energy_cost")
+        config.reproduction_energy_cost = std::stof(val);
+      else if (key == "offspring_initial_energy")
+        config.offspring_initial_energy = std::stof(val);
+      else if (key == "birth_spawn_radius")
+        config.birth_spawn_radius = std::stof(val);
       // String fields
       else if (key == "boundary_mode") {
         if (val == "wrap")
@@ -450,8 +496,8 @@ std::vector<ConfigError> apply_overrides(
       else if (key == "activation_function")
         config.activation_function = val;
       // Bool fields
-      else if (key == "tick_log_enabled")
-        config.tick_log_enabled = (val == "true" || val == "1");
+      else if (key == "step_log_enabled")
+        config.step_log_enabled = (val == "true" || val == "1");
       // Unknown key
       else {
         errors.push_back({key, "unknown config key"});
@@ -501,8 +547,8 @@ void apply_overrides_float(SimulationConfig &config,
       config.attack_range = val;
     else if (key == "initial_energy")
       config.initial_energy = val;
-    else if (key == "energy_drain_per_tick")
-      config.energy_drain_per_tick = val;
+    else if (key == "energy_drain_per_step")
+      config.energy_drain_per_step = val;
     else if (key == "energy_gain_from_kill")
       config.energy_gain_from_kill = val;
     else if (key == "energy_gain_from_food")
@@ -519,13 +565,29 @@ void apply_overrides_float(SimulationConfig &config,
       config.fitness_distance_weight = val;
     else if (key == "complexity_penalty_weight")
       config.complexity_penalty_weight = val;
+    else if (key == "mate_range")
+      config.mate_range = val;
+    else if (key == "reproduction_energy_threshold")
+      config.reproduction_energy_threshold = val;
+    else if (key == "reproduction_energy_cost")
+      config.reproduction_energy_cost = val;
+    else if (key == "offspring_initial_energy")
+      config.offspring_initial_energy = val;
+    else if (key == "birth_spawn_radius")
+      config.birth_spawn_radius = val;
     // Integer fields (truncated from float)
-    else if (key == "generation_ticks")
-      config.generation_ticks = static_cast<int>(val);
-    else if (key == "stagnation_limit")
-      config.stagnation_limit = static_cast<int>(val);
+    else if (key == "max_steps")
+      config.max_steps = static_cast<int>(val);
+    else if (key == "species_update_interval_steps")
+      config.species_update_interval_steps = static_cast<int>(val);
     else if (key == "max_hidden_nodes")
       config.max_hidden_nodes = static_cast<int>(val);
+    else if (key == "report_interval_steps")
+      config.report_interval_steps = static_cast<int>(val);
+    else if (key == "min_reproductive_age_steps")
+      config.min_reproductive_age_steps = static_cast<int>(val);
+    else if (key == "reproduction_cooldown_steps")
+      config.reproduction_cooldown_steps = static_cast<int>(val);
     else {
       spdlog::warn("Lua hook returned unknown override key: {}", key);
     }
@@ -553,11 +615,11 @@ CLIArgs parse_args(int argc, const char *argv[]) {
         std::fprintf(stderr, "Invalid seed value '%s'\n", argv[i]);
         args.help = true;
       }
-    } else if ((arg == "-g" || arg == "--generations") && i + 1 < argc) {
+    } else if ((arg == "-n" || arg == "--steps") && i + 1 < argc) {
       try {
-        args.max_generations_override = std::stoi(argv[++i]);
+        args.max_steps_override = std::stoi(argv[++i]);
       } catch (const std::exception &) {
-        std::fprintf(stderr, "Invalid generations value '%s'\n", argv[i]);
+        std::fprintf(stderr, "Invalid steps value '%s'\n", argv[i]);
         args.help = true;
       }
     } else if ((arg == "-c" || arg == "--config") && i + 1 < argc) {
@@ -620,11 +682,11 @@ void print_usage(const char *program_name) {
       "  -c, --config <path>       Path to Lua config (default: "
       "config/default.lua)\n"
       "  -s, --seed <number>       Override random seed\n"
-      "  -g, --generations <n>     Override max generations (0 = infinite)\n"
+      "  -n, --steps <n>           Override max steps (0 = infinite)\n"
       "      --headless            Run without visualization\n"
       "  -v, --verbose             Enable debug logging\n"
       "      --resume <path>       Resume from a checkpoint JSON file\n"
-      "      --checkpoint <n>      Save checkpoint every N generations (0 = "
+      "      --checkpoint <n>      Save checkpoint every N steps (0 = "
       "disabled)\n"
       "      --compare <a> <b>     Print structural diff between two genome "
       "JSON files\n"

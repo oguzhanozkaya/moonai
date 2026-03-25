@@ -47,8 +47,8 @@ load_profiler_suites_lua(const std::string &filepath) {
       if (auto entry = tbl["experiment"]; entry.valid()) {
         suite.experiment_name = entry.get<std::string>();
       }
-      if (auto entry = tbl["generations"]; entry.valid()) {
-        suite.generations = entry.get<int>();
+      if (auto entry = tbl["windows"]; entry.valid()) {
+        suite.windows = entry.get<int>();
       }
       if (auto entry = tbl["output_dir"]; entry.valid()) {
         suite.output_dir = entry.get<std::string>();

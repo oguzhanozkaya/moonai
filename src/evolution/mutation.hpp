@@ -10,7 +10,7 @@
 
 namespace moonai {
 
-// Tracks innovation numbers across a generation to prevent duplicate
+// Tracks innovation numbers across structural mutations to prevent duplicate
 // innovations
 class InnovationTracker {
 public:
@@ -21,17 +21,20 @@ public:
 
   // Get or create innovation number for a connection (in_node, out_node)
   // Returns the same innovation number if the same structural mutation
-  // has already occurred this generation
+  // has already occurred in the current cache window
   std::uint32_t get_innovation(std::uint32_t in_node, std::uint32_t out_node);
 
   std::uint32_t next_node_id();
 
-  // Reset the per-generation lookup table (call at the start of each
-  // generation)
-  void reset_generation();
+  // Reset the innovation cache (call to clear structural mutation tracking)
+  void reset_mutation_window();
 
-  std::uint32_t innovation_count() const { return innovation_counter_; }
-  std::uint32_t node_count() const { return node_counter_; }
+  std::uint32_t innovation_count() const {
+    return innovation_counter_;
+  }
+  std::uint32_t node_count() const {
+    return node_counter_;
+  }
 
   void set_counters(std::uint32_t innov, std::uint32_t node) {
     innovation_counter_ = innov;
@@ -41,9 +44,9 @@ public:
 private:
   std::uint32_t innovation_counter_ = 0;
   std::uint32_t node_counter_ = 0;
-  // Per-generation lookup: (in_node, out_node) -> innovation number
+  // Innovation cache: (in_node, out_node) -> innovation number
   std::map<std::pair<std::uint32_t, std::uint32_t>, std::uint32_t>
-      generation_innovations_;
+      innovation_cache_;
 };
 
 class Mutation {

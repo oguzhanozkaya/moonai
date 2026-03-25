@@ -34,14 +34,14 @@ def run_analysis(input_dir: Path, output_dir: Path) -> None:
                 "experiment_name": suite.experiment_name,
                 "suite_name": suite.suite_name,
                 "mode": "suite",
-                "total_generation_count": suite.generations,
-                "generation_count": len(suite.kept_members),
+                "total_window_count": suite.windows,
+                "kept_run_count": len(suite.kept_members),
                 "trim_note": trim_note,
-                "avg_generation_ms": f"{suite.avg_generation_ms:.2f}",
+                "avg_window_ms": f"{suite.avg_window_ms:.2f}",
                 "top_event_name": _top_event_name(suite),
                 "top_event_total_ms": f"{_top_event_total_ms(suite):.2f}",
                 "top_event_avg_ms": f"{_top_event_avg_ms(suite):.2f}",
-                "top_event_nonzero_generation_count": str(
+                "top_event_nonzero_window_count": str(
                     int(_top_event_nonzero_count(suite))
                 ),
                 "path": str(suite.path),
@@ -49,11 +49,11 @@ def run_analysis(input_dir: Path, output_dir: Path) -> None:
                 "run_notes": _suite_notes(suite),
                 "summary_meta": {
                     "suite_name": suite.suite_name,
-                    "cpu_generation_count": str(
-                        suite.raw["aggregate"].get("cpu_generation_count_avg", 0.0)
+                    "cpu_window_count": str(
+                        suite.raw["aggregate"].get("cpu_window_count_avg", 0.0)
                     ),
-                    "gpu_generation_count": str(
-                        suite.raw["aggregate"].get("gpu_generation_count_avg", 0.0)
+                    "gpu_window_count": str(
+                        suite.raw["aggregate"].get("gpu_window_count_avg", 0.0)
                     ),
                     "path_count_note": "Averages are computed from the four kept runs.",
                 },
@@ -61,7 +61,7 @@ def run_analysis(input_dir: Path, output_dir: Path) -> None:
                 "summary_counters": _format_counter_summary(suite.aggregate_counters),
                 "summary_gpu_stage_timings": _format_gpu_stage_summary(
                     suite.aggregate_gpu_stage_timings,
-                    suite.aggregate_events.get("gpu_resident_tick", {}).get(
+                    suite.aggregate_events.get("gpu_resident_step", {}).get(
                         "total_ms", 0.0
                     ),
                 ),
@@ -69,9 +69,9 @@ def run_analysis(input_dir: Path, output_dir: Path) -> None:
                 "members": [
                     {
                         "seed": str(member.seed),
-                        "avg_generation_ms": f"{member.avg_generation_ms:.2f}",
+                        "avg_window_ms": f"{member.avg_window_ms:.2f}",
                         "run_total_ms": f"{member.run_total_ms:.2f}",
-                        "generation_count": str(member.generation_count),
+                        "window_count": str(member.window_count),
                         "disposition": member.disposition,
                     }
                     for member in suite.members
@@ -94,12 +94,12 @@ def run_analysis(input_dir: Path, output_dir: Path) -> None:
             "summary_rows": [
                 {
                     "label": suite.label,
-                    "total_generations": suite.generations,
-                    "trimmed_generations": len(suite.kept_members),
-                    "avg_generation_ms": f"{suite.avg_generation_ms:.2f}",
+                    "total_windows": suite.windows,
+                    "kept_runs": len(suite.kept_members),
+                    "avg_window_ms": f"{suite.avg_window_ms:.2f}",
                     "top_event": _top_event_name(suite),
                     "top_event_avg_ms": f"{_top_event_avg_ms(suite):.2f}",
-                    "top_event_nonzero_generation_count": str(
+                    "top_event_nonzero_window_count": str(
                         int(_top_event_nonzero_count(suite))
                     ),
                 }
@@ -128,12 +128,12 @@ def _suite_notes(suite) -> list[str]:
 
 
 def _top_event_name(suite) -> str:
-    best_name = "generation_total"
+    best_name = "window_total"
     best_value = 0.0
     for name, values in suite.aggregate_events.items():
-        if name == "generation_total":
+        if name == "window_total":
             continue
-        avg = values.get("avg_ms_per_generation", 0.0)
+        avg = values.get("avg_ms_per_window", 0.0)
         if avg > best_value:
             best_name = name
             best_value = avg
@@ -146,35 +146,33 @@ def _top_event_total_ms(suite) -> float:
 
 def _top_event_avg_ms(suite) -> float:
     return suite.aggregate_events.get(_top_event_name(suite), {}).get(
-        "avg_ms_per_generation", 0.0
+        "avg_ms_per_window", 0.0
     )
 
 
 def _top_event_nonzero_count(suite) -> float:
     return suite.aggregate_events.get(_top_event_name(suite), {}).get(
-        "nonzero_generation_count", 0.0
+        "nonzero_window_count", 0.0
     )
 
 
 def _format_event_summary(events: dict[str, dict[str, float]]) -> list[dict[str, str]]:
     rows = []
-    generation_total = events.get("generation_total", {}).get("total_ms", 0.0)
+    window_total = events.get("window_total", {}).get("total_ms", 0.0)
     for name, values in events.items():
         if values.get("total_ms", 0.0) <= 0.0:
             continue
         total_ms = values.get("total_ms", 0.0)
-        percentage = (
-            (total_ms / generation_total * 100) if generation_total > 0 else 0.0
-        )
+        percentage = (total_ms / window_total * 100) if window_total > 0 else 0.0
         rows.append(
             {
                 "name": name,
                 "percentage": f"{percentage:.1f}",
-                "avg_ms_per_generation": f"{values.get('avg_ms_per_generation', 0.0):.3f}",
-                "nonzero_generation_count": str(
-                    int(values.get("nonzero_generation_count", 0.0))
+                "avg_ms_per_window": f"{values.get('avg_ms_per_window', 0.0):.3f}",
+                "nonzero_window_count": str(
+                    int(values.get("nonzero_window_count", 0.0))
                 ),
-                "avg_ms_per_nonzero_generation": f"{values.get('avg_ms_per_nonzero_generation', 0.0):.3f}",
+                "avg_ms_per_nonzero_window": f"{values.get('avg_ms_per_nonzero_window', 0.0):.3f}",
                 "total_ms": f"{total_ms:.3f}",
             }
         )
@@ -193,11 +191,11 @@ def _format_counter_summary(
             {
                 "name": name,
                 "total": f"{values.get('total', 0.0):.3f}",
-                "avg_per_generation": f"{values.get('avg_per_generation', 0.0):.3f}",
-                "nonzero_generation_count": str(
-                    int(values.get("nonzero_generation_count", 0.0))
+                "avg_per_window": f"{values.get('avg_per_window', 0.0):.3f}",
+                "nonzero_window_count": str(
+                    int(values.get("nonzero_window_count", 0.0))
                 ),
-                "avg_per_nonzero_generation": f"{values.get('avg_per_nonzero_generation', 0.0):.3f}",
+                "avg_per_nonzero_window": f"{values.get('avg_per_nonzero_window', 0.0):.3f}",
             }
         )
     rows.sort(key=lambda row: float(row["total"]), reverse=True)
@@ -206,7 +204,7 @@ def _format_counter_summary(
 
 def _format_gpu_stage_summary(
     stages: dict[str, dict[str, float]],
-    resident_tick_total_ms: float,
+    resident_step_total_ms: float,
 ) -> list[dict[str, str]]:
     rows = []
     for name, values in stages.items():
@@ -214,19 +212,19 @@ def _format_gpu_stage_summary(
             continue
         total_ms = values.get("total_ms", 0.0)
         percentage = (
-            (total_ms / resident_tick_total_ms * 100)
-            if resident_tick_total_ms > 0
+            (total_ms / resident_step_total_ms * 100)
+            if resident_step_total_ms > 0
             else 0.0
         )
         rows.append(
             {
                 "name": name,
                 "percentage": f"{percentage:.1f}",
-                "avg_ms_per_generation": f"{values.get('avg_ms_per_generation', 0.0):.3f}",
-                "nonzero_generation_count": str(
-                    int(values.get("nonzero_generation_count", 0.0))
+                "avg_ms_per_window": f"{values.get('avg_ms_per_window', 0.0):.3f}",
+                "nonzero_window_count": str(
+                    int(values.get("nonzero_window_count", 0.0))
                 ),
-                "avg_ms_per_nonzero_generation": f"{values.get('avg_ms_per_nonzero_generation', 0.0):.3f}",
+                "avg_ms_per_nonzero_window": f"{values.get('avg_ms_per_nonzero_window', 0.0):.3f}",
                 "total_ms": f"{total_ms:.3f}",
             }
         )

@@ -21,15 +21,15 @@ struct SimulationConfig {
   int prey_count = 1500;    // Number of prey agents [1, ...]
 
   // ── Agent Parameters ────────────────────────────────────────────────
-  float predator_speed = 4.0f; // Predator max speed (units/tick) [> 0]
+  float predator_speed = 4.0f; // Predator max speed (units/step) [> 0]
   float prey_speed =
-      4.5f; // Prey max speed (units/tick); prey slightly faster [> 0]
+      4.5f; // Prey max speed (units/step); prey slightly faster [> 0]
   float vision_range = 200.0f; // Radius each agent can see (units) [> 0]
   float attack_range =
       20.0f; // Predator kill radius (units) [> 0, < vision_range]
   float initial_energy = 150.0f; // Starting energy; death at <= 0 [> 0]
-  float energy_drain_per_tick =
-      0.08f; // Fixed energy cost per tick (living cost) [>= 0]
+  float energy_drain_per_step =
+      0.08f; // Fixed energy cost per step (living cost) [>= 0]
   float energy_gain_from_kill =
       60.0f; // Energy predator gains per successful kill
   float energy_gain_from_food =
@@ -39,9 +39,9 @@ struct SimulationConfig {
   // ── Food / Resources ────────────────────────────────────────────────
   int food_count = 2500; // Food pellets to spawn at initialization [>= 0]
   float food_respawn_rate =
-      0.02f; // P(respawn per empty slot per tick) ∈ [0, 1]
+      0.02f; // P(respawn per empty slot per step) ∈ [0, 1]
 
-  // ── NEAT - Mutation (probabilities applied independently each generation) ──
+  // ── Online Neuroevolution (applied at birth time) ─────────────────────
   float mutation_rate = 0.3f;   // P(weight mutation per genome) ∈ [0, 1]
   float crossover_rate = 0.75f; // P(use crossover vs clone) ∈ [0, 1]
   float weight_mutation_power =
@@ -52,9 +52,8 @@ struct SimulationConfig {
   float delete_connection_rate =
       0.01f; // P(delete connection mutation per genome) ∈ [0, 1]
   int max_hidden_nodes =
-      100; // Max hidden nodes per genome; 0 = unlimited [>= 0]
-  int generation_ticks = 1500; // Simulation steps per generation [>= 10]
-  int max_generations = 0;     // 0 = run indefinitely; otherwise stop after N
+      100;           // Max hidden nodes per genome; 0 = unlimited [>= 0]
+  int max_steps = 0; // 0 = run indefinitely; otherwise stop after N
 
   // ── NEAT - Speciation (Stanley 2002, Section 3.3) ───────────────────
   float compatibility_threshold =
@@ -62,8 +61,8 @@ struct SimulationConfig {
   float c1_excess = 1.0f;   // Coefficient for excess genes in δ formula
   float c2_disjoint = 1.0f; // Coefficient for disjoint genes in δ formula
   float c3_weight = 0.4f;   // Coefficient for avg weight diff in δ formula
-  int stagnation_limit =
-      20; // Generations without improvement before species is culled [>= 1]
+  int species_update_interval_steps =
+      60; // Rebuild species clusters every N steps [>= 1]
 
   // ── Simulation ──────────────────────────────────────────────────────
   int target_fps = 60; // Render/physics framerate cap (also sets dt) [1, 1000]
@@ -71,11 +70,25 @@ struct SimulationConfig {
 
   // ── Data Logging ────────────────────────────────────────────────────
   std::string output_dir = "output"; // Directory for CSV/JSON run data
-  int log_interval = 1;              // Log stats every N generations [>= 1]
+  int report_interval_steps = 60;    // Emit summary stats every N steps [>= 1]
+
+  // ── Reproduction ───────────────────────────────────────────────────────
+  float mate_range = 40.0f; // Same-role mate search radius [> 0]
+  float reproduction_energy_threshold =
+      175.0f; // Both parents must exceed this energy [> 0]
+  float reproduction_energy_cost =
+      45.0f; // Energy removed from each parent on birth [> 0]
+  float offspring_initial_energy =
+      80.0f; // Child starting energy after birth [> 0]
+  int min_reproductive_age_steps =
+      90; // Minimum age before an agent can mate [>= 0]
+  int reproduction_cooldown_steps = 180; // Cooldown after mating [>= 0]
+  float birth_spawn_radius =
+      8.0f; // Child spawn jitter around parent midpoint [>= 0]
 
   // ── Fitness Weights (linear combination forming genome fitness) ──────
   float fitness_survival_weight =
-      1.0f; // Reward for surviving (0 → 1 fraction of gen)
+      1.0f; // Reward for surviving (0 -> 1 fraction of report window)
   float fitness_kill_weight = 5.0f; // Reward per kill (predator) or food (prey)
   float fitness_energy_weight = 0.5f; // Reward for remaining energy ratio
   float fitness_distance_weight =
@@ -87,9 +100,9 @@ struct SimulationConfig {
   std::string activation_function =
       "sigmoid"; // Activation fn: "sigmoid", "tanh", "relu"
 
-  // ── Per-Tick Logging (optional, high-volume) ─────────────────────────
-  bool tick_log_enabled = false; // Enable per-tick agent state logging
-  int tick_log_interval = 10;    // Log agent states every N ticks [>= 1]
+  // ── Per-Step Logging (optional, high-volume) ─────────────────────────
+  bool step_log_enabled = false; // Enable per-step agent state logging
+  int step_log_interval = 10;    // Log agent states every N steps [>= 1]
 };
 
 struct ConfigError {
@@ -131,12 +144,12 @@ struct CLIArgs {
   bool headless = false;
   bool verbose = false;
   bool help = false;
-  bool no_gpu = false;              // --no-gpu: skip CUDA even if available
-  int max_generations_override = 0; // 0 = use config value
-  std::string resume_path = "";     // path to checkpoint JSON; "" = fresh start
-  int checkpoint_interval = 0; // 0 = disabled; N = save every N generations
-  std::string compare_a = "";  // --compare: path to first genome JSON
-  std::string compare_b = "";  // --compare: path to second genome JSON
+  bool no_gpu = false;          // --no-gpu: skip CUDA even if available
+  int max_steps_override = 0;   // 0 = use config value
+  std::string resume_path = ""; // path to checkpoint JSON; "" = fresh start
+  int checkpoint_interval = 0;  // 0 = disabled; N = save every N steps
+  std::string compare_a = "";   // --compare: path to first genome JSON
+  std::string compare_b = "";   // --compare: path to second genome JSON
 
   // Lua config orchestration
   std::string experiment_name =
