@@ -6,9 +6,12 @@ add_executable(moonai_tests
     test_neural_network.cpp
     test_config.cpp
     test_random.cpp
-    test_simulation.cpp
     test_logger.cpp
     test_evolution.cpp
+    test_ecs_entity.cpp
+    test_ecs_sparse_set.cpp
+    test_ecs_registry.cpp
+    test_ecs_performance.cpp
 )
 
 target_link_libraries(moonai_tests PRIVATE

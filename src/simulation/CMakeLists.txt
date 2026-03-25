@@ -6,6 +6,7 @@ set(MOONAI_SIMULATION_SOURCES
     prey.cpp
     physics.cpp
     spatial_grid.cpp
+    registry.cpp
 )
 
 add_library(moonai_simulation STATIC ${MOONAI_SIMULATION_SOURCES})
