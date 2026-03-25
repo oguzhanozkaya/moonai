@@ -490,17 +490,6 @@ Each run writes to `output/{experiment_name}/` (named experiments) or `output/YY
 | `genomes.json` | Best genome snapshots (nodes + connections JSON) |
 | `ticks.csv` | Per-tick agent states (only when `tick_log_enabled: true`) |
 
-### Project Documents
-
-| Document | Description |
-|----------|-------------|
-| `docs/ProjectProposal.pdf` | Initial project proposal |
-| `docs/ProjectSpecification.pdf` | Detailed project specifications |
-| `docs/AnalysisReport.pdf` | Requirements analysis |
-| `docs/HighLevelDesignReport.pdf` | System architecture and design |
-| `docs/Poster.pdf` | Conference poster presentation |
-| `docs/LowLevelDesignReport.pdf` | Detailed component design |
-
 ## C++ Code Style
 
 | Convention | Rule |
@@ -512,17 +501,19 @@ Each run writes to `output/{experiment_name}/` (named experiments) or `output/YY
 | Functions / variables | `snake_case` |
 | Classes / structs | `PascalCase` |
 
-## Team
+## Project
 
-| Name | Role |
-|------|------|
-| **Caner Aras** | Developer |
-| **Emir Irkılata** | Developer |
-| **Oğuzhan Özkaya** | Developer |
+### Team
 
-**Supervisor:** Ayşenur Birtürk
-**Jury Members:** Deniz Canturk, Mehmet Evren Coskun
+- Caner Aras
+- Emir Irkılata
+- Oğuzhan Özkaya
 
-## License
+### Supervisor
+- Ayşenur Birtürk
 
-This project is developed as part of the CMPE 491/492 Senior Design course at TED University.
+### Jury Members
+- Deniz Canturk
+- Mehmet Evren Coskun
+
+*This project is developed as part of the CMPE 491/492 Senior Design course at TED University.*

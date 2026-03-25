@@ -179,13 +179,12 @@ compdb:
 
 # Format code and run static analysis (requires clang-format and cppcheck)
 [group('dev')]
-check:
+check: build
     @echo "==> Formatting C++ source files..."
     find src tests -name '*.cpp' -o -name '*.hpp' -o -name '*.cu' -o -name '*.cuh' | \
         xargs clang-format -i --style=file
-    @echo "==> Running static analysis..."
-    cppcheck --enable=warning,style,performance --std=c++17 \
-        --suppress=missingInclude --quiet src/
+    @echo "==> Running static analysis with CMake configuration..."
+    cmake --build {{build-dir}} --target cppcheck
 
 # Benchmark NN forward pass: 1 generation of pop_large, verbose timing
 [group('dev')]

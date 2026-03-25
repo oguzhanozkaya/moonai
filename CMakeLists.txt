@@ -113,3 +113,30 @@ if(MOONAI_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
+
+# ── Static Analysis ───────────────────────────────────────────────────────────
+find_program(CPPCHECK_EXECUTABLE cppcheck)
+
+if(CPPCHECK_EXECUTABLE)
+    # Create cppcheck build directory for whole-program analysis
+    # This enables accurate unusedFunction detection across all translation units
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/cppcheck-build)
+
+    add_custom_target(cppcheck
+        COMMAND ${CPPCHECK_EXECUTABLE}
+            --project=${CMAKE_BINARY_DIR}/compile_commands.json
+            --cppcheck-build-dir=${CMAKE_BINARY_DIR}/cppcheck-build
+            --enable=warning,style,performance
+            --std=c++17
+            --suppress=missingIncludeSystem
+            --suppress=*:*/vcpkg_installed/*
+            --quiet
+            --error-exitcode=1
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Running cppcheck with whole-program analysis..."
+        VERBATIM
+    )
+    message(STATUS "cppcheck found: ${CPPCHECK_EXECUTABLE}")
+else()
+    message(STATUS "cppcheck not found - static analysis target disabled")
+endif()
