@@ -220,8 +220,8 @@ std::unique_ptr<Agent> EvolutionManager::create_agent(AgentId id,
 void EvolutionManager::seed_initial_population(SimulationManager &sim) {
   for (int i = 0; i < config_.predator_count; ++i) {
     const AgentId id = static_cast<AgentId>(i);
-    Vec2 pos{rng_.next_float(0.0f, static_cast<float>(config_.grid_width)),
-             rng_.next_float(0.0f, static_cast<float>(config_.grid_height))};
+    Vec2 pos{rng_.next_float(0.0f, static_cast<float>(config_.grid_size)),
+             rng_.next_float(0.0f, static_cast<float>(config_.grid_size))};
     sim.spawn_agent(
         create_agent(id, AgentType::Predator, pos, create_initial_genome()));
   }
@@ -229,8 +229,8 @@ void EvolutionManager::seed_initial_population(SimulationManager &sim) {
   const AgentId prey_base = static_cast<AgentId>(config_.predator_count);
   for (int i = 0; i < config_.prey_count; ++i) {
     const AgentId id = static_cast<AgentId>(prey_base + i);
-    Vec2 pos{rng_.next_float(0.0f, static_cast<float>(config_.grid_width)),
-             rng_.next_float(0.0f, static_cast<float>(config_.grid_height))};
+    Vec2 pos{rng_.next_float(0.0f, static_cast<float>(config_.grid_size)),
+             rng_.next_float(0.0f, static_cast<float>(config_.grid_size))};
     sim.spawn_agent(
         create_agent(id, AgentType::Prey, pos, create_initial_genome()));
   }
@@ -459,7 +459,9 @@ bool EvolutionManager::rebuild_gpu_runtime(const SimulationManager &sim) {
   }
 
   gpu_batch_ = std::make_unique<gpu::GpuBatch>(
-      static_cast<int>(sim.agents().size()), num_inputs_, num_outputs_);
+      static_cast<int>(sim.agents().size()), num_inputs_, num_outputs_,
+      static_cast<float>(config_.grid_size),
+      static_cast<float>(config_.grid_size));
   if (!gpu_batch_->ok()) {
     gpu_batch_.reset();
     return false;
@@ -557,8 +559,8 @@ bool EvolutionManager::step_gpu(SimulationManager &sim, int step_index) {
   // 4. Launch full ecology step on GPU
   gpu::EcologyStepParams params;
   params.dt = 1.0f / static_cast<float>(config_.target_fps);
-  params.world_width = static_cast<float>(config_.grid_width);
-  params.world_height = static_cast<float>(config_.grid_height);
+  params.world_width = static_cast<float>(config_.grid_size);
+  params.world_height = static_cast<float>(config_.grid_size);
   params.has_walls = (config_.boundary_mode == BoundaryMode::Clamp);
   params.energy_drain_per_step = config_.energy_drain_per_step;
   params.target_fps = config_.target_fps;

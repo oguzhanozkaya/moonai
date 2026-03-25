@@ -61,8 +61,7 @@ void lua_get_uint64(const sol::table &tbl, const char *key,
 SimulationConfig table_to_config(const sol::table &tbl) {
   SimulationConfig config;
 
-  lua_get(tbl, "grid_width", config.grid_width);
-  lua_get(tbl, "grid_height", config.grid_height);
+  lua_get(tbl, "grid_size", config.grid_size);
   lua_get_boundary(tbl, "boundary_mode", config.boundary_mode);
   lua_get(tbl, "predator_count", config.predator_count);
   lua_get(tbl, "prey_count", config.prey_count);
@@ -134,8 +133,7 @@ load_all_configs_lua(const std::string &filepath) {
   {
     SimulationConfig d;
     sol::table t = lua.create_table();
-    t["grid_width"] = d.grid_width;
-    t["grid_height"] = d.grid_height;
+    t["grid_size"] = d.grid_size;
     t["boundary_mode"] =
         (d.boundary_mode == BoundaryMode::Wrap) ? "wrap" : "clamp";
     t["predator_count"] = d.predator_count;
@@ -230,8 +228,7 @@ load_all_configs_lua(const std::string &filepath) {
 
 nlohmann::json config_to_json(const SimulationConfig &config) {
   nlohmann::json j;
-  j["grid_width"] = config.grid_width;
-  j["grid_height"] = config.grid_height;
+  j["grid_size"] = config.grid_size;
   j["boundary_mode"] =
       (config.boundary_mode == BoundaryMode::Wrap) ? "wrap" : "clamp";
   j["predator_count"] = config.predator_count;
@@ -310,10 +307,8 @@ std::vector<ConfigError> validate_config(const SimulationConfig &config) {
   };
 
   // Environment
-  check(config.grid_width >= 100, "grid_width", "must be >= 100");
-  check(config.grid_width <= 20000, "grid_width", "must be <= 20000");
-  check(config.grid_height >= 100, "grid_height", "must be >= 100");
-  check(config.grid_height <= 20000, "grid_height", "must be <= 20000");
+  check(config.grid_size >= 100, "grid_size", "must be >= 100");
+  check(config.grid_size <= 20000, "grid_size", "must be <= 20000");
 
   // Population
   check(config.predator_count >= 1, "predator_count", "must be >= 1");
@@ -393,10 +388,8 @@ std::vector<ConfigError> apply_overrides(
   for (const auto &[key, val] : overrides) {
     try {
       // Integer fields
-      if (key == "grid_width")
-        config.grid_width = std::stoi(val);
-      else if (key == "grid_height")
-        config.grid_height = std::stoi(val);
+      if (key == "grid_size")
+        config.grid_size = std::stoi(val);
       else if (key == "predator_count")
         config.predator_count = std::stoi(val);
       else if (key == "prey_count")

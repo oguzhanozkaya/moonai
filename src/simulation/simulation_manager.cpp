@@ -19,9 +19,9 @@ SimulationManager::SimulationManager(const SimulationConfig &config)
                : static_cast<std::uint64_t>(std::chrono::steady_clock::now()
                                                 .time_since_epoch()
                                                 .count())),
-      environment_(config), grid_(config.grid_width, config.grid_height,
+      environment_(config), grid_(config.grid_size, config.grid_size,
                                   std::max(config.vision_range, 1.0f)),
-      food_grid_(config.grid_width, config.grid_height,
+      food_grid_(config.grid_size, config.grid_size,
                  std::max(config.vision_range, 1.0f)) {}
 
 void SimulationManager::initialize() {
@@ -148,15 +148,15 @@ SensorInput SimulationManager::get_sensors(size_t agent_index) const {
         *agents_[agent_index], agents_, environment_.food(),
         neighbor_cache_.nearby_agents[agent_index], agent_slots_,
         neighbor_cache_.nearby_food[agent_index],
-        static_cast<float>(config_.grid_width),
-        static_cast<float>(config_.grid_height), config_.initial_energy,
+        static_cast<float>(config_.grid_size),
+        static_cast<float>(config_.grid_size), config_.initial_energy,
         config_.boundary_mode == BoundaryMode::Clamp);
   }
 
   return Physics::build_sensors(
       *agents_[agent_index], agents_, environment_.food(), grid_, food_grid_,
-      agent_slots_, static_cast<float>(config_.grid_width),
-      static_cast<float>(config_.grid_height), config_.initial_energy,
+      agent_slots_, static_cast<float>(config_.grid_size),
+      static_cast<float>(config_.grid_size), config_.initial_energy,
       config_.boundary_mode == BoundaryMode::Clamp);
 }
 

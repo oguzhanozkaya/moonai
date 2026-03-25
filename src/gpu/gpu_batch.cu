@@ -97,25 +97,9 @@ __global__ void pack_agent_states_kernel(
   }
   dst[idx] = GpuAgentState{
       pos_x[idx], pos_y[idx],  vel_x[idx],      vel_y[idx],
-      speed[idx], vision[idx], energy[idx],     distance_traveled[idx],
+             speed[idx], vision[idx], energy[idx],     distance_traveled[idx],
       age[idx],   kills[idx],  food_eaten[idx], ids[idx],
       types[idx], alive[idx]};
-}
-
-__global__ void pack_agent_changes_kernel(
-    float *__restrict__ out_pos_x, float *__restrict__ out_pos_y,
-    float *__restrict__ out_energy, unsigned int *__restrict__ out_alive,
-    const float *__restrict__ pos_x, const float *__restrict__ pos_y,
-    const float *__restrict__ energy, const unsigned int *__restrict__ alive,
-    int count) {
-  const int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx >= count) {
-    return;
-  }
-  out_pos_x[idx] = pos_x[idx];
-  out_pos_y[idx] = pos_y[idx];
-  out_energy[idx] = energy[idx];
-  out_alive[idx] = alive[idx];
 }
 
 __global__ void unpack_food_states_kernel(const GpuFoodState *__restrict__ src,
@@ -149,9 +133,11 @@ __global__ void pack_food_states_kernel(GpuFoodState *__restrict__ dst,
 
 // ── Constructor / Destructor ─────────────────────────────────────────────────
 
-GpuBatch::GpuBatch(int num_agents, int num_inputs, int num_outputs)
+GpuBatch::GpuBatch(int num_agents, int num_inputs, int num_outputs,
+                   float world_width, float world_height)
     : num_agents_(num_agents), num_inputs_(num_inputs),
-      num_outputs_(num_outputs) {
+      num_outputs_(num_outputs), world_width_(world_width),
+      world_height_(world_height) {
   const size_t in_bytes =
       static_cast<size_t>(num_agents) * num_inputs * sizeof(float);
   const size_t out_bytes =
@@ -346,7 +332,6 @@ void GpuBatch::upload_network_data(const GpuNetworkData &data) {
     return;
   }
 
-  int n = num_agents_;
   int total_nodes = static_cast<int>(data.node_types.size());
   int total_eval = static_cast<int>(data.eval_order.size());
   int total_conn = static_cast<int>(data.conn_from.size());
@@ -684,13 +669,11 @@ void GpuBatch::allocate_bin_arrays() {
   if (num_agents_ <= 0)
     return;
 
-  // Calculate grid dimensions
-  const float world_width = 4300.0f; // Default, will be updated per-step
-  const float world_height = 2400.0f;
+  // Calculate grid dimensions using configured world size
   const float cell_size = 100.0f; // Default cell size
 
-  agent_cols_ = static_cast<int>(world_width / cell_size) + 1;
-  agent_rows_ = static_cast<int>(world_height / cell_size) + 1;
+  agent_cols_ = static_cast<int>(world_width_ / cell_size) + 1;
+  agent_rows_ = static_cast<int>(world_height_ / cell_size) + 1;
   agent_cell_size_ = cell_size;
 
   const int agent_cell_bins = agent_cols_ * agent_rows_;

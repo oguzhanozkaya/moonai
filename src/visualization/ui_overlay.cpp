@@ -180,17 +180,13 @@ void UIOverlay::draw_left_column(sf::RenderTarget &target,
   draw_energy_distribution(target, stats, x, y, COL_WIDTH, 80.0f);
   y += 80.0f + MARGIN;
 
-  // Step timeline
-  draw_step_timeline(target, stats, x, y, COL_WIDTH, 40.0f);
-  y += 40.0f + MARGIN;
-
   // Event counts
   draw_event_counts(target, stats, x, y, COL_WIDTH, 80.0f);
 }
 
 void UIOverlay::draw_stats_panel(sf::RenderTarget &target,
                                  const OverlayStats &stats, float x, float y) {
-  constexpr float PANEL_H = 180.0f;
+  constexpr float PANEL_H = 200.0f;
   constexpr float COL_WIDTH = 260.0f;
   float line_h = 18.0f;
 
@@ -208,10 +204,8 @@ void UIOverlay::draw_stats_panel(sf::RenderTarget &target,
   }
   ty += line_h + 4;
 
-  std::snprintf(buf, sizeof(buf), "Step: %d%s", stats.step,
-                stats.fast_forward ? "  [FF]" : "");
-  draw_text(target, buf, tx, ty, 13,
-            stats.fast_forward ? sf::Color(100, 220, 255) : sf::Color::White);
+  std::snprintf(buf, sizeof(buf), "Step: %d", stats.step);
+  draw_text(target, buf, tx, ty, 13, sf::Color::White);
   ty += line_h;
 
   std::snprintf(buf, sizeof(buf), "FPS: %.0f", stats.fps);
@@ -245,8 +239,7 @@ void UIOverlay::draw_stats_panel(sf::RenderTarget &target,
   draw_text(target, "[Space] Pause  [+/-] Speed", tx, ty, 11,
             sf::Color(120, 120, 140));
   ty += 14;
-  draw_text(target, "[G] Grid  [V] Vision  [H] FF", tx, ty, 11,
-            sf::Color(120, 120, 140));
+  draw_text(target, "[V] Vision", tx, ty, 11, sf::Color(120, 120, 140));
 }
 
 void UIOverlay::draw_population_chart(sf::RenderTarget &target, float x,
@@ -410,41 +403,6 @@ void UIOverlay::draw_energy_distribution(sf::RenderTarget &target,
   // Labels
   draw_text(target, "P", tx - 12.0f, y + 22.0f, 10, sf::Color(220, 80, 80));
   draw_text(target, "Y", tx - 12.0f, y + 36.0f, 10, sf::Color(80, 220, 100));
-}
-
-void UIOverlay::draw_step_timeline(sf::RenderTarget &target,
-                                   const OverlayStats &stats, float x, float y,
-                                   float w, float h) {
-  if (!font_loaded_)
-    return;
-
-  draw_panel(target, x, y, w, h);
-
-  // Progress bar background
-  float bar_x = x + 8.0f;
-  float bar_y = y + 20.0f;
-  float bar_w = w - 16.0f;
-  float bar_h = 10.0f;
-
-  sf::RectangleShape bg({bar_w, bar_h});
-  bg.setPosition({bar_x, bar_y});
-  bg.setFillColor(sf::Color(40, 40, 40));
-  target.draw(bg);
-
-  // Progress fill
-  float progress = (stats.max_steps > 0)
-                       ? static_cast<float>(stats.step) / stats.max_steps
-                       : 0.0f;
-  progress = std::clamp(progress, 0.0f, 1.0f);
-  sf::RectangleShape fill({bar_w * progress, bar_h});
-  fill.setPosition({bar_x, bar_y});
-  fill.setFillColor(sf::Color(100, 150, 220));
-  target.draw(fill);
-
-  // Labels
-  char buf[32];
-  std::snprintf(buf, sizeof(buf), "Step %d/%d", stats.step, stats.max_steps);
-  draw_text(target, buf, x + 4.0f, y + 4.0f, 11, sf::Color(180, 180, 200));
 }
 
 void UIOverlay::draw_event_counts(sf::RenderTarget &target,

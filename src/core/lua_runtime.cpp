@@ -49,8 +49,7 @@ void lua_get_uint64(const sol::table &tbl, const char *key,
 SimulationConfig table_to_config(const sol::table &tbl) {
   SimulationConfig config;
 
-  lua_get(tbl, "grid_width", config.grid_width);
-  lua_get(tbl, "grid_height", config.grid_height);
+  lua_get(tbl, "grid_size", config.grid_size);
   lua_get_boundary(tbl, "boundary_mode", config.boundary_mode);
   lua_get(tbl, "predator_count", config.predator_count);
   lua_get(tbl, "prey_count", config.prey_count);
@@ -107,8 +106,7 @@ SimulationConfig table_to_config(const sol::table &tbl) {
 void inject_defaults(sol::state &lua) {
   SimulationConfig d;
   sol::table t = lua.create_table();
-  t["grid_width"] = d.grid_width;
-  t["grid_height"] = d.grid_height;
+  t["grid_size"] = d.grid_size;
   t["boundary_mode"] =
       (d.boundary_mode == BoundaryMode::Wrap) ? "wrap" : "clamp";
   t["predator_count"] = d.predator_count;
@@ -161,8 +159,7 @@ void inject_defaults(sol::state &lua) {
 
 sol::table config_to_table(sol::state &lua, const SimulationConfig &c) {
   sol::table t = lua.create_table();
-  t["grid_width"] = c.grid_width;
-  t["grid_height"] = c.grid_height;
+  t["grid_size"] = c.grid_size;
   t["boundary_mode"] =
       (c.boundary_mode == BoundaryMode::Wrap) ? "wrap" : "clamp";
   t["predator_count"] = c.predator_count;

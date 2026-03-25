@@ -77,11 +77,9 @@ void Renderer::draw_agent(sf::RenderTarget &target, const Agent &agent,
   float alpha = agent.alive() ? 255.0f : dead_fade_alpha;
   auto a = static_cast<std::uint8_t>(alpha);
 
-  // Use species color when available, otherwise fall back to type color
+  // Use type-based colors: red for predators, green for prey
   sf::Color base_color;
-  if (agent.species_id() >= 0) {
-    base_color = species_color(agent.species_id());
-  } else if (agent.type() == AgentType::Predator) {
+  if (agent.type() == AgentType::Predator) {
     base_color = sf::Color(220, 60, 60);
   } else {
     base_color = sf::Color(60, 200, 80);
@@ -214,36 +212,36 @@ sf::Color Renderer::species_color(int species_id) {
 
   float r, g, b;
   switch (hi) {
-  case 0:
-    r = v;
-    g = t;
-    b = p;
-    break;
-  case 1:
-    r = q;
-    g = v;
-    b = p;
-    break;
-  case 2:
-    r = p;
-    g = v;
-    b = t;
-    break;
-  case 3:
-    r = p;
-    g = q;
-    b = v;
-    break;
-  case 4:
-    r = t;
-    g = p;
-    b = v;
-    break;
-  default:
-    r = v;
-    g = p;
-    b = q;
-    break;
+    case 0:
+      r = v;
+      g = t;
+      b = p;
+      break;
+    case 1:
+      r = q;
+      g = v;
+      b = p;
+      break;
+    case 2:
+      r = p;
+      g = v;
+      b = t;
+      break;
+    case 3:
+      r = p;
+      g = q;
+      b = v;
+      break;
+    case 4:
+      r = t;
+      g = p;
+      b = v;
+      break;
+    default:
+      r = v;
+      g = p;
+      b = q;
+      break;
   }
 
   return sf::Color(static_cast<std::uint8_t>(r * 255),

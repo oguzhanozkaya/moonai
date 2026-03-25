@@ -29,24 +29,24 @@ bool VisualizationManager::initialize() {
 
   // Set up camera to show the simulation world
   camera_view_ =
-      sf::View(sf::Vector2f(static_cast<float>(config_.grid_width) / 2.0f,
-                            static_cast<float>(config_.grid_height) / 2.0f),
-               sf::Vector2f(static_cast<float>(config_.grid_width),
-                            static_cast<float>(config_.grid_height)));
+      sf::View(sf::Vector2f(static_cast<float>(config_.grid_size) / 2.0f,
+                            static_cast<float>(config_.grid_size) / 2.0f),
+               sf::Vector2f(static_cast<float>(config_.grid_size),
+                            static_cast<float>(config_.grid_size)));
 
   // Adjust view to maintain aspect ratio
-  float world_aspect =
-      static_cast<float>(config_.grid_width) / config_.grid_height;
+  float world_aspect = static_cast<float>(config_.grid_size) /
+                       static_cast<float>(config_.grid_size);
   float window_aspect = static_cast<float>(window_width_) / window_height_;
 
   if (window_aspect > world_aspect) {
     camera_view_.setSize(
-        sf::Vector2f(static_cast<float>(config_.grid_height) * window_aspect,
-                     static_cast<float>(config_.grid_height)));
+        sf::Vector2f(static_cast<float>(config_.grid_size) * window_aspect,
+                     static_cast<float>(config_.grid_size)));
   } else {
     camera_view_.setSize(
-        sf::Vector2f(static_cast<float>(config_.grid_width),
-                     static_cast<float>(config_.grid_width) / window_aspect));
+        sf::Vector2f(static_cast<float>(config_.grid_size),
+                     static_cast<float>(config_.grid_size) / window_aspect));
   }
 
   window_->setView(camera_view_);
@@ -56,8 +56,8 @@ bool VisualizationManager::initialize() {
 
   running_ = true;
   spdlog::info("Visualization initialized ({}x{} window, {}x{} world)",
-               window_width_, window_height_, config_.grid_width,
-               config_.grid_height);
+               window_width_, window_height_, config_.grid_size,
+               config_.grid_size);
   return true;
 }
 
@@ -105,14 +105,11 @@ void VisualizationManager::render(const SimulationManager &sim,
   window_->setView(camera_view_);
 
   // Draw world
-  renderer_.draw_background(*window_, config_.grid_width, config_.grid_height);
+  renderer_.draw_background(*window_, config_.grid_size, config_.grid_size);
 
-  if (renderer_.show_grid) {
-    renderer_.draw_grid(*window_, config_.grid_width, config_.grid_height,
-                        50.0f);
-  }
+  renderer_.draw_grid(*window_, config_.grid_size, config_.grid_size, 500.0f);
 
-  renderer_.draw_boundaries(*window_, config_.grid_width, config_.grid_height);
+  renderer_.draw_boundaries(*window_, config_.grid_size, config_.grid_size);
 
   // Draw food
   renderer_.draw_food(*window_, sim.environment().food());
@@ -161,7 +158,6 @@ void VisualizationManager::render(const SimulationManager &sim,
   overlay_stats_.alive_prey = sim.alive_prey();
   overlay_stats_.speed_multiplier = speed_multiplier_;
   overlay_stats_.paused = paused_;
-  overlay_stats_.fast_forward = fast_forward_;
   overlay_stats_.selected_agent = selected_agent_id_;
   overlay_stats_.experiment_name = selected_experiment_name_;
 
@@ -374,17 +370,9 @@ void VisualizationManager::handle_events() {
           reset_requested_ = true;
           break;
 
-        case sf::Keyboard::Key::G:
-          renderer_.show_grid = !renderer_.show_grid;
-          break;
-
         case sf::Keyboard::Key::V:
           renderer_.show_vision = !renderer_.show_vision;
           renderer_.show_sensors = renderer_.show_vision;
-          break;
-
-        case sf::Keyboard::Key::H:
-          fast_forward_ = !fast_forward_;
           break;
 
         case sf::Keyboard::Key::E:
@@ -409,8 +397,8 @@ void VisualizationManager::handle_events() {
           // Reset camera to default
           zoom_level_ = 1.0f;
           camera_view_.setCenter(
-              sf::Vector2f(static_cast<float>(config_.grid_width) / 2.0f,
-                           static_cast<float>(config_.grid_height) / 2.0f));
+              sf::Vector2f(static_cast<float>(config_.grid_size) / 2.0f,
+                           static_cast<float>(config_.grid_size) / 2.0f));
           update_camera();
           break;
 
@@ -520,8 +508,8 @@ void VisualizationManager::update_camera() {
   if (!window_)
     return;
 
-  float world_w = static_cast<float>(config_.grid_width);
-  float world_h = static_cast<float>(config_.grid_height);
+  float world_w = static_cast<float>(config_.grid_size);
+  float world_h = static_cast<float>(config_.grid_size);
 
   float window_aspect = static_cast<float>(window_width_) / window_height_;
   float world_aspect = world_w / world_h;

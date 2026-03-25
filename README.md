@@ -157,8 +157,6 @@ CUDA is enabled at runtime when available. In headless runs, the fast path keeps
 | `Space` | Pause / resume |
 | `↑` / `↓` or `+` / `-` | Increase / decrease simulation speed |
 | `.` | Step one step (while paused) |
-| `H` | Toggle fast-forward mode (skip rendering) |
-| `G` | Toggle grid overlay |
 | `V` | Toggle vision range / sensor lines for selected agent |
 | `E` | Open experiment selector (multi-config only) |
 | `R` | Reset simulation |
@@ -172,13 +170,13 @@ When an agent is selected, the **Network panel** (top-right) shows its topology 
 
 ## Configuration
 
-Configuration uses a single **`config.lua`** file at the project root. It returns a named table of experiments — every entry is a fully-specified run. The runtime injects C++ struct defaults as the `moonai_defaults` global (2000 agents on a 4300×2400 world), so Lua only needs to override what it changes.
+Configuration uses a single **`config.lua`** file at the project root. It returns a named table of experiments — every entry is a fully-specified run. The runtime injects C++ struct defaults as the `moonai_defaults` global (2000 agents on a 3000×3000 square world), so Lua only needs to override what it changes.
 
 ### `config.lua` structure
 
 ```lua
 -- moonai_defaults is injected by the runtime (mirrors C++ SimulationConfig defaults)
--- Defaults: 500 predators, 1500 prey (2000 total), 4300×2400 world, 1500 steps per report window
+-- Defaults: 500 predators, 1500 prey (2000 total), 3000×3000 square world, 1500 steps per report window
 local function extend(t, overrides) ... end
 
 -- Helper: scale world and food proportionally to population
@@ -188,9 +186,8 @@ local function scale_base(pred, prey)
     local factor = math.sqrt(total / default_total)
     return {
         predator_count = pred, prey_count = prey,
-        grid_width  = math.floor(moonai_defaults.grid_width * factor),
-        grid_height = math.floor(moonai_defaults.grid_height * factor),
-        food_count  = math.floor(moonai_defaults.food_count * (total / default_total)),
+        grid_size = math.floor(moonai_defaults.grid_size * factor),
+        food_count = math.floor(moonai_defaults.food_count * (total / default_total)),
     }
 end
 
@@ -395,7 +392,7 @@ The profiler package lives under `profiler/moonai_profiler/` and includes:
 
 66 conditions defined in `config.lua` across 9 groups, each × 5 seeds = **330 deterministic runs**.
 
-The default baseline is 2000 agents (500 predators, 1500 prey) on a 4300×2400 world with 1500 steps per report window. Scaled experiments use `scale_base()` to maintain agent density by proportionally adjusting world size and food count.
+The default baseline is 2000 agents (500 predators, 1500 prey) on a 3000×3000 square world with 1500 steps per report window. Scaled experiments use `scale_base()` to maintain agent density by proportionally adjusting world size and food count.
 
 - Group A — Baseline sweeps (2K agents)
 - Group B — Scale experiments (proportional world)

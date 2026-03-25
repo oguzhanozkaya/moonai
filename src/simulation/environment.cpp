@@ -8,7 +8,7 @@
 namespace moonai {
 
 Environment::Environment(const SimulationConfig &config)
-    : width_(config.grid_width), height_(config.grid_height),
+    : width_(config.grid_size), height_(config.grid_size),
       boundary_mode_(config.boundary_mode), max_food_(config.food_count) {}
 
 Vec2 Environment::apply_boundary(Vec2 pos) const {

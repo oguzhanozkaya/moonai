@@ -60,12 +60,6 @@ public:
   void clear_step() {
     step_requested_ = false;
   }
-  bool is_fast_forward() const {
-    return fast_forward_;
-  }
-  void clear_fast_forward() {
-    fast_forward_ = false;
-  }
   int selected_agent() const {
     return selected_agent_id_;
   }
@@ -146,7 +140,6 @@ private:
   bool paused_ = false;
   bool reset_requested_ = false;
   bool step_requested_ = false;
-  bool fast_forward_ = false;
   int speed_multiplier_ = 1;
   int selected_agent_id_ = -1;
 

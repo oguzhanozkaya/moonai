@@ -30,7 +30,6 @@ struct OverlayStats {
   float fps = 0.0f;
   int speed_multiplier = 1;
   bool paused = false;
-  bool fast_forward = false;
   std::string experiment_name;
 
   // Selected agent info (negative = no selection)
@@ -107,8 +106,6 @@ private:
   void draw_energy_distribution(sf::RenderTarget &target,
                                 const OverlayStats &stats, float x, float y,
                                 float w, float h);
-  void draw_step_timeline(sf::RenderTarget &target, const OverlayStats &stats,
-                          float x, float y, float w, float h);
   void draw_event_counts(sf::RenderTarget &target, const OverlayStats &stats,
                          float x, float y, float w, float h);
 

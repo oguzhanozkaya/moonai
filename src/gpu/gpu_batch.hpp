@@ -55,7 +55,8 @@ struct EcologyStepParams {
 // transfers.
 class GpuBatch {
 public:
-  GpuBatch(int num_agents, int num_inputs, int num_outputs);
+  GpuBatch(int num_agents, int num_inputs, int num_outputs,
+           float world_width = 3000.0f, float world_height = 3000.0f);
   ~GpuBatch();
 
   GpuBatch(const GpuBatch &) = delete;
@@ -497,6 +498,8 @@ private:
   int food_cols_ = 0;
   int food_rows_ = 0;
   float food_cell_size_ = 1.0f;
+  float world_width_ = 3000.0f; // Default world size (square)
+  float world_height_ = 3000.0f;
   int num_inputs_;
   int num_outputs_;
   int activation_fn_id_ = 0; // 0=sigmoid, 1=tanh, 2=relu

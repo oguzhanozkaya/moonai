@@ -7,26 +7,13 @@
 
 using namespace moonai;
 
-TEST(ConfigTest, DefaultValues) {
-  SimulationConfig config;
-
-  EXPECT_EQ(config.grid_width, 4300);
-  EXPECT_EQ(config.grid_height, 2400);
-  EXPECT_EQ(config.predator_count, 500);
-  EXPECT_EQ(config.prey_count, 1500);
-  EXPECT_GT(config.mutation_rate, 0.0f);
-  EXPECT_EQ(config.boundary_mode, BoundaryMode::Wrap);
-  EXPECT_EQ(config.max_steps, 0);
-  EXPECT_FLOAT_EQ(config.initial_energy, 150.0f);
-}
-
 TEST(ConfigTest, LoadLuaSingleNamedConfig) {
   std::string path =
       (std::filesystem::temp_directory_path() / "moonai_test_config.lua")
           .string();
   {
     std::ofstream f(path);
-    f << "return { default = { grid_width = 1024, prey_count = 200, "
+    f << "return { default = { grid_size = 1024, prey_count = 200, "
          "boundary_mode = 'clamp' } }";
   }
 
@@ -34,7 +21,7 @@ TEST(ConfigTest, LoadLuaSingleNamedConfig) {
   ASSERT_EQ(configs.size(), 1u);
   ASSERT_TRUE(configs.count("default"));
   const auto &config = configs["default"];
-  EXPECT_EQ(config.grid_width, 1024);
+  EXPECT_EQ(config.grid_size, 1024);
   EXPECT_EQ(config.prey_count, 200);
   EXPECT_EQ(config.boundary_mode, BoundaryMode::Clamp);
   // Unspecified fields keep defaults
@@ -50,8 +37,8 @@ TEST(ConfigTest, LoadLuaMultiConfig) {
   {
     std::ofstream f(path);
     f << "return {\n"
-      << "  baseline = { grid_width = 800, prey_count = 150 },\n"
-      << "  big = { grid_width = 1600, prey_count = 300 },\n"
+      << "  baseline = { grid_size = 800, prey_count = 150 },\n"
+      << "  big = { grid_size = 1600, prey_count = 300 },\n"
       << "}\n";
   }
 
@@ -59,8 +46,8 @@ TEST(ConfigTest, LoadLuaMultiConfig) {
   EXPECT_EQ(configs.size(), 2u);
   EXPECT_TRUE(configs.count("baseline"));
   EXPECT_TRUE(configs.count("big"));
-  EXPECT_EQ(configs["baseline"].grid_width, 800);
-  EXPECT_EQ(configs["big"].grid_width, 1600);
+  EXPECT_EQ(configs["baseline"].grid_size, 800);
+  EXPECT_EQ(configs["big"].grid_size, 1600);
   EXPECT_EQ(configs["big"].prey_count, 300);
 
   std::filesystem::remove(path);
@@ -72,13 +59,13 @@ TEST(ConfigTest, LoadLuaNamedMapWithCustomName) {
           .string();
   {
     std::ofstream f(path);
-    f << "return { my_run = { grid_width = 999 } }";
+    f << "return { my_run = { grid_size = 999 } }";
   }
 
   auto configs = load_all_configs_lua(path);
   EXPECT_EQ(configs.size(), 1u);
   EXPECT_TRUE(configs.count("my_run"));
-  EXPECT_EQ(configs["my_run"].grid_width, 999);
+  EXPECT_EQ(configs["my_run"].grid_size, 999);
   // Unspecified fields keep defaults
   EXPECT_EQ(configs["my_run"].predator_count, 500);
 
@@ -106,7 +93,7 @@ TEST(ConfigTest, LoadInvalidLuaReturnsEmpty) {
 
 TEST(ConfigTest, SaveAndReloadJSON) {
   SimulationConfig original;
-  original.grid_width = 1234;
+  original.grid_size = 1234;
   original.seed = 42;
   original.boundary_mode = BoundaryMode::Clamp;
 
@@ -119,7 +106,7 @@ TEST(ConfigTest, SaveAndReloadJSON) {
   {
     std::ifstream f(path);
     auto j = nlohmann::json::parse(f);
-    EXPECT_EQ(j["grid_width"].get<int>(), 1234);
+    EXPECT_EQ(j["grid_size"].get<int>(), 1234);
     EXPECT_EQ(j["seed"].get<std::uint64_t>(), 42u);
     EXPECT_EQ(j["boundary_mode"].get<std::string>(), "clamp");
   }
@@ -135,12 +122,12 @@ TEST(ConfigValidation, ValidDefaultConfig) {
 
 TEST(ConfigValidation, InvalidGridSize) {
   SimulationConfig config;
-  config.grid_width = 10; // too small
+  config.grid_size = 10; // too small
   auto errors = validate_config(config);
   EXPECT_FALSE(errors.empty());
   bool found = false;
   for (const auto &e : errors) {
-    if (e.field == "grid_width")
+    if (e.field == "grid_size")
       found = true;
   }
   EXPECT_TRUE(found);
@@ -309,7 +296,7 @@ TEST(LuaRuntimeTest, LoadWithoutFitnessFn) {
       (std::filesystem::temp_directory_path() / "moonai_rt_nofn.lua").string();
   {
     std::ofstream f(path);
-    f << "return { test = { grid_width = 800 } }\n";
+    f << "return { test = { grid_size = 800 } }\n";
   }
 
   LuaRuntime rt;

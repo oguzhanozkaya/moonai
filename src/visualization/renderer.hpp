@@ -35,7 +35,6 @@ public:
   // Color helpers
   static sf::Color species_color(int species_id);
 
-  bool show_grid = false;
   bool show_vision = false;
   bool show_sensors = false;
   float dead_fade_alpha = 60.0f;

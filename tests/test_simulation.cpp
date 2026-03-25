@@ -14,8 +14,7 @@ using namespace moonai;
 
 TEST(EnvironmentTest, ClampPosition) {
   SimulationConfig config;
-  config.grid_width = 100;
-  config.grid_height = 100;
+  config.grid_size = 100;
   config.boundary_mode = BoundaryMode::Clamp;
   Environment env(config);
 
@@ -26,8 +25,7 @@ TEST(EnvironmentTest, ClampPosition) {
 
 TEST(EnvironmentTest, WrapPosition) {
   SimulationConfig config;
-  config.grid_width = 100;
-  config.grid_height = 100;
+  config.grid_size = 100;
   config.boundary_mode = BoundaryMode::Wrap;
   Environment env(config);
 
@@ -38,8 +36,7 @@ TEST(EnvironmentTest, WrapPosition) {
 
 TEST(EnvironmentTest, FoodInitialization) {
   SimulationConfig config;
-  config.grid_width = 200;
-  config.grid_height = 200;
+  config.grid_size = 200;
   Environment env(config);
   Random rng(42);
 
@@ -55,8 +52,7 @@ TEST(EnvironmentTest, FoodInitialization) {
 
 TEST(EnvironmentTest, EatFood) {
   SimulationConfig config;
-  config.grid_width = 100;
-  config.grid_height = 100;
+  config.grid_size = 100;
   Environment env(config);
   Random rng(42);
 
@@ -240,8 +236,7 @@ TEST(EnvironmentTest, WrapPositionWithLargeNegativeValues) {
   // Old code: fmod(-250 + 100, 100) = fmod(-150, 100) = -50 (bug: still
   // negative) New code: fmod(-250, 100) = -50, then -50 + 100 = 50 (correct)
   SimulationConfig config;
-  config.grid_width = 100;
-  config.grid_height = 100;
+  config.grid_size = 100;
   config.boundary_mode = BoundaryMode::Wrap;
   Environment env(config);
 

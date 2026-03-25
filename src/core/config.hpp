@@ -12,8 +12,8 @@ enum class BoundaryMode { Clamp, Wrap };
 
 struct SimulationConfig {
   // ── Environment ─────────────────────────────────────────────────────
-  int grid_width = 4300;  // World width in simulation units [100, 20000]
-  int grid_height = 2400; // World height in simulation units [100, 20000]
+  int grid_size =
+      3000; // World size in simulation units (square: N x N) [100, 20000]
   BoundaryMode boundary_mode = BoundaryMode::Wrap; // "wrap" or "clamp"
 
   // ── Population ──────────────────────────────────────────────────────

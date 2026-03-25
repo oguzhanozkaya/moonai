@@ -99,13 +99,13 @@ TEST_F(LoggerTest, GenomeExportIsValidJSON) {
 TEST_F(LoggerTest, ConfigSnapshotIsSaved) {
   Logger logger(test_dir_, 42);
   SimulationConfig config;
-  config.grid_width = 999;
+  config.grid_size = 999;
   logger.initialize(config);
 
   // Verify the JSON snapshot is correct by parsing it directly
   std::ifstream f(logger.run_dir() + "/config.json");
   auto j = nlohmann::json::parse(f);
-  EXPECT_EQ(j["grid_width"].get<int>(), 999);
+  EXPECT_EQ(j["grid_size"].get<int>(), 999);
 }
 
 TEST_F(LoggerTest, RunDirContainsSeed) {
