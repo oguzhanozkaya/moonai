@@ -35,11 +35,21 @@ public:
   // Evolve population based on current fitness values
   void evolve();
 
-  const std::vector<Genome> &population() const { return population_; }
-  std::vector<Genome> &population() { return population_; }
-  int generation() const { return generation_; }
-  const std::vector<Species> &species() const { return species_; }
-  int species_count() const { return static_cast<int>(species_.size()); }
+  const std::vector<Genome> &population() const {
+    return population_;
+  }
+  std::vector<Genome> &population() {
+    return population_;
+  }
+  int generation() const {
+    return generation_;
+  }
+  const std::vector<Species> &species() const {
+    return species_;
+  }
+  int species_count() const {
+    return static_cast<int>(species_.size());
+  }
 
   // Build neural networks from current population for simulation use
   const std::vector<std::unique_ptr<NeuralNetwork>> &networks() const {
@@ -51,18 +61,28 @@ public:
 
   // Per-tick callback (called after each sim.tick() in the CPU/headless path)
   using TickCallback = std::function<void(int tick, const SimulationManager &)>;
-  void set_tick_callback(TickCallback cb) { tick_callback_ = std::move(cb); }
-  void clear_tick_callback() { tick_callback_ = nullptr; }
+  void set_tick_callback(TickCallback cb) {
+    tick_callback_ = std::move(cb);
+  }
+  void clear_tick_callback() {
+    tick_callback_ = nullptr;
+  }
 
   // Lua runtime (for scripted fitness / hooks)
-  void set_lua_runtime(LuaRuntime *rt) { lua_runtime_ = rt; }
+  void set_lua_runtime(LuaRuntime *rt) {
+    lua_runtime_ = rt;
+  }
 
   // Update config (e.g. from Lua hook overrides)
-  void update_config(const SimulationConfig &cfg) { config_ = cfg; }
+  void update_config(const SimulationConfig &cfg) {
+    config_ = cfg;
+  }
 
   // GPU acceleration
   void enable_gpu(bool use_gpu);
-  bool gpu_enabled() const { return use_gpu_; }
+  bool gpu_enabled() const {
+    return use_gpu_;
+  }
 #ifdef MOONAI_ENABLE_CUDA
   bool prepare_gpu_generation();
   bool infer_actions_gpu(const SimulationManager &sim,
@@ -78,6 +98,11 @@ public:
 
   // Assign species IDs to agents based on current speciation
   void assign_species_ids(SimulationManager &sim) const;
+
+  // Get fitness statistics by agent type
+  void get_fitness_by_type(const SimulationManager &sim, float &best_predator,
+                           float &avg_predator, float &best_prey,
+                           float &avg_prey) const;
 
 private:
   void build_networks();

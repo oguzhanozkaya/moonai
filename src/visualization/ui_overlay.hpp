@@ -22,6 +22,7 @@ class SimulationManager;
 struct OverlayStats {
   int generation = 0;
   int tick = 0;
+  int max_ticks = 1500;
   int alive_predators = 0;
   int alive_prey = 0;
   float best_fitness = 0.0f;
@@ -41,6 +42,23 @@ struct OverlayStats {
   int selected_food_eaten = 0;
   float selected_fitness = 0.0f;
   int selected_genome_complexity = 0;
+
+  // Fitness by type
+  float best_predator_fitness = 0.0f;
+  float avg_predator_fitness = 0.0f;
+  float best_prey_fitness = 0.0f;
+  float avg_prey_fitness = 0.0f;
+
+  // Energy distribution (5 buckets: 0-20%, 20-40%, 40-60%, 60-80%, 80-100%)
+  // Percentage of agents in each energy bucket (0.0 to 1.0)
+  float predator_energy_dist[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+  float prey_energy_dist[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+
+  // Event counts for current tick
+  int kills_this_tick = 0;
+  int food_eaten_this_tick = 0;
+  int births_this_tick = 0;
+  int deaths_this_tick = 0;
 };
 
 class UIOverlay {
@@ -50,12 +68,20 @@ public:
   void draw(sf::RenderTarget &target, const OverlayStats &stats,
             const Genome *selected_genome = nullptr);
 
-  bool has_font() const { return font_loaded_; }
+  bool has_font() const {
+    return font_loaded_;
+  }
 
   void push_fitness(float best, float avg);
 
   // Set node activation values for the selected agent's NN panel
   void set_activations(const std::unordered_map<std::uint32_t, float> &vals);
+
+  // Push population data for the left column chart (called per tick)
+  void push_population(int predators, int prey);
+
+  // Push species count (called per generation)
+  void push_species(int count);
 
   // Experiment selector overlay
   // Returns index of clicked experiment, or -1 if none clicked
@@ -71,9 +97,30 @@ private:
   void draw_fitness_chart(sf::RenderTarget &target);
   void draw_nn_panel(sf::RenderTarget &target, const Genome &genome);
 
+  // Left column panels
+  void draw_left_column(sf::RenderTarget &target, const OverlayStats &stats);
+  void draw_stats_panel(sf::RenderTarget &target, const OverlayStats &stats,
+                        float x, float y);
+  void draw_population_chart(sf::RenderTarget &target, float x, float y,
+                             float w, float h);
+  void draw_fitness_by_type(sf::RenderTarget &target, const OverlayStats &stats,
+                            float x, float y, float w, float h);
+  void draw_energy_distribution(sf::RenderTarget &target,
+                                const OverlayStats &stats, float x, float y,
+                                float w, float h);
+  void draw_generation_timeline(sf::RenderTarget &target,
+                                const OverlayStats &stats, float x, float y,
+                                float w, float h);
+  void draw_event_counts(sf::RenderTarget &target, const OverlayStats &stats,
+                         float x, float y, float w, float h);
+
   static constexpr int CHART_MAX_POINTS = 150;
   std::deque<float> best_history_;
   std::deque<float> avg_history_;
+
+  // Population history: pair of {predators, prey}
+  std::deque<std::pair<int, int>> population_history_;
+  std::deque<int> species_history_;
 
   std::unordered_map<std::uint32_t, float> node_activations_;
 

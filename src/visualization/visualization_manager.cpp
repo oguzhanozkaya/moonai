@@ -52,6 +52,7 @@ bool VisualizationManager::initialize() {
   window_->setView(camera_view_);
 
   overlay_.initialize();
+  overlay_stats_.max_ticks = config_.generation_ticks;
 
   running_ = true;
   spdlog::info("Visualization initialized ({}x{} window, {}x{} world)",
@@ -173,6 +174,80 @@ void VisualizationManager::render(const SimulationManager &sim,
     overlay_stats_.selected_food_eaten = sel->food_eaten();
   }
 
+  // Update population chart (per tick)
+  overlay_.push_population(sim.alive_predators(), sim.alive_prey());
+
+  // Calculate energy distribution
+  float pred_dist[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+  float prey_dist[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+  int pred_count = 0;
+  int prey_count = 0;
+
+  for (const auto &agent : agents) {
+    if (!agent->alive())
+      continue;
+
+    float energy_ratio = agent->energy() / config_.initial_energy;
+    energy_ratio = std::clamp(energy_ratio, 0.0f, 1.0f);
+    int bucket = static_cast<int>(energy_ratio * 5.0f);
+    bucket = std::min(bucket, 4);
+
+    if (agent->type() == AgentType::Predator) {
+      pred_dist[bucket]++;
+      pred_count++;
+    } else {
+      prey_dist[bucket]++;
+      prey_count++;
+    }
+  }
+
+  // Convert to percentages
+  if (pred_count > 0) {
+    for (int i = 0; i < 5; ++i) {
+      pred_dist[i] /= pred_count;
+    }
+  }
+  if (prey_count > 0) {
+    for (int i = 0; i < 5; ++i) {
+      prey_dist[i] /= prey_count;
+    }
+  }
+  set_energy_distribution(pred_dist, prey_dist);
+
+  // Check if generation changed and reset counters
+  int gen = evolution.generation();
+  if (gen != current_generation_) {
+    current_generation_ = gen;
+    gen_kills_ = 0;
+    gen_food_eaten_ = 0;
+    gen_births_ = 0;
+    gen_deaths_ = 0;
+  }
+
+  // Accumulate events from last tick to per-generation counters
+  for (const auto &event : sim.last_events()) {
+    switch (event.type) {
+      case SimEvent::Kill:
+        gen_kills_++;
+        break;
+      case SimEvent::Food:
+        gen_food_eaten_++;
+        break;
+      default:
+        break;
+    }
+  }
+
+  // Note: Births and deaths would need to be tracked by the simulation
+  // For now, we'll show what we have
+  set_event_counts(gen_kills_, gen_food_eaten_, gen_births_, gen_deaths_);
+
+  // Get fitness by type from evolution manager
+  float best_pred, avg_pred, best_prey_f, avg_prey_f;
+  evolution.get_fitness_by_type(sim, best_pred, avg_pred, best_prey_f,
+                                avg_prey_f);
+  set_fitness_by_type(best_pred, avg_pred, best_prey_f, avg_prey_f);
+
   // Draw UI overlay (with selected genome for NN topology panel)
   const Genome *sel_genome = evolution.genome_at(selected_agent_);
   overlay_.set_activations(selected_node_activations_);
@@ -181,7 +256,9 @@ void VisualizationManager::render(const SimulationManager &sim,
   window_->display();
 }
 
-bool VisualizationManager::should_close() const { return !running_; }
+bool VisualizationManager::should_close() const {
+  return !running_;
+}
 
 void VisualizationManager::handle_events() {
   if (!window_)
@@ -265,76 +342,76 @@ void VisualizationManager::handle_events() {
     // Key pressed
     if (const auto *key = event->getIf<sf::Event::KeyPressed>()) {
       switch (key->code) {
-      case sf::Keyboard::Key::Escape:
-        running_ = false;
-        break;
+        case sf::Keyboard::Key::Escape:
+          running_ = false;
+          break;
 
-      case sf::Keyboard::Key::Space:
-        paused_ = !paused_;
-        break;
+        case sf::Keyboard::Key::Space:
+          paused_ = !paused_;
+          break;
 
-      case sf::Keyboard::Key::Period: // > key (step forward)
-        if (paused_)
-          step_requested_ = true;
-        break;
+        case sf::Keyboard::Key::Period: // > key (step forward)
+          if (paused_)
+            step_requested_ = true;
+          break;
 
-      case sf::Keyboard::Key::Equal: // + key
-      case sf::Keyboard::Key::Up:
-        speed_multiplier_ = std::min(speed_multiplier_ * 2, 64);
-        break;
+        case sf::Keyboard::Key::Equal: // + key
+        case sf::Keyboard::Key::Up:
+          speed_multiplier_ = std::min(speed_multiplier_ * 2, 64);
+          break;
 
-      case sf::Keyboard::Key::Hyphen: // - key
-      case sf::Keyboard::Key::Down:
-        speed_multiplier_ = std::max(speed_multiplier_ / 2, 1);
-        break;
+        case sf::Keyboard::Key::Hyphen: // - key
+        case sf::Keyboard::Key::Down:
+          speed_multiplier_ = std::max(speed_multiplier_ / 2, 1);
+          break;
 
-      case sf::Keyboard::Key::R:
-        reset_requested_ = true;
-        break;
+        case sf::Keyboard::Key::R:
+          reset_requested_ = true;
+          break;
 
-      case sf::Keyboard::Key::G:
-        renderer_.show_grid = !renderer_.show_grid;
-        break;
+        case sf::Keyboard::Key::G:
+          renderer_.show_grid = !renderer_.show_grid;
+          break;
 
-      case sf::Keyboard::Key::V:
-        renderer_.show_vision = !renderer_.show_vision;
-        renderer_.show_sensors = renderer_.show_vision;
-        break;
+        case sf::Keyboard::Key::V:
+          renderer_.show_vision = !renderer_.show_vision;
+          renderer_.show_sensors = renderer_.show_vision;
+          break;
 
-      case sf::Keyboard::Key::H:
-        fast_forward_ = !fast_forward_;
-        break;
+        case sf::Keyboard::Key::H:
+          fast_forward_ = !fast_forward_;
+          break;
 
-      case sf::Keyboard::Key::E:
-        if (!experiment_names_.empty()) {
-          enter_experiment_select_mode();
-        }
-        break;
+        case sf::Keyboard::Key::E:
+          if (!experiment_names_.empty()) {
+            enter_experiment_select_mode();
+          }
+          break;
 
-      case sf::Keyboard::Key::S:
-        if (window_) {
-          sf::Texture texture(window_->getSize());
-          texture.update(*window_);
-          sf::Image img = texture.copyToImage();
-          std::string fname =
-              "screenshot_gen" + std::to_string(overlay_stats_.generation) +
-              "_tick" + std::to_string(overlay_stats_.tick) + ".png";
-          (void)img.saveToFile(fname);
-          spdlog::info("Screenshot saved: {}", fname);
-        }
-        break;
+        case sf::Keyboard::Key::S:
+          if (window_) {
+            sf::Texture texture(window_->getSize());
+            texture.update(*window_);
+            sf::Image img = texture.copyToImage();
+            std::string fname =
+                "screenshot_gen" + std::to_string(overlay_stats_.generation) +
+                "_tick" + std::to_string(overlay_stats_.tick) + ".png";
+            (void)img.saveToFile(fname);
+            spdlog::info("Screenshot saved: {}", fname);
+          }
+          break;
 
-      case sf::Keyboard::Key::Home:
-        // Reset camera to default
-        zoom_level_ = 1.0f;
-        camera_view_.setCenter(
-            sf::Vector2f(static_cast<float>(config_.grid_width) / 2.0f,
-                         static_cast<float>(config_.grid_height) / 2.0f));
-        update_camera();
-        break;
+        case sf::Keyboard::Key::Home:
+          // Reset camera to default
+          zoom_level_ = 1.0f;
+          camera_view_.setCenter(
+              sf::Vector2f(static_cast<float>(config_.grid_width) / 2.0f,
+                           static_cast<float>(config_.grid_height) / 2.0f));
+          update_camera();
+          break;
 
-      default:
-        break;
+        default:
+          break;
       }
     }
 
@@ -367,10 +444,14 @@ void VisualizationManager::handle_events() {
       // Left click = select agent; store coords, apply in render() with sim
       // access
       if (btn->button == sf::Mouse::Button::Left && window_) {
-        auto world_pos = window_->mapPixelToCoords(btn->position, camera_view_);
-        pending_click_ = true;
-        pending_click_x_ = world_pos.x;
-        pending_click_y_ = world_pos.y;
+        // Ignore clicks in the left column UI area
+        if (btn->position.x >= static_cast<int>(left_column_width() + 10.0f)) {
+          auto world_pos =
+              window_->mapPixelToCoords(btn->position, camera_view_);
+          pending_click_ = true;
+          pending_click_x_ = world_pos.x;
+          pending_click_y_ = world_pos.y;
+        }
       }
     }
 
@@ -451,6 +532,11 @@ void VisualizationManager::update_camera() {
   }
 
   camera_view_.setSize(sf::Vector2f(view_w, view_h));
+
+  // Shift camera to the right to account for left column UI
+  sf::Vector2f current_center = camera_view_.getCenter();
+  camera_view_.setCenter(sf::Vector2f(
+      current_center.x + left_column_width() / 2.0f, current_center.y));
 }
 
 } // namespace moonai

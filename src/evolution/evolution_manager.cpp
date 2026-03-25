@@ -167,21 +167,21 @@ static moonai::gpu::GpuNetworkData build_gpu_network_data(
     for (int j = 0; j < static_cast<int>(nodes.size()); ++j) {
       uint8_t t;
       switch (nodes[j].type) {
-      case moonai::NodeType::Input:
-        t = 0;
-        break;
-      case moonai::NodeType::Bias:
-        t = 1;
-        break;
-      case moonai::NodeType::Hidden:
-        t = 2;
-        break;
-      case moonai::NodeType::Output:
-        t = 3;
-        break;
-      default:
-        t = 2;
-        break;
+        case moonai::NodeType::Input:
+          t = 0;
+          break;
+        case moonai::NodeType::Bias:
+          t = 1;
+          break;
+        case moonai::NodeType::Hidden:
+          t = 2;
+          break;
+        case moonai::NodeType::Output:
+          t = 3;
+          break;
+        default:
+          t = 2;
+          break;
       }
       data.node_types[desc.node_off + j] = t;
     }
@@ -967,6 +967,43 @@ void EvolutionManager::assign_species_ids(SimulationManager &sim) const {
     if (it != genome_species.end()) {
       agents[i]->set_species_id(it->second);
     }
+  }
+}
+
+void EvolutionManager::get_fitness_by_type(const SimulationManager &sim,
+                                           float &best_predator,
+                                           float &avg_predator,
+                                           float &best_prey,
+                                           float &avg_prey) const {
+  const auto &agents = sim.agents();
+  best_predator = 0.0f;
+  avg_predator = 0.0f;
+  best_prey = 0.0f;
+  avg_prey = 0.0f;
+
+  float pred_sum = 0.0f;
+  float prey_sum = 0.0f;
+  int pred_count = 0;
+  int prey_count = 0;
+
+  for (size_t i = 0; i < population_.size() && i < agents.size(); ++i) {
+    float fitness = population_[i].fitness();
+    if (agents[i]->type() == AgentType::Predator) {
+      best_predator = std::max(best_predator, fitness);
+      pred_sum += fitness;
+      pred_count++;
+    } else {
+      best_prey = std::max(best_prey, fitness);
+      prey_sum += fitness;
+      prey_count++;
+    }
+  }
+
+  if (pred_count > 0) {
+    avg_predator = pred_sum / pred_count;
+  }
+  if (prey_count > 0) {
+    avg_prey = prey_sum / prey_count;
   }
 }
 

@@ -30,38 +30,104 @@ public:
   void handle_events();
 
   // Update overlay stats from external sources
-  void set_generation(int gen) { overlay_stats_.generation = gen; }
+  void set_generation(int gen) {
+    overlay_stats_.generation = gen;
+  }
   void set_fitness(float best, float avg) {
     overlay_stats_.best_fitness = best;
     overlay_stats_.avg_fitness = avg;
   }
-  void set_species_count(int n) { overlay_stats_.num_species = n; }
-  void push_fitness(float best, float avg) { overlay_.push_fitness(best, avg); }
+  void set_species_count(int n) {
+    overlay_stats_.num_species = n;
+  }
+  void push_fitness(float best, float avg) {
+    overlay_.push_fitness(best, avg);
+  }
 
   // Simulation control state
-  bool is_paused() const { return paused_; }
-  int speed_multiplier() const { return speed_multiplier_; }
-  bool should_reset() const { return reset_requested_; }
-  void clear_reset() { reset_requested_ = false; }
-  bool should_step() const { return step_requested_; }
-  void clear_step() { step_requested_ = false; }
-  bool is_fast_forward() const { return fast_forward_; }
-  void clear_fast_forward() { fast_forward_ = false; }
-  int selected_agent() const { return selected_agent_; }
+  bool is_paused() const {
+    return paused_;
+  }
+  int speed_multiplier() const {
+    return speed_multiplier_;
+  }
+  bool should_reset() const {
+    return reset_requested_;
+  }
+  void clear_reset() {
+    reset_requested_ = false;
+  }
+  bool should_step() const {
+    return step_requested_;
+  }
+  void clear_step() {
+    step_requested_ = false;
+  }
+  bool is_fast_forward() const {
+    return fast_forward_;
+  }
+  void clear_fast_forward() {
+    fast_forward_ = false;
+  }
+  int selected_agent() const {
+    return selected_agent_;
+  }
 
   // Provide activation values for the selected agent's NN panel
   void set_selected_activations(
       const std::vector<float> &vals,
       const std::unordered_map<std::uint32_t, int> &idx_map);
 
+  // Update population data for the left column chart (called per tick)
+  void update_population_chart(int predators, int prey) {
+    overlay_.push_population(predators, prey);
+  }
+
+  // Get fitness by agent type from evolution manager
+  void set_fitness_by_type(float best_pred, float avg_pred, float best_prey,
+                           float avg_prey) {
+    overlay_stats_.best_predator_fitness = best_pred;
+    overlay_stats_.avg_predator_fitness = avg_pred;
+    overlay_stats_.best_prey_fitness = best_prey;
+    overlay_stats_.avg_prey_fitness = avg_prey;
+  }
+
+  // Get energy distribution from simulation
+  void set_energy_distribution(const float pred_dist[5],
+                               const float prey_dist[5]) {
+    for (int i = 0; i < 5; ++i) {
+      overlay_stats_.predator_energy_dist[i] = pred_dist[i];
+      overlay_stats_.prey_energy_dist[i] = prey_dist[i];
+    }
+  }
+
+  // Update event counts
+  void set_event_counts(int kills, int food, int births, int deaths) {
+    overlay_stats_.kills_this_tick = kills;
+    overlay_stats_.food_eaten_this_tick = food;
+    overlay_stats_.births_this_tick = births;
+    overlay_stats_.deaths_this_tick = deaths;
+  }
+
+  // Get left column width for viewport adjustment
+  static constexpr float left_column_width() {
+    return 260.0f;
+  }
+
   // Experiment selector
   void set_experiments(const std::vector<std::string> &names);
-  bool in_experiment_select_mode() const { return experiment_select_mode_; }
+  bool in_experiment_select_mode() const {
+    return experiment_select_mode_;
+  }
   const std::string &selected_experiment() const {
     return selected_experiment_name_;
   }
-  bool experiment_was_selected() const { return experiment_selected_; }
-  void clear_experiment_selected() { experiment_selected_ = false; }
+  bool experiment_was_selected() const {
+    return experiment_selected_;
+  }
+  void clear_experiment_selected() {
+    experiment_selected_ = false;
+  }
   void enter_experiment_select_mode();
 
 private:
@@ -113,6 +179,13 @@ private:
   std::string selected_experiment_name_;
   int experiment_hover_index_ = -1;
   int experiment_scroll_offset_ = 0;
+
+  // Per-generation event counters (reset at generation boundaries)
+  int current_generation_ = -1;
+  int gen_kills_ = 0;
+  int gen_food_eaten_ = 0;
+  int gen_births_ = 0;
+  int gen_deaths_ = 0;
 };
 
 } // namespace moonai
