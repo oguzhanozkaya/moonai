@@ -44,12 +44,12 @@ void Session::restore_signal_handlers() {
 Session::Session(const SessionConfig &cfg)
     : cfg_(cfg),
       rng_(
-          cfg.seed == 0
+          cfg.sim_config.seed == 0
               ? static_cast<std::uint64_t>(
                     std::chrono::steady_clock::now().time_since_epoch().count())
-              : cfg.seed),
+              : cfg.sim_config.seed),
       simulation_(cfg.sim_config), evolution_(cfg.sim_config, rng_),
-      logger_(cfg.output_dir, cfg.seed,
+      logger_(cfg.sim_config.output_dir, cfg.sim_config.seed,
               cfg.run_name_override.value_or(cfg.experiment_name)),
       steps_executed_(0), births_in_window_(0), deaths_in_window_(0) {
   // Validate config

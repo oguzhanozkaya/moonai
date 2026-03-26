@@ -21,12 +21,9 @@ namespace moonai {
 struct SessionConfig {
   SimulationConfig sim_config;
   std::string experiment_name;
-  std::string output_dir;
-  std::uint64_t seed = 0;
   bool headless = false;
   bool enable_gpu = true;
   std::optional<std::string> run_name_override;
-  int max_steps_override = 0;
 
   // Event loop configuration
   bool enable_interactions = true; // Allow pause, step, selection

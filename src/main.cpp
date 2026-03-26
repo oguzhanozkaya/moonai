@@ -22,9 +22,10 @@ int run_experiment(const std::string &name, moonai::SimulationConfig config,
   // Build SessionConfig
   moonai::SessionConfig session_cfg;
   session_cfg.sim_config = config;
+  if (args.seed_override != 0) {
+    session_cfg.sim_config.seed = args.seed_override;
+  }
   session_cfg.experiment_name = name;
-  session_cfg.output_dir = config.output_dir;
-  session_cfg.seed = args.seed_override != 0 ? args.seed_override : config.seed;
   session_cfg.headless = headless;
   session_cfg.enable_gpu = !args.no_gpu;
   session_cfg.run_name_override =

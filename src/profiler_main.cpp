@@ -341,9 +341,8 @@ RunResult run_profiler(const std::string &experiment_name,
   session_cfg.sim_config.seed = seed;
   session_cfg.sim_config.max_steps =
       windows * session_cfg.sim_config.report_interval_steps;
+  session_cfg.sim_config.output_dir = output_dir;
   session_cfg.experiment_name = experiment_name;
-  session_cfg.output_dir = output_dir;
-  session_cfg.seed = seed;
   session_cfg.headless = headless;
   session_cfg.enable_gpu = !no_gpu;
   session_cfg.enable_interactions = false; // Disable pause, step, selection
