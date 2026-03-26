@@ -71,15 +71,10 @@ def _analyze_run(profile_data: dict) -> dict:
     for window in windows:
         for event_name, ms in window.get("events_ms", {}).items():
             if event_name not in events:
-                events[event_name] = {"total_ms": 0.0, "count": 0}
+                events[event_name] = {"total_ms": 0.0, "nonzero_count": 0}
             events[event_name]["total_ms"] += ms
-            events[event_name]["count"] += 1
-
-    # Calculate averages per event
-    for stats in events.values():
-        stats["avg_ms_per_window"] = (
-            stats["total_ms"] / len(windows) if windows else 0.0
-        )
+            if ms > 0:
+                events[event_name]["nonzero_count"] += 1
 
     return {
         "window_count": len(windows),
@@ -134,18 +129,30 @@ def _analyze_suite(runs: list[dict]) -> dict:
     else:
         stddev = 0.0
 
-    # Aggregate events across kept runs
+    # Aggregate events across all windows in all kept runs
+    total_windows = sum(r["window_count"] for r in kept)
     event_totals = {}
     for run in kept:
         for event_name, stats in run["events"].items():
             if event_name not in event_totals:
-                event_totals[event_name] = {"total_ms": 0.0, "count": 0}
+                event_totals[event_name] = {
+                    "total_ms": 0.0,
+                    "nonzero_window_count": 0,
+                }
             event_totals[event_name]["total_ms"] += stats["total_ms"]
-            event_totals[event_name]["count"] += 1
+            event_totals[event_name]["nonzero_window_count"] += stats.get(
+                "nonzero_count", 0
+            )
 
-    # Average across runs
+    # Compute suite-level averages across all windows
     for stats in event_totals.values():
-        stats["avg_ms_per_run"] = stats["total_ms"] / len(kept) if kept else 0.0
+        stats["avg_ms_per_window"] = (
+            stats["total_ms"] / total_windows if total_windows > 0 else 0.0
+        )
+        nonzero = stats["nonzero_window_count"]
+        stats["avg_ms_per_nonzero_window"] = (
+            stats["total_ms"] / nonzero if nonzero > 0 else 0.0
+        )
 
     return {
         "avg_window_ms": avg_window_ms,
@@ -188,7 +195,7 @@ def _parse_suite(path: Path, data: dict) -> ProfileSuite:
         )
 
     kept = [m for m in members if m.disposition == "kept"]
-    dropped = [m for m in members if m.disposition == "kept"]
+    dropped = [m for m in members if m.disposition != "kept"]
 
     return ProfileSuite(
         path=path,
