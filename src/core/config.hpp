@@ -19,7 +19,7 @@ struct SimulationConfig {
 
   float predator_speed = 6.0f;
   float prey_speed = 5.4f;
-  float vision_range = 300.0f;
+  float vision_range = 120.0f;
   float attack_range = 12.0f;
   float initial_energy = 120.0f;
   float energy_drain_per_step = 1.2f;

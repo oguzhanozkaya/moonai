@@ -96,6 +96,13 @@ public:
     overlay_stats_.deaths_this_step = deaths;
   }
 
+  void reset_cumulative_events() {
+    cumulative_kills_ = 0;
+    cumulative_food_ = 0;
+    cumulative_births_ = 0;
+    cumulative_deaths_ = 0;
+  }
+
   static constexpr float left_column_width() {
     return 260.0f;
   }
@@ -138,6 +145,12 @@ private:
   Entity selected_entity_ = INVALID_ENTITY;
 
   std::unordered_map<std::uint32_t, float> selected_node_activations_;
+
+  // Cumulative event counters
+  int cumulative_kills_ = 0;
+  int cumulative_food_ = 0;
+  int cumulative_births_ = 0;
+  int cumulative_deaths_ = 0;
 
   bool dragging_ = false;
   sf::Vector2f drag_start_;

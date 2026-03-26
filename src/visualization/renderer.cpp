@@ -74,7 +74,7 @@ void Renderer::draw_food_ecs(sf::RenderTarget &target,
   const auto &food_state = registry.food_state();
 
   sf::Color color(chart_colors::FOOD_R, chart_colors::FOOD_G,
-                  chart_colors::FOOD_B, 180);
+                  chart_colors::FOOD_B, visual::FOOD_ALPHA);
 
   for (Entity entity : living) {
     size_t idx = registry.index_of(entity);
@@ -141,17 +141,21 @@ void Renderer::draw_agent_ecs(sf::RenderTarget &target,
     float cos_a = std::cos(angle);
     float sin_a = std::sin(angle);
 
-    triangle_.setPoint(0, {x + cos_a * size * 1.5f, y + sin_a * size * 1.5f});
-    float lx = -size * 0.8f, ly = -size * 0.7f;
+    triangle_.setPoint(0, {x + cos_a * size * visual::TRIANGLE_TIP_FACTOR,
+                           y + sin_a * size * visual::TRIANGLE_TIP_FACTOR});
+    float lx = -size * visual::TRIANGLE_BASE_FACTOR,
+          ly = -size * visual::TRIANGLE_WIDTH_FACTOR;
     triangle_.setPoint(
         1, {x + cos_a * lx - sin_a * ly, y + sin_a * lx + cos_a * ly});
-    float rx = -size * 0.8f, ry = size * 0.7f;
+    float rx = -size * visual::TRIANGLE_BASE_FACTOR,
+          ry = size * visual::TRIANGLE_WIDTH_FACTOR;
     triangle_.setPoint(
         2, {x + cos_a * rx - sin_a * ry, y + sin_a * rx + cos_a * ry});
 
     triangle_.setFillColor(base_color);
     triangle_.setOutlineColor(outline_color);
-    triangle_.setOutlineThickness(selected ? 2.0f : 0.0f);
+    triangle_.setOutlineThickness(selected ? visual::SELECTED_OUTLINE_THICKNESS
+                                           : 0.0f);
 
     target.draw(triangle_);
   } else {
@@ -159,11 +163,12 @@ void Renderer::draw_agent_ecs(sf::RenderTarget &target,
     circle_.setRadius(radius);
     circle_.setOrigin({radius, radius});
     circle_.setPosition({positions.x[idx], positions.y[idx]});
-    circle_.setPointCount(20);
+    circle_.setPointCount(visual::CIRCLE_POINT_COUNT);
 
     circle_.setFillColor(base_color);
     circle_.setOutlineColor(outline_color);
-    circle_.setOutlineThickness(selected ? 2.0f : 0.0f);
+    circle_.setOutlineThickness(selected ? visual::SELECTED_OUTLINE_THICKNESS
+                                         : 0.0f);
 
     target.draw(circle_);
   }
@@ -184,7 +189,8 @@ void Renderer::draw_all_agents_ecs(sf::RenderTarget &target,
 }
 
 void Renderer::draw_vision_range_ecs(sf::RenderTarget &target,
-                                     const Registry &registry, Entity entity) {
+                                     const Registry &registry, Entity entity,
+                                     float vision_range) {
   if (!registry.valid(entity)) {
     return;
   }
@@ -192,20 +198,22 @@ void Renderer::draw_vision_range_ecs(sf::RenderTarget &target,
   size_t idx = registry.index_of(entity);
   const auto &positions = registry.positions();
 
-  float r = 100.0f;
-
-  sf::CircleShape vision(r, 60);
-  vision.setOrigin({r, r});
+  sf::CircleShape vision(vision_range, visual::VISION_POINT_COUNT);
+  vision.setOrigin({vision_range, vision_range});
   vision.setPosition({positions.x[idx], positions.y[idx]});
-  vision.setFillColor(sf::Color(255, 255, 255, visual::VISION_FILL_ALPHA));
-  vision.setOutlineColor(
-      sf::Color(255, 255, 255, visual::VISION_OUTLINE_ALPHA));
+  vision.setFillColor(sf::Color(visual::VISION_FILL_R, visual::VISION_FILL_G,
+                                visual::VISION_FILL_B,
+                                visual::VISION_FILL_ALPHA));
+  vision.setOutlineColor(sf::Color(visual::VISION_FILL_R, visual::VISION_FILL_G,
+                                   visual::VISION_FILL_B,
+                                   visual::VISION_OUTLINE_ALPHA));
   vision.setOutlineThickness(1.0f);
   target.draw(vision);
 }
 
 void Renderer::draw_sensor_lines_ecs(sf::RenderTarget &target,
-                                     const Registry &registry, Entity entity) {
+                                     const Registry &registry, Entity entity,
+                                     float vision_range) {
   if (!registry.valid(entity)) {
     return;
   }
@@ -220,7 +228,6 @@ void Renderer::draw_sensor_lines_ecs(sf::RenderTarget &target,
   }
 
   Vec2 pos{positions.x[idx], positions.y[idx]};
-  float vision = 100.0f;
 
   sf::VertexArray lines(sf::PrimitiveType::Lines);
 
@@ -241,7 +248,7 @@ void Renderer::draw_sensor_lines_ecs(sf::RenderTarget &target,
     Vec2 other_pos{other_positions.x[other_idx], other_positions.y[other_idx]};
 
     Vec2 diff = other_pos - pos;
-    if (diff.length() > vision) {
+    if (diff.length() > vision_range) {
       continue;
     }
 
@@ -271,7 +278,7 @@ void Renderer::draw_sensor_lines_ecs(sf::RenderTarget &target,
     const auto &food_positions = registry.positions();
     Vec2 food_pos{food_positions.x[food_idx], food_positions.y[food_idx]};
     Vec2 diff = food_pos - pos;
-    if (diff.length() > vision)
+    if (diff.length() > vision_range)
       continue;
 
     sf::Color food_line(chart_colors::FOOD_R, chart_colors::FOOD_G,

@@ -2,6 +2,7 @@
 #include "evolution/evolution_manager.hpp"
 #include "simulation/registry.hpp"
 #include "simulation/simulation_manager.hpp"
+#include "visualization/visual_constants.hpp"
 
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/Graphics/Texture.hpp>
@@ -93,7 +94,7 @@ void VisualizationManager::render_ecs(const Registry &registry,
 
   // Experiment selector mode: render selector overlay only
   if (experiment_select_mode_) {
-    window_->clear(sf::Color(20, 20, 30));
+    window_->clear(sf::Color(visual::BG_R, visual::BG_G, visual::BG_B));
     overlay_.draw_experiment_selector(*window_, experiment_names_,
                                       experiment_hover_index_,
                                       experiment_scroll_offset_);
@@ -189,8 +190,10 @@ void VisualizationManager::render_ecs(const Registry &registry,
   // Draw vision/sensor lines for selected entity (automatically shown when
   // agent is clicked)
   if (selected_entity_ != INVALID_ENTITY && registry.valid(selected_entity_)) {
-    Renderer::draw_vision_range_ecs(*window_, registry, selected_entity_);
-    Renderer::draw_sensor_lines_ecs(*window_, registry, selected_entity_);
+    Renderer::draw_vision_range_ecs(*window_, registry, selected_entity_,
+                                    config_.vision_range);
+    Renderer::draw_sensor_lines_ecs(*window_, registry, selected_entity_,
+                                    config_.vision_range);
   }
 
   // Update FPS counter
@@ -241,6 +244,26 @@ void VisualizationManager::render_ecs(const Registry &registry,
   evolution.get_fitness_by_type_ecs(registry, best_pred, avg_pred, best_prey_f,
                                     avg_prey_f);
   set_fitness_by_type(best_pred, avg_pred, best_prey_f, avg_prey_f);
+
+  // Accumulate events from this step to cumulative counters
+  for (const auto &event : simulation.last_events()) {
+    switch (event.type) {
+      case SimEvent::Kill:
+        ++cumulative_kills_;
+        break;
+      case SimEvent::Food:
+        ++cumulative_food_;
+        break;
+      case SimEvent::Birth:
+        ++cumulative_births_;
+        break;
+      case SimEvent::Death:
+        ++cumulative_deaths_;
+        break;
+    }
+  }
+  set_event_counts(cumulative_kills_, cumulative_food_, cumulative_births_,
+                   cumulative_deaths_);
 
   // Draw UI overlay (with selected genome for NN topology panel)
   const Genome *sel_genome = nullptr;

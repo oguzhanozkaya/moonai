@@ -104,7 +104,7 @@ private:
   void draw_energy_distribution(sf::RenderTarget &target,
                                 const OverlayStats &stats, float x, float y,
                                 float w, float h);
-  void draw_event_counts(sf::RenderTarget &target, const OverlayStats &stats,
+  void draw_stats_widget(sf::RenderTarget &target, const OverlayStats &stats,
                          float x, float y, float w, float h);
 
   std::deque<float> best_history_;

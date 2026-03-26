@@ -29,9 +29,11 @@ public:
   void draw_all_agents_ecs(sf::RenderTarget &target, const Registry &registry,
                            Entity selected_entity = INVALID_ENTITY);
   static void draw_vision_range_ecs(sf::RenderTarget &target,
-                                    const Registry &registry, Entity entity);
+                                    const Registry &registry, Entity entity,
+                                    float vision_range);
   static void draw_sensor_lines_ecs(sf::RenderTarget &target,
-                                    const Registry &registry, Entity entity);
+                                    const Registry &registry, Entity entity,
+                                    float vision_range);
 
   static sf::Color species_color(int species_id);
 

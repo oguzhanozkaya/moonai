@@ -61,6 +61,7 @@ constexpr uint8_t PANEL_OUTLINE_B = 80;
 // Vision range
 constexpr uint8_t VISION_FILL_ALPHA = 15;
 constexpr uint8_t VISION_OUTLINE_ALPHA = 40;
+// Note: VISION_RANGE is configurable via config.lua, not a constant
 
 // Sensor lines
 constexpr uint8_t SENSOR_ALPHA = 80;
@@ -72,5 +73,140 @@ namespace charts {
 constexpr int CHART_MAX_POINTS = 300;
 constexpr float LINE_WIDTH = 2.0f;
 } // namespace charts
+
+// Renderer constants
+namespace visual {
+constexpr uint8_t FOOD_ALPHA = 180;
+constexpr float SELECTED_OUTLINE_THICKNESS = 2.0f;
+constexpr int CIRCLE_POINT_COUNT = 20;
+constexpr uint8_t VISION_FILL_R = 255;
+constexpr uint8_t VISION_FILL_G = 255;
+constexpr uint8_t VISION_FILL_B = 255;
+constexpr int VISION_POINT_COUNT = 60;
+
+// Triangle geometry multipliers
+constexpr float TRIANGLE_TIP_FACTOR = 1.5f;
+constexpr float TRIANGLE_BASE_FACTOR = 0.8f;
+constexpr float TRIANGLE_WIDTH_FACTOR = 0.7f;
+} // namespace visual
+
+// UI Colors
+namespace ui {
+// Title and headings
+constexpr uint8_t TITLE_R = 200;
+constexpr uint8_t TITLE_G = 200;
+constexpr uint8_t TITLE_B = 255;
+
+// Fitness/accent
+constexpr uint8_t FITNESS_R = 255;
+constexpr uint8_t FITNESS_G = 220;
+constexpr uint8_t FITNESS_B = 100;
+
+// Muted/secondary text
+constexpr uint8_t MUTED_R = 180;
+constexpr uint8_t MUTED_G = 180;
+constexpr uint8_t MUTED_B = 180;
+
+// Paused indicator
+constexpr uint8_t PAUSE_R = 255;
+constexpr uint8_t PAUSE_G = 150;
+constexpr uint8_t PAUSE_B = 100;
+
+// Bar chart alpha
+constexpr uint8_t BAR_ALPHA = 180;
+
+// Event colors
+constexpr uint8_t EVENT_KILL_R = 220;
+constexpr uint8_t EVENT_KILL_G = 100;
+constexpr uint8_t EVENT_KILL_B = 100;
+
+constexpr uint8_t EVENT_FOOD_R = 100;
+constexpr uint8_t EVENT_FOOD_G = 220;
+constexpr uint8_t EVENT_FOOD_B = 100;
+
+constexpr uint8_t EVENT_BIRTH_R = 100;
+constexpr uint8_t EVENT_BIRTH_G = 180;
+constexpr uint8_t EVENT_BIRTH_B = 220;
+
+constexpr uint8_t EVENT_DEATH_R = 180;
+constexpr uint8_t EVENT_DEATH_G = 180;
+constexpr uint8_t EVENT_DEATH_B = 180;
+
+// Fitness chart lines
+constexpr uint8_t CHART_BEST_R = 100;
+constexpr uint8_t CHART_BEST_G = 150;
+constexpr uint8_t CHART_BEST_B = 255;
+
+constexpr uint8_t CHART_AVG_R = 100;
+constexpr uint8_t CHART_AVG_G = 220;
+constexpr uint8_t CHART_AVG_B = 100;
+
+// NN Visualization
+constexpr uint8_t NN_CONN_ENABLED_R = 200;
+constexpr uint8_t NN_CONN_ENABLED_G = 200;
+constexpr uint8_t NN_CONN_ENABLED_B = 200;
+constexpr uint8_t NN_CONN_ENABLED_A = 80;
+
+constexpr uint8_t NN_CONN_DISABLED_R = 80;
+constexpr uint8_t NN_CONN_DISABLED_G = 80;
+constexpr uint8_t NN_CONN_DISABLED_B = 80;
+constexpr uint8_t NN_CONN_DISABLED_A = 40;
+
+constexpr uint8_t NN_NODE_OUTLINE_R = 200;
+constexpr uint8_t NN_NODE_OUTLINE_G = 200;
+constexpr uint8_t NN_NODE_OUTLINE_B = 200;
+constexpr uint8_t NN_NODE_OUTLINE_A = 120;
+
+constexpr uint8_t NN_INPUT_R = 80;
+constexpr uint8_t NN_INPUT_G = 120;
+constexpr uint8_t NN_INPUT_B = 220;
+
+constexpr uint8_t NN_BIAS_R = 60;
+constexpr uint8_t NN_BIAS_G = 180;
+constexpr uint8_t NN_BIAS_B = 220;
+
+constexpr uint8_t NN_HIDDEN_R = 220;
+constexpr uint8_t NN_HIDDEN_G = 200;
+constexpr uint8_t NN_HIDDEN_B = 80;
+
+constexpr uint8_t NN_OUTPUT_R = 220;
+constexpr uint8_t NN_OUTPUT_G = 80;
+constexpr uint8_t NN_OUTPUT_B = 80;
+
+// Energy bucket colors (gray gradient)
+constexpr uint8_t ENERGY_BUCKET_0_R = 60;
+constexpr uint8_t ENERGY_BUCKET_0_G = 60;
+constexpr uint8_t ENERGY_BUCKET_0_B = 60;
+
+constexpr uint8_t ENERGY_BUCKET_1_R = 100;
+constexpr uint8_t ENERGY_BUCKET_1_G = 100;
+constexpr uint8_t ENERGY_BUCKET_1_B = 100;
+
+constexpr uint8_t ENERGY_BUCKET_2_R = 140;
+constexpr uint8_t ENERGY_BUCKET_2_G = 140;
+constexpr uint8_t ENERGY_BUCKET_2_B = 140;
+
+constexpr uint8_t ENERGY_BUCKET_3_R = 180;
+constexpr uint8_t ENERGY_BUCKET_3_G = 180;
+constexpr uint8_t ENERGY_BUCKET_3_B = 180;
+
+constexpr uint8_t ENERGY_BUCKET_4_R = 220;
+constexpr uint8_t ENERGY_BUCKET_4_G = 220;
+constexpr uint8_t ENERGY_BUCKET_4_B = 220;
+
+// Backdrop
+constexpr uint8_t BACKDROP_A = 180;
+
+// Hover highlight
+constexpr uint8_t HOVER_HIGHLIGHT_R = 60;
+constexpr uint8_t HOVER_HIGHLIGHT_G = 60;
+constexpr uint8_t HOVER_HIGHLIGHT_B = 100;
+constexpr uint8_t HOVER_HIGHLIGHT_A = 150;
+
+// Hint text
+constexpr uint8_t HINT_R = 120;
+constexpr uint8_t HINT_G = 120;
+constexpr uint8_t HINT_B = 140;
+} // namespace ui
 
 } // namespace moonai

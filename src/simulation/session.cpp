@@ -186,6 +186,10 @@ void Session::step(float dt) {
         registry_, pair.parent_a, pair.parent_b, pair.spawn_position);
     if (child != INVALID_ENTITY) {
       ++births_in_window_;
+      // Record birth event
+      simulation_.record_event(SimEvent{SimEvent::Birth, child, child,
+                                        pair.parent_a, pair.parent_b,
+                                        pair.spawn_position});
     }
   }
 
