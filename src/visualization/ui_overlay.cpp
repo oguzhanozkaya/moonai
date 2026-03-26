@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <queue>
 #include <spdlog/spdlog.h>
+#include <tuple>
 #include <unordered_map>
 
 namespace moonai {
@@ -117,8 +118,11 @@ void UIOverlay::draw_panel(sf::RenderTarget &target, float x, float y, float w,
                            float h) {
   panel_bg_.setSize({w, h});
   panel_bg_.setPosition({x, y});
-  panel_bg_.setFillColor(sf::Color(10, 10, 20, 200));
-  panel_bg_.setOutlineColor(sf::Color(60, 60, 80, 200));
+  panel_bg_.setFillColor(sf::Color(visual::PANEL_BG_R, visual::PANEL_BG_G,
+                                   visual::PANEL_BG_B, visual::PANEL_ALPHA));
+  panel_bg_.setOutlineColor(
+      sf::Color(visual::PANEL_OUTLINE_R, visual::PANEL_OUTLINE_G,
+                visual::PANEL_OUTLINE_B, visual::PANEL_ALPHA));
   panel_bg_.setOutlineThickness(1.0f);
   target.draw(panel_bg_);
 }
@@ -135,20 +139,20 @@ void UIOverlay::draw_text(sf::RenderTarget &target, const std::string &str,
 void UIOverlay::push_fitness(float best, float avg) {
   best_history_.push_back(best);
   avg_history_.push_back(avg);
-  if (static_cast<int>(best_history_.size()) > CHART_MAX_POINTS) {
+  if (static_cast<int>(best_history_.size()) > charts::CHART_MAX_POINTS) {
     best_history_.pop_front();
     avg_history_.pop_front();
   }
 }
 
-void UIOverlay::push_population(int predators, int prey) {
-  population_history_.push_back({predators, prey});
+void UIOverlay::push_population(int predators, int prey, int food) {
+  population_history_.push_back(std::make_tuple(predators, prey, food));
   // No limit - unlimited growth as requested
 }
 
 void UIOverlay::push_species(int count) {
   species_history_.push_back(count);
-  if (static_cast<int>(species_history_.size()) > CHART_MAX_POINTS) {
+  if (static_cast<int>(species_history_.size()) > charts::CHART_MAX_POINTS) {
     species_history_.pop_front();
   }
 }
@@ -210,11 +214,21 @@ void UIOverlay::draw_stats_panel(sf::RenderTarget &target,
   ty += line_h;
 
   std::snprintf(buf, sizeof(buf), "Predators: %d", stats.alive_predators);
-  draw_text(target, buf, tx, ty, 13, sf::Color(220, 80, 80));
+  draw_text(target, buf, tx, ty, 13,
+            sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G,
+                      chart_colors::PREDATOR_B));
   ty += line_h;
 
   std::snprintf(buf, sizeof(buf), "Prey: %d", stats.alive_prey);
-  draw_text(target, buf, tx, ty, 13, sf::Color(80, 220, 100));
+  draw_text(target, buf, tx, ty, 13,
+            sf::Color(chart_colors::PREY_R, chart_colors::PREY_G,
+                      chart_colors::PREY_B));
+  ty += line_h;
+
+  std::snprintf(buf, sizeof(buf), "Food: %d", stats.active_food);
+  draw_text(target, buf, tx, ty, 13,
+            sf::Color(chart_colors::FOOD_R, chart_colors::FOOD_G,
+                      chart_colors::FOOD_B));
   ty += line_h;
 
   std::snprintf(buf, sizeof(buf), "Species: %d", stats.num_species);
@@ -254,8 +268,9 @@ void UIOverlay::draw_population_chart(sf::RenderTarget &target, float x,
 
   // Find max population for scaling
   int max_pop = 10;
-  for (const auto &[pred, prey] : population_history_) {
-    max_pop = std::max(max_pop, std::max(pred, prey));
+  for (const auto &t : population_history_) {
+    max_pop = std::max(
+        max_pop, std::max({std::get<0>(t), std::get<1>(t), std::get<2>(t)}));
   }
 
   // Show ALL points - unlimited history, compressed X-axis
@@ -269,29 +284,47 @@ void UIOverlay::draw_population_chart(sf::RenderTarget &target, float x,
     return {px, py};
   };
 
-  // Draw predator line (red) - ALL points
+  // Draw predator line (orange) - ALL points
   sf::VertexArray pred_line(sf::PrimitiveType::LineStrip, total_points);
   for (size_t i = 0; i < total_points; ++i) {
     pred_line[static_cast<int>(i)].position =
-        map_point(i, population_history_[i].first);
-    pred_line[static_cast<int>(i)].color = sf::Color(220, 80, 80);
+        map_point(i, std::get<0>(population_history_[i]));
+    pred_line[static_cast<int>(i)].color =
+        sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G,
+                  chart_colors::PREDATOR_B);
   }
   target.draw(pred_line);
 
-  // Draw prey line (green) - ALL points
+  // Draw prey line (cyan) - ALL points
   sf::VertexArray prey_line(sf::PrimitiveType::LineStrip, total_points);
   for (size_t i = 0; i < total_points; ++i) {
     prey_line[static_cast<int>(i)].position =
-        map_point(i, population_history_[i].second);
-    prey_line[static_cast<int>(i)].color = sf::Color(80, 220, 100);
+        map_point(i, std::get<1>(population_history_[i]));
+    prey_line[static_cast<int>(i)].color = sf::Color(
+        chart_colors::PREY_R, chart_colors::PREY_G, chart_colors::PREY_B);
   }
   target.draw(prey_line);
 
+  // Draw food line (yellow) - ALL points
+  sf::VertexArray food_line(sf::PrimitiveType::LineStrip, total_points);
+  for (size_t i = 0; i < total_points; ++i) {
+    food_line[static_cast<int>(i)].position =
+        map_point(i, std::get<2>(population_history_[i]));
+    food_line[static_cast<int>(i)].color = sf::Color(
+        chart_colors::FOOD_R, chart_colors::FOOD_G, chart_colors::FOOD_B);
+  }
+  target.draw(food_line);
+
   // Legend
-  draw_text(target, "Pred", x + w - 80.0f, y + 4.0f, 10,
-            sf::Color(220, 80, 80));
-  draw_text(target, "Prey", x + w - 40.0f, y + 4.0f, 10,
-            sf::Color(80, 220, 100));
+  draw_text(target, "Pred", x + w - 110.0f, y + 4.0f, 10,
+            sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G,
+                      chart_colors::PREDATOR_B));
+  draw_text(target, "Prey", x + w - 70.0f, y + 4.0f, 10,
+            sf::Color(chart_colors::PREY_R, chart_colors::PREY_G,
+                      chart_colors::PREY_B));
+  draw_text(target, "Food", x + w - 30.0f, y + 4.0f, 10,
+            sf::Color(chart_colors::FOOD_R, chart_colors::FOOD_G,
+                      chart_colors::FOOD_B));
 }
 
 void UIOverlay::draw_fitness_by_type(sf::RenderTarget &target,
@@ -311,13 +344,17 @@ void UIOverlay::draw_fitness_by_type(sf::RenderTarget &target,
   // Predator fitness
   std::snprintf(buf, sizeof(buf), "Pred: Best %.1f  Avg %.1f",
                 stats.best_predator_fitness, stats.avg_predator_fitness);
-  draw_text(target, buf, tx, ty, 12, sf::Color(220, 80, 80));
+  draw_text(target, buf, tx, ty, 12,
+            sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G,
+                      chart_colors::PREDATOR_B));
   ty += 18.0f;
 
   // Prey fitness
   std::snprintf(buf, sizeof(buf), "Prey: Best %.1f  Avg %.1f",
                 stats.best_prey_fitness, stats.avg_prey_fitness);
-  draw_text(target, buf, tx, ty, 12, sf::Color(80, 220, 100));
+  draw_text(target, buf, tx, ty, 12,
+            sf::Color(chart_colors::PREY_R, chart_colors::PREY_G,
+                      chart_colors::PREY_B));
   ty += 18.0f;
 
   // Mini bar chart
@@ -327,19 +364,22 @@ void UIOverlay::draw_fitness_by_type(sf::RenderTarget &target,
   float max_fitness =
       std::max({1.0f, stats.best_predator_fitness, stats.best_prey_fitness});
 
-  // Predator bar (red)
+  // Predator bar (orange)
   float pred_w = (stats.avg_predator_fitness / max_fitness) * bar_w;
   sf::RectangleShape pred_bar({pred_w, bar_h});
   pred_bar.setPosition({tx, bar_y});
-  pred_bar.setFillColor(sf::Color(220, 80, 80, 180));
+  pred_bar.setFillColor(sf::Color(chart_colors::PREDATOR_R,
+                                  chart_colors::PREDATOR_G,
+                                  chart_colors::PREDATOR_B, 180));
   target.draw(pred_bar);
 
-  // Prey bar (green) below
+  // Prey bar (cyan) below
   bar_y += bar_h + 2.0f;
   float prey_w = (stats.avg_prey_fitness / max_fitness) * bar_w;
   sf::RectangleShape prey_bar({prey_w, bar_h});
   prey_bar.setPosition({tx, bar_y});
-  prey_bar.setFillColor(sf::Color(80, 220, 100, 180));
+  prey_bar.setFillColor(sf::Color(chart_colors::PREY_R, chart_colors::PREY_G,
+                                  chart_colors::PREY_B, 180));
   target.draw(prey_bar);
 }
 

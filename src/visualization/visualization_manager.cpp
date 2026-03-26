@@ -121,20 +121,36 @@ void VisualizationManager::render_ecs(const Registry &registry,
   // Count entities and calculate stats
   int alive_predators = 0;
   int alive_prey = 0;
+  int active_food = 0;
   int dead_count = 0;
   float pred_dist[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
   float prey_dist[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
 
   const auto &living = registry.living_entities();
+  const auto &food_state = registry.food_state();
+  const auto &identity = registry.identity();
+  const auto &vitals = registry.vitals();
+
+  // Count active food
   for (Entity entity : living) {
     size_t idx = registry.index_of(entity);
-    const auto &vitals = registry.vitals();
-    const auto &identity = registry.identity();
+    if (identity.type[idx] == IdentitySoA::TYPE_FOOD &&
+        food_state.active[idx]) {
+      active_food++;
+    }
+  }
+
+  for (Entity entity : living) {
+    size_t idx = registry.index_of(entity);
+
+    if (identity.type[idx] == IdentitySoA::TYPE_FOOD) {
+      continue; // Skip food in predator/prey counting
+    }
 
     if (vitals.alive[idx]) {
       if (identity.type[idx] == IdentitySoA::TYPE_PREDATOR) {
         alive_predators++;
-      } else {
+      } else if (identity.type[idx] == IdentitySoA::TYPE_PREY) {
         alive_prey++;
       }
 
@@ -189,6 +205,7 @@ void VisualizationManager::render_ecs(const Registry &registry,
   // Update overlay stats
   overlay_stats_.alive_predators = alive_predators;
   overlay_stats_.alive_prey = alive_prey;
+  overlay_stats_.active_food = active_food;
   overlay_stats_.speed_multiplier = speed_multiplier_;
   overlay_stats_.paused = paused_;
   overlay_stats_.selected_agent = (selected_entity_ != INVALID_ENTITY)
@@ -216,7 +233,7 @@ void VisualizationManager::render_ecs(const Registry &registry,
   }
 
   // Update population chart (per step)
-  overlay_.push_population(alive_predators, alive_prey);
+  overlay_.push_population(alive_predators, alive_prey, active_food);
 
   // Get fitness by type from evolution manager
   float best_pred = 0.0f, avg_pred = 0.0f, best_prey_f = 0.0f,

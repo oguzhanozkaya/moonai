@@ -92,10 +92,6 @@ void EvolutionManager::seed_initial_population_ecs(Registry &registry) {
     registry.stats().distance_traveled[idx] = 0.0f;
     registry.stats().offspring_count[idx] = 0;
 
-    registry.visual().radius[idx] = 8.0f;
-    registry.visual().color_rgba[idx] = 0xFF0000FF;
-    registry.visual().shape_type[idx] = 0;
-
     registry.brain().decision_x[idx] = 0.0f;
     registry.brain().decision_y[idx] = 0.0f;
   }
@@ -135,10 +131,6 @@ void EvolutionManager::seed_initial_population_ecs(Registry &registry) {
     registry.stats().distance_traveled[idx] = 0.0f;
     registry.stats().offspring_count[idx] = 0;
 
-    registry.visual().radius[idx] = 8.0f;
-    registry.visual().color_rgba[idx] = 0x00FF00FF;
-    registry.visual().shape_type[idx] = 0;
-
     registry.brain().decision_x[idx] = 0.0f;
     registry.brain().decision_y[idx] = 0.0f;
   }
@@ -146,7 +138,7 @@ void EvolutionManager::seed_initial_population_ecs(Registry &registry) {
   for (int i = 0; i < config_.food_count; ++i) {
     Vec2 pos{rng_.next_float(0.0f, grid_size_f),
              rng_.next_float(0.0f, grid_size_f)};
-    registry.create_food(pos, static_cast<uint32_t>(i), 3.0f, 0x00FF00FF);
+    registry.create_food(pos, static_cast<uint32_t>(i), 3.0f, 0);
   }
 
   network_cache_.invalidate_gpu_cache();
@@ -199,10 +191,6 @@ Entity EvolutionManager::create_offspring_ecs(Registry &registry,
   registry.stats().food_eaten[idx] = 0;
   registry.stats().distance_traveled[idx] = 0.0f;
   registry.stats().offspring_count[idx] = 0;
-
-  registry.visual().radius[idx] = registry.visual().radius[parent_idx];
-  registry.visual().color_rgba[idx] = registry.visual().color_rgba[parent_idx];
-  registry.visual().shape_type[idx] = registry.visual().shape_type[parent_idx];
 
   registry.brain().decision_x[idx] = 0.0f;
   registry.brain().decision_y[idx] = 0.0f;

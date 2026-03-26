@@ -1,5 +1,6 @@
 #include "visualization/renderer.hpp"
 #include "simulation/registry.hpp"
+#include "visualization/visual_constants.hpp"
 
 #include <SFML/Graphics/PrimitiveType.hpp>
 #include <SFML/Graphics/Vertex.hpp>
@@ -25,14 +26,14 @@ void Renderer::draw_background(sf::RenderTarget &target, int width,
                                int height) {
   rect_.setSize({static_cast<float>(width), static_cast<float>(height)});
   rect_.setPosition({0.0f, 0.0f});
-  rect_.setFillColor(sf::Color(20, 20, 30));
+  rect_.setFillColor(sf::Color(visual::BG_R, visual::BG_G, visual::BG_B));
   target.draw(rect_);
 }
 
 void Renderer::draw_grid(sf::RenderTarget &target, int width, int height,
                          float cell_size) {
   sf::VertexArray lines(sf::PrimitiveType::Lines);
-  sf::Color grid_color(40, 40, 55);
+  sf::Color grid_color(visual::GRID_R, visual::GRID_G, visual::GRID_B);
 
   for (float x = 0; x <= static_cast<float>(width); x += cell_size) {
     lines.append(sf::Vertex{{x, 0.0f}, grid_color});
@@ -49,7 +50,7 @@ void Renderer::draw_grid(sf::RenderTarget &target, int width, int height,
 void Renderer::draw_boundaries(sf::RenderTarget &target, int width,
                                int height) {
   sf::VertexArray border(sf::PrimitiveType::LineStrip, 5);
-  sf::Color border_color(100, 100, 140);
+  sf::Color border_color(visual::BORDER_R, visual::BORDER_G, visual::BORDER_B);
 
   float w = static_cast<float>(width);
   float h = static_cast<float>(height);
@@ -64,14 +65,16 @@ void Renderer::draw_boundaries(sf::RenderTarget &target, int width,
 
 void Renderer::draw_food_ecs(sf::RenderTarget &target,
                              const Registry &registry) {
-  circle_.setRadius(3.0f);
-  circle_.setOrigin({3.0f, 3.0f});
+  circle_.setRadius(sizes::FOOD_RADIUS);
+  circle_.setOrigin({sizes::FOOD_RADIUS, sizes::FOOD_RADIUS});
 
   const auto &living = registry.living_entities();
   const auto &positions = registry.positions();
   const auto &identity = registry.identity();
   const auto &food_state = registry.food_state();
-  const auto &visual = registry.visual();
+
+  sf::Color color(chart_colors::FOOD_R, chart_colors::FOOD_G,
+                  chart_colors::FOOD_B, 180);
 
   for (Entity entity : living) {
     size_t idx = registry.index_of(entity);
@@ -82,15 +85,6 @@ void Renderer::draw_food_ecs(sf::RenderTarget &target,
 
     if (!food_state.active[idx]) {
       continue;
-    }
-
-    sf::Color color(100, 200, 50, 180);
-    if (idx < visual.color_rgba.size() && visual.color_rgba[idx] != 0) {
-      uint32_t rgba = visual.color_rgba[idx];
-      color.r = static_cast<uint8_t>((rgba >> 24) & 0xFF);
-      color.g = static_cast<uint8_t>((rgba >> 16) & 0xFF);
-      color.b = static_cast<uint8_t>((rgba >> 8) & 0xFF);
-      color.a = static_cast<uint8_t>(rgba & 0xFF);
     }
 
     circle_.setPosition({positions.x[idx], positions.y[idx]});
@@ -111,21 +105,17 @@ void Renderer::draw_agent_ecs(sf::RenderTarget &target,
   const auto &positions = registry.positions();
   const auto &motion = registry.motion();
   const auto &identity = registry.identity();
-  const auto &visual = registry.visual();
 
   sf::Color base_color;
-  if (idx < visual.color_rgba.size() && visual.color_rgba[idx] != 0) {
-    uint32_t rgba = visual.color_rgba[idx];
-    base_color.r = static_cast<uint8_t>((rgba >> 24) & 0xFF);
-    base_color.g = static_cast<uint8_t>((rgba >> 16) & 0xFF);
-    base_color.b = static_cast<uint8_t>((rgba >> 8) & 0xFF);
-    base_color.a = static_cast<uint8_t>(rgba & 0xFF);
+  float visual_radius;
+  if (identity.type[idx] == IdentitySoA::TYPE_PREDATOR) {
+    base_color = sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G,
+                           chart_colors::PREDATOR_B);
+    visual_radius = sizes::PREDATOR_RADIUS;
   } else {
-    if (identity.type[idx] == IdentitySoA::TYPE_PREDATOR) {
-      base_color = sf::Color(220, 60, 60);
-    } else {
-      base_color = sf::Color(60, 200, 80);
-    }
+    base_color = sf::Color(chart_colors::PREY_R, chart_colors::PREY_G,
+                           chart_colors::PREY_B);
+    visual_radius = sizes::PREY_RADIUS;
   }
 
   if (selected) {
@@ -138,14 +128,7 @@ void Renderer::draw_agent_ecs(sf::RenderTarget &target,
                           std::min(255, base_color.g + 30),
                           std::min(255, base_color.b + 30));
 
-  float visual_radius = (idx < visual.radius.size() && visual.radius[idx] > 0)
-                            ? visual.radius[idx]
-                            : 8.0f;
-
-  uint8_t shape = (idx < visual.shape_type.size()) ? visual.shape_type[idx] : 0;
-  bool is_triangle =
-      (shape == 1) ||
-      (shape == 0 && identity.type[idx] == IdentitySoA::TYPE_PREDATOR);
+  bool is_triangle = identity.type[idx] == IdentitySoA::TYPE_PREDATOR;
 
   if (is_triangle) {
     float size = visual_radius;
@@ -214,8 +197,9 @@ void Renderer::draw_vision_range_ecs(sf::RenderTarget &target,
   sf::CircleShape vision(r, 60);
   vision.setOrigin({r, r});
   vision.setPosition({positions.x[idx], positions.y[idx]});
-  vision.setFillColor(sf::Color(255, 255, 255, 15));
-  vision.setOutlineColor(sf::Color(255, 255, 255, 40));
+  vision.setFillColor(sf::Color(255, 255, 255, visual::VISION_FILL_ALPHA));
+  vision.setOutlineColor(
+      sf::Color(255, 255, 255, visual::VISION_OUTLINE_ALPHA));
   vision.setOutlineThickness(1.0f);
   target.draw(vision);
 }
@@ -264,9 +248,11 @@ void Renderer::draw_sensor_lines_ecs(sf::RenderTarget &target,
     const auto &other_identity = registry.identity();
     sf::Color line_color;
     if (other_identity.type[other_idx] == IdentitySoA::TYPE_PREDATOR) {
-      line_color = sf::Color(255, 80, 80, 80);
+      line_color = sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G,
+                             chart_colors::PREDATOR_B, visual::SENSOR_ALPHA);
     } else {
-      line_color = sf::Color(80, 255, 80, 80);
+      line_color = sf::Color(chart_colors::PREY_R, chart_colors::PREY_G,
+                             chart_colors::PREY_B, visual::SENSOR_ALPHA);
     }
 
     lines.append(sf::Vertex{{pos.x, pos.y}, line_color});
@@ -288,7 +274,8 @@ void Renderer::draw_sensor_lines_ecs(sf::RenderTarget &target,
     if (diff.length() > vision)
       continue;
 
-    sf::Color food_line(200, 200, 50, 60);
+    sf::Color food_line(chart_colors::FOOD_R, chart_colors::FOOD_G,
+                        chart_colors::FOOD_B, visual::FOOD_SENSOR_ALPHA);
     lines.append(sf::Vertex{{pos.x, pos.y}, food_line});
     lines.append(sf::Vertex{{food_pos.x, food_pos.y}, food_line});
   }

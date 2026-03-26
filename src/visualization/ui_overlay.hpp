@@ -1,6 +1,7 @@
 #pragma once
 
 #include "evolution/genome.hpp"
+#include "visualization/visual_constants.hpp"
 
 #include <SFML/Graphics/CircleShape.hpp>
 #include <SFML/Graphics/Font.hpp>
@@ -24,6 +25,7 @@ struct OverlayStats {
   int max_steps = 1500;
   int alive_predators = 0;
   int alive_prey = 0;
+  int active_food = 0;
   float best_fitness = 0.0f;
   float avg_fitness = 0.0f;
   int num_species = 0;
@@ -75,7 +77,7 @@ public:
   // Set node activation values for the selected agent's NN panel
   void set_activations(const std::unordered_map<std::uint32_t, float> &vals);
 
-  void push_population(int predators, int prey);
+  void push_population(int predators, int prey, int food);
 
   void push_species(int count);
 
@@ -105,12 +107,11 @@ private:
   void draw_event_counts(sf::RenderTarget &target, const OverlayStats &stats,
                          float x, float y, float w, float h);
 
-  static constexpr int CHART_MAX_POINTS = 150;
   std::deque<float> best_history_;
   std::deque<float> avg_history_;
 
-  // Population history: pair of {predators, prey}
-  std::deque<std::pair<int, int>> population_history_;
+  // Population history: tuple of {predators, prey, food}
+  std::deque<std::tuple<int, int, int>> population_history_;
   std::deque<int> species_history_;
 
   std::unordered_map<std::uint32_t, float> node_activations_;

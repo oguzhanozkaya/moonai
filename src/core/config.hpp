@@ -14,21 +14,21 @@ struct SimulationConfig {
   int grid_size = 3000;
   BoundaryMode boundary_mode = BoundaryMode::Wrap;
 
-  int predator_count = 500;
-  int prey_count = 1500;
+  int predator_count = 600;
+  int prey_count = 2400;
 
-  float predator_speed = 4.0f;
-  float prey_speed = 4.5f;
-  float vision_range = 200.0f;
-  float attack_range = 20.0f;
-  float initial_energy = 150.0f;
-  float energy_drain_per_step = 0.08f;
-  float energy_gain_from_kill = 60.0f;
-  float energy_gain_from_food = 40.0f;
+  float predator_speed = 6.0f;
+  float prey_speed = 5.4f;
+  float vision_range = 300.0f;
+  float attack_range = 12.0f;
+  float initial_energy = 120.0f;
+  float energy_drain_per_step = 1.2f;
+  float energy_gain_from_kill = 36.0f;
+  float energy_gain_from_food = 48.0f;
   float food_pickup_range = 12.0f;
 
-  int food_count = 2500;
-  float food_respawn_rate = 0.02f;
+  int food_count = 3000;
+  float food_respawn_rate = 0.006f;
 
   float mutation_rate = 0.3f;
   float crossover_rate = 0.75f;
@@ -45,18 +45,18 @@ struct SimulationConfig {
   float c3_weight = 0.4f;
   int species_update_interval_steps = 60;
 
-  int target_fps = 60;
+  int target_fps = 200;
   std::uint64_t seed = 0;
 
   std::string output_dir = "output";
-  int report_interval_steps = 60;
+  int report_interval_steps = 100;
 
-  float mate_range = 40.0f;
-  float reproduction_energy_threshold = 175.0f;
-  float reproduction_energy_cost = 45.0f;
-  float offspring_initial_energy = 80.0f;
-  int min_reproductive_age_steps = 90;
-  int reproduction_cooldown_steps = 180;
+  float mate_range = 60.0f;
+  float reproduction_energy_threshold = 180.0f;
+  float reproduction_energy_cost = 60.0f;
+  float offspring_initial_energy = 100.0f;
+  int min_reproductive_age_steps = 120;
+  int reproduction_cooldown_steps = 300;
   float birth_spawn_radius = 8.0f;
 
   float fitness_survival_weight = 1.0f;

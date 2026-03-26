@@ -69,8 +69,8 @@ public:
       const std::vector<float> &vals,
       const std::unordered_map<std::uint32_t, int> &idx_map);
 
-  void update_population_chart(int predators, int prey) {
-    overlay_.push_population(predators, prey);
+  void update_population_chart(int predators, int prey, int food) {
+    overlay_.push_population(predators, prey, food);
   }
 
   void set_fitness_by_type(float best_pred, float avg_pred, float best_prey,

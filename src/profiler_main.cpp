@@ -7,7 +7,6 @@
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
-#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
