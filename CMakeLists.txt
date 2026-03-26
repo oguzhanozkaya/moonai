@@ -69,6 +69,7 @@ target_link_libraries(moonai_profiler PRIVATE
     moonai_simulation_profiler
     moonai_evolution_profiler
     moonai_data_profiler
+    moonai_visualization_profiler
 )
 target_compile_definitions(moonai_profiler PRIVATE MOONAI_BUILD_PROFILER)
 

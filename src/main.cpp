@@ -1,20 +1,18 @@
 #include "core/config.hpp"
 #include "core/random.hpp"
 #include "data/logger.hpp"
-#include "data/metrics.hpp"
 #include "evolution/evolution_manager.hpp"
 #include "simulation/components.hpp"
-#include "simulation/registry.hpp"
-#include "simulation/simulation_manager.hpp"
+#include "simulation/session.hpp"
 #include "visualization/visualization_manager.hpp"
 
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
-#include <chrono>
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
+#include <limits>
 
 namespace {
 
@@ -26,40 +24,7 @@ void signal_handler(int) {
 
 int run_experiment(const std::string &name, moonai::SimulationConfig config,
                    const moonai::CLIArgs &args) {
-  if (args.seed_override != 0) {
-    config.seed = args.seed_override;
-  }
-  if (args.max_steps_override != 0) {
-    config.max_steps = args.max_steps_override;
-  }
-
-  const auto errors = moonai::validate_config(config);
-  if (!errors.empty()) {
-    for (const auto &error : errors) {
-      spdlog::error("Config error [{}]: {}", error.field, error.message);
-    }
-    return 1;
-  }
-
-  if (config.seed == 0) {
-    config.seed = static_cast<std::uint64_t>(
-        std::chrono::steady_clock::now().time_since_epoch().count());
-  }
-
-  moonai::Random rng(config.seed);
-  moonai::Registry registry;
-  moonai::SimulationManager simulation(config);
-  moonai::EvolutionManager evolution(config, rng);
-  moonai::Logger logger(config.output_dir, config.seed,
-                        args.run_name.empty() ? name : args.run_name);
-  moonai::MetricsCollector metrics;
-
-  simulation.initialize();
-  evolution.initialize(moonai::SensorSoA::INPUT_COUNT, 2);
-  evolution.seed_initial_population_ecs(registry);
-  simulation.refresh_state_ecs(registry);
-  logger.initialize(config);
-
+  // Check for display
   bool headless = args.headless;
   if (!headless && std::getenv("DISPLAY") == nullptr &&
       std::getenv("WAYLAND_DISPLAY") == nullptr) {
@@ -67,71 +32,40 @@ int run_experiment(const std::string &name, moonai::SimulationConfig config,
     spdlog::warn("No display server found; switching to headless mode.");
   }
 
-  moonai::VisualizationManager visualization(config);
-  if (!headless) {
-    visualization.initialize();
+  // Build SessionConfig
+  moonai::SessionConfig session_cfg;
+  session_cfg.sim_config = config;
+  session_cfg.experiment_name = name;
+  session_cfg.output_dir = config.output_dir;
+  session_cfg.seed = args.seed_override != 0 ? args.seed_override : config.seed;
+  session_cfg.headless = headless;
+  session_cfg.enable_gpu = !args.no_gpu;
+  session_cfg.enable_logger = true;
+  session_cfg.run_name_override =
+      args.run_name.empty() ? std::nullopt : std::optional(args.run_name);
+
+  if (args.max_steps_override != 0) {
+    session_cfg.sim_config.max_steps = args.max_steps_override;
   }
 
+  // Create Session
+  moonai::Session session(session_cfg);
+
   const float dt = 1.0f / static_cast<float>(config.target_fps);
-  int steps_executed = 0;
-  int births_in_window = 0;
-  int deaths_in_window = 0;
-  std::vector<moonai::Vec2> actions;
+  auto *visualization = session.visualization();
 
-  auto record_window = [&]() {
-    evolution.refresh_species_ecs(registry);
+  auto update_selected_visualization = [&session, visualization]() -> void {
+    if (!visualization)
+      return;
 
-    float best_predator = 0.0f, avg_predator = 0.0f;
-    float best_prey = 0.0f, avg_prey = 0.0f;
-    evolution.get_fitness_by_type_ecs(registry, best_predator, avg_predator,
-                                      best_prey, avg_prey);
-
-    int alive_predators = 0, alive_prey = 0;
-    for (moonai::Entity e : registry.living_entities()) {
-      size_t idx = registry.index_of(e);
-      if (registry.vitals().alive[idx]) {
-        if (registry.identity().type[idx] ==
-            moonai::IdentitySoA::TYPE_PREDATOR) {
-          alive_predators++;
-        } else {
-          alive_prey++;
-        }
-      }
-    }
-
-    auto snapshot = metrics.collect_ecs(steps_executed, registry, evolution,
-                                        births_in_window, deaths_in_window,
-                                        evolution.species_count());
-    logger.log_report(snapshot);
-
-    const moonai::Genome *best_genome = nullptr;
-    float best_fitness = -std::numeric_limits<float>::infinity();
-    for (moonai::Entity e : registry.living_entities()) {
-      const auto *genome = evolution.genome_for(e);
-      if (genome && genome->fitness() > best_fitness) {
-        best_fitness = genome->fitness();
-        best_genome = genome;
-      }
-    }
-    if (best_genome) {
-      logger.log_best_genome(steps_executed, *best_genome);
-    }
-
-    logger.log_species(steps_executed, evolution.species());
-    logger.flush();
-    births_in_window = 0;
-    deaths_in_window = 0;
-    return snapshot;
-  };
-
-  auto update_selected_visualization = [&]() {
-    moonai::Entity selected = visualization.selected_entity();
+    moonai::Entity selected = visualization->selected_entity();
+    auto &registry = session.registry();
     if (selected == moonai::INVALID_ENTITY || !registry.valid(selected)) {
       return;
     }
 
     size_t idx = registry.index_of(selected);
-    const auto *genome = evolution.genome_for(selected);
+    const auto *genome = session.evolution().genome_for(selected);
     if (!genome || !registry.vitals().alive[idx]) {
       return;
     }
@@ -141,122 +75,73 @@ int run_experiment(const std::string &name, moonai::SimulationConfig config,
                                   sensors + moonai::SensorSoA::INPUT_COUNT);
 
     moonai::NeuralNetwork *network =
-        evolution.network_cache().get_network(selected);
+        session.evolution().network_cache().get_network(selected);
     if (network) {
       network->activate(sensor_vec);
-      visualization.set_selected_activations(network->last_activations(),
-                                             network->node_index_map());
+      visualization->set_selected_activations(network->last_activations(),
+                                              network->node_index_map());
     }
   };
 
-  auto advance_one_step = [&]() {
-    evolution.compute_actions_ecs(registry, actions);
+  auto advance_one_step = [&session, dt, &config]() -> void {
+    session.step(dt);
 
-    size_t action_idx = 0;
-    for (moonai::Entity e : registry.living_entities()) {
-      size_t idx = registry.index_of(e);
-      if (!registry.vitals().alive[idx]) {
-        continue;
-      }
-
-      if (action_idx < actions.size()) {
-        float dx = actions[action_idx].x;
-        float dy = actions[action_idx].y;
-        float speed = registry.motion().speed[idx];
-
-        registry.motion().vel_x[idx] = dx * speed;
-        registry.motion().vel_y[idx] = dy * speed;
-
-        registry.positions().x[idx] += registry.motion().vel_x[idx] * dt;
-        registry.positions().y[idx] += registry.motion().vel_y[idx] * dt;
-
-        registry.stats().distance_traveled[idx] +=
-            std::sqrt(dx * dx + dy * dy) * speed * dt;
-
-        action_idx++;
-      }
-    }
-
-    simulation.step_ecs(registry, dt);
-
-    auto pairs = simulation.find_reproduction_pairs_ecs(registry);
-    for (const auto &pair : pairs) {
-      moonai::Entity child = evolution.create_offspring_ecs(
-          registry, pair.parent_a, pair.parent_b, pair.spawn_position);
-      if (child != moonai::INVALID_ENTITY) {
-        births_in_window++;
-      }
-    }
-
-    evolution.refresh_fitness_ecs(registry);
-
-    if (config.species_update_interval_steps > 0 &&
-        (steps_executed % config.species_update_interval_steps) == 0) {
-      evolution.refresh_species_ecs(registry);
-    }
-
-    for (const auto &event : simulation.last_events()) {
-      if (event.type == moonai::SimEvent::Death) {
-        deaths_in_window++;
-      }
-    }
-
-    ++steps_executed;
-
-    if (config.step_log_enabled &&
-        (steps_executed % config.step_log_interval) == 0) {
-      logger.log_step(steps_executed, registry);
-    }
-    logger.log_events(steps_executed, simulation.last_events());
-
-    if ((steps_executed % config.report_interval_steps) == 0) {
-      const auto snapshot = record_window();
+    if (session.steps_executed() % config.report_interval_steps == 0) {
+      auto snapshot = session.record_and_log(session.births_in_window(),
+                                             session.deaths_in_window());
       spdlog::info(
           "Step {:>6d}: predators={} prey={} births={} deaths={} species={}",
-          steps_executed, simulation.alive_predators(), simulation.alive_prey(),
-          snapshot.births, snapshot.deaths, evolution.species_count());
+          session.steps_executed(), snapshot.predator_count,
+          snapshot.prey_count, snapshot.births, snapshot.deaths,
+          snapshot.num_species);
     }
   };
 
-  while (g_running &&
-         (config.max_steps == 0 || steps_executed < config.max_steps)) {
+  while (g_running && (config.max_steps == 0 ||
+                       session.steps_executed() < config.max_steps)) {
     if (headless) {
       advance_one_step();
       continue;
     }
 
-    visualization.handle_events();
-    if (visualization.should_close()) {
+    visualization->handle_events();
+    if (visualization->should_close()) {
       break;
     }
 
-    if (visualization.is_paused() && !visualization.should_step()) {
-      visualization.render_ecs(registry, evolution, simulation, steps_executed);
+    if (visualization->is_paused() && !visualization->should_step()) {
+      visualization->render_ecs(session.registry(), session.evolution(),
+                                session.simulation(), session.steps_executed());
       continue;
     }
-    visualization.clear_step();
+    visualization->clear_step();
 
-    const int frame_steps = std::max(1, visualization.speed_multiplier());
-    for (int i = 0;
-         i < frame_steps &&
-         (config.max_steps == 0 || steps_executed < config.max_steps) &&
-         g_running;
+    const int frame_steps = std::max(1, visualization->speed_multiplier());
+    for (int i = 0; i < frame_steps &&
+                    (config.max_steps == 0 ||
+                     session.steps_executed() < config.max_steps) &&
+                    g_running;
          ++i) {
       advance_one_step();
     }
 
     update_selected_visualization();
 
-    visualization.render_ecs(registry, evolution, simulation, steps_executed);
+    visualization->render_ecs(session.registry(), session.evolution(),
+                              session.simulation(), session.steps_executed());
   }
 
-  if (births_in_window > 0 || deaths_in_window > 0 ||
-      metrics.history().empty()) {
-    record_window();
+  // Final record if needed
+  if (session.births_in_window() > 0 || session.deaths_in_window() > 0 ||
+      session.metrics().history().empty()) {
+    session.record_and_log(session.births_in_window(),
+                           session.deaths_in_window());
   }
 
-  logger.flush();
-  spdlog::info("Output saved to: {}", logger.run_dir());
+  if (session.logger()) {
+    session.logger()->flush();
+    spdlog::info("Output saved to: {}", session.logger()->run_dir());
+  }
   return 0;
 }
 

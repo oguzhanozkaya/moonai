@@ -5,6 +5,7 @@
 #include "evolution/evolution_manager.hpp"
 #include "simulation/components.hpp"
 #include "simulation/registry.hpp"
+#include "simulation/session.hpp"
 #include "simulation/simulation_manager.hpp"
 
 #include <nlohmann/json.hpp>
@@ -13,7 +14,6 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
-#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
@@ -324,33 +324,36 @@ std::string utc_timestamp_for_path() {
 }
 
 RunResult run_profiler(const std::string &experiment_name,
-                           const std::string &output_dir, int windows,
-                           std::uint64_t seed, bool no_gpu) {
-  moonai::SimulationConfig config;
-  config.seed = seed;
-  config.max_steps = windows * config.report_interval_steps;
+                       const std::string &output_dir, int windows,
+                       std::uint64_t seed, bool no_gpu) {
+  using namespace moonai;
 
-  moonai::Random rng(config.seed);
-  moonai::Registry registry;
-  moonai::SimulationManager simulation(config);
-  moonai::EvolutionManager evolution(config, rng);
-  moonai::MetricsCollector metrics;
+  // Build SessionConfig
+  SessionConfig session_cfg;
+  session_cfg.sim_config = SimulationConfig(); // default config
+  session_cfg.sim_config.seed = seed;
+  session_cfg.sim_config.max_steps =
+      windows * session_cfg.sim_config.report_interval_steps;
+  session_cfg.experiment_name = experiment_name;
+  session_cfg.output_dir = output_dir;
+  session_cfg.seed = seed;
+  session_cfg.headless = true;
+  session_cfg.enable_gpu = !no_gpu;
+  session_cfg.enable_logger = false; // Profiler doesn't need logger
 
-  simulation.initialize();
-  evolution.initialize(moonai::SensorSoA::INPUT_COUNT, 2);
-  evolution.seed_initial_population_ecs(registry);
-  evolution.enable_gpu(!no_gpu);
+  // Create Session
+  Session session(session_cfg);
 
-  auto &profiler = moonai::profiler::Profiler::instance();
+  auto &profiler = profiler::Profiler::instance();
   profiler.set_enabled(true);
 
   // Initialize run config
-  moonai::profiler::RunConfig run_cfg;
+  profiler::RunConfig run_cfg;
   run_cfg.experiment = experiment_name;
   run_cfg.output_root = output_dir;
   run_cfg.seed = seed;
-  run_cfg.total_steps = config.max_steps;
-  run_cfg.report_interval = config.report_interval_steps;
+  run_cfg.total_steps = session_cfg.sim_config.max_steps;
+  run_cfg.report_interval = session_cfg.sim_config.report_interval_steps;
   run_cfg.gpu_allowed = !no_gpu;
 #ifdef MOONAI_ENABLE_CUDA
   run_cfg.cuda_compiled = true;
@@ -366,54 +369,23 @@ RunResult run_profiler(const std::string &experiment_name,
   profiler.start_run(run_cfg);
 
   const auto run_start = std::chrono::steady_clock::now();
-  const float dt = 1.0f / static_cast<float>(config.target_fps);
-  std::vector<moonai::Vec2> actions;
+  const float dt = 1.0f / static_cast<float>(session_cfg.sim_config.target_fps);
   int steps_executed = 0;
 
   for (int window = 0; window < windows; ++window) {
     profiler.start_window(window);
-    const int window_end = std::min(
-        config.max_steps, steps_executed + config.report_interval_steps);
+    const int window_end =
+        std::min(session_cfg.sim_config.max_steps,
+                 steps_executed + session_cfg.sim_config.report_interval_steps);
 
     while (steps_executed < window_end) {
-      // CPU path: compute actions and step simulation (GPU disabled in ECS mode
-      // for profiler)
-      evolution.compute_actions_ecs(registry, actions);
-
-      // Apply actions to entities
-      size_t action_idx = 0;
-      for (moonai::Entity e : registry.living_entities()) {
-        size_t idx = registry.index_of(e);
-        if (!registry.vitals().alive[idx]) {
-          continue;
-        }
-
-        if (action_idx < actions.size()) {
-          float dx = actions[action_idx].x;
-          float dy = actions[action_idx].y;
-          float speed = registry.motion().speed[idx];
-
-          registry.motion().vel_x[idx] = dx * speed;
-          registry.motion().vel_y[idx] = dy * speed;
-          registry.positions().x[idx] += registry.motion().vel_x[idx] * dt;
-          registry.positions().y[idx] += registry.motion().vel_y[idx] * dt;
-          registry.stats().distance_traveled[idx] +=
-              std::sqrt(dx * dx + dy * dy) * speed * dt;
-
-          action_idx++;
-        }
-      }
-
-      simulation.step_ecs(registry, dt);
-
-      const auto pairs = simulation.find_reproduction_pairs_ecs(registry);
-      for (const auto &pair : pairs)
-        evolution.create_offspring_ecs(registry, pair.parent_a, pair.parent_b,
-                                       pair.spawn_position);
-
-      evolution.refresh_fitness_ecs(registry);
+      session.step(dt);
       ++steps_executed;
     }
+
+    auto &evolution = session.evolution();
+    auto &metrics = session.metrics();
+    auto &registry = session.registry();
 
     evolution.refresh_species_ecs(registry);
     const auto snapshot = metrics.collect_ecs(
@@ -463,7 +435,6 @@ void write_manifest(const std::string &experiment_name, int windows,
 
 int main(int argc, const char *argv[]) {
   const Args args = parse_args(argc, argv);
-  moonai::SimulationConfig config;
 
   std::vector<RunResult> runs;
   runs.reserve(args.seeds.size());
@@ -473,7 +444,7 @@ int main(int argc, const char *argv[]) {
 
   for (std::uint64_t seed : args.seeds) {
     runs.push_back(run_profiler(args.experiment_name, args.output_dir,
-                                    args.windows, seed, args.no_gpu));
+                                args.windows, seed, args.no_gpu));
   }
 
   write_manifest(args.experiment_name, args.windows, std::move(runs),

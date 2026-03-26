@@ -3,6 +3,7 @@ set(MOONAI_SIMULATION_SOURCES
     registry.cpp
     system.cpp
     spatial_grid_ecs.cpp
+    session.cpp
     systems/movement.cpp
     systems/sensor.cpp
     systems/combat.cpp
