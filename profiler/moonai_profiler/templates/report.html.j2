@@ -350,14 +350,9 @@
     <details id="run-{{ loop.index }}" {% if loop.first %}open{% endif %}>
       <summary>{{ run.name }}</summary>
       <div class="details-body">
-        <p class="run-meta">
-          <em>{{ run.trim_note }}</em>
-        </p>
-
         {% if run.members %}
         <h3>Suite Members</h3>
         <table>
-          <caption>All six raw suite members and their trim disposition.</caption>
           <thead>
             <tr>
               <th>Seed</th>
