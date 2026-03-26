@@ -196,11 +196,10 @@ bench-nn: release
     ./build/linux-release/moonai config.lua \
         --experiment pop_large_seed42 --headless --steps 60 -v 2>&1 | grep -E "CPU eval|GPU eval|CUDA"
 
-# Run the built-in profiler on the base experiment
+# Run the built-in profiler with default settings
 [group('dev')]
 profile: release
-    ./build/linux-release/moonai_profiler profiler.lua \
-        --suite base
+    ./build/linux-release/moonai_profiler
 
 # Run Nsight Compute on the hottest GPU kernel with CLI output only (requires sudo for GPU perf counters)
 [group('gpu')]

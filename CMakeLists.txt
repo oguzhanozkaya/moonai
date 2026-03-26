@@ -104,10 +104,7 @@ add_custom_command(TARGET moonai_profiler POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_SOURCE_DIR}/config.lua
         $<TARGET_FILE_DIR:moonai_profiler>/config.lua
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_SOURCE_DIR}/profiler.lua
-        $<TARGET_FILE_DIR:moonai_profiler>/profiler.lua
-    COMMENT "Copying profiler configs to build directory"
+    COMMENT "Copying profiler config to build directory"
 )
 
 # ── Tests ────────────────────────────────────────────────────────────────────

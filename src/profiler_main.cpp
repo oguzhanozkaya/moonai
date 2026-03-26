@@ -10,9 +10,6 @@
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
-#define SOL_ALL_SAFETIES_ON 1
-#include <sol/sol.hpp>
-
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -264,107 +261,48 @@ nlohmann::json Profiler::finish_run(std::int64_t run_total_ns) {
   return profile;
 }
 
-struct SuiteConfig {
-  std::string name;
-  std::vector<std::uint64_t> seeds;
-  int windows = 24;
-  std::string output_dir = "output/profiles";
-};
-
-std::map<std::string, SuiteConfig>
-load_suites_lua(const std::string &filepath) {
-  std::map<std::string, SuiteConfig> suites;
-
-  sol::state lua;
-  lua.open_libraries(sol::lib::base, sol::lib::math, sol::lib::table,
-                     sol::lib::string);
-
-  try {
-    sol::protected_function_result result = lua.safe_script_file(filepath);
-    if (!result.valid()) {
-      sol::error err = result;
-      spdlog::error("Lua profiler config error in '{}': {}", filepath,
-                    err.what());
-      return suites;
-    }
-
-    sol::object obj = result;
-    if (obj.get_type() != sol::type::table) {
-      spdlog::error("Lua profiler config '{}' must return a table", filepath);
-      return suites;
-    }
-
-    sol::table root = obj.as<sol::table>();
-    for (auto &[key, value] : root) {
-      if (key.get_type() != sol::type::string ||
-          value.get_type() != sol::type::table) {
-        continue;
-      }
-
-      SuiteConfig suite;
-      suite.name = key.as<std::string>();
-      const sol::table tbl = value.as<sol::table>();
-
-      if (auto entry = tbl["windows"]; entry.valid())
-        suite.windows = entry.get<int>();
-      if (auto entry = tbl["output_dir"]; entry.valid())
-        suite.output_dir = entry.get<std::string>();
-
-      const sol::object seeds_obj = tbl["seeds"];
-      if (seeds_obj.valid() && seeds_obj.get_type() == sol::type::table) {
-        const sol::table seeds_tbl = seeds_obj.as<sol::table>();
-        for (auto &[_, seed_value] : seeds_tbl) {
-          if (!seed_value.valid())
-            continue;
-          suite.seeds.push_back(
-              static_cast<std::uint64_t>(seed_value.as<double>()));
-        }
-      }
-
-      if (suite.seeds.empty()) {
-        spdlog::warn("Profiler suite '{}' has no seeds", suite.name);
-        continue;
-      }
-
-      suites[suite.name] = std::move(suite);
-    }
-
-    if (suites.empty()) {
-      spdlog::error("Lua profiler config '{}' returned no named suites.",
-                    filepath);
-    } else {
-      spdlog::info("Loaded {} profiler suite(s) from '{}'.", suites.size(),
-                   filepath);
-    }
-  } catch (const std::exception &e) {
-    spdlog::error("Failed to load Lua profiler config '{}': {}", filepath,
-                  e.what());
-  }
-
-  return suites;
-}
-
 } // namespace profiler
 } // namespace moonai
 
 namespace {
 
 struct Args {
-  std::string profiler_config = "profiler.lua";
-  std::string suite_name;
+  int windows = 6;
+  std::vector<std::uint64_t> seeds = {41, 42, 43, 44, 45, 46};
+  std::string output_dir = "output/profiles";
+  std::string experiment_name = "profile";
   bool no_gpu = false;
 };
+
+std::vector<std::uint64_t> parse_seeds(const std::string &str) {
+  std::vector<std::uint64_t> seeds;
+  std::stringstream ss(str);
+  std::string item;
+  while (std::getline(ss, item, ',')) {
+    // Trim whitespace
+    item.erase(0, item.find_first_not_of(" \t"));
+    item.erase(item.find_last_not_of(" \t") + 1);
+    if (!item.empty()) {
+      seeds.push_back(static_cast<std::uint64_t>(std::stoull(item)));
+    }
+  }
+  return seeds;
+}
 
 Args parse_args(int argc, const char *argv[]) {
   Args args;
   for (int i = 1; i < argc; ++i) {
     const std::string arg = argv[i];
-    if (arg == "--suite" && i + 1 < argc) {
-      args.suite_name = argv[++i];
+    if (arg == "--windows" && i + 1 < argc) {
+      args.windows = std::stoi(argv[++i]);
+    } else if (arg == "--seeds" && i + 1 < argc) {
+      args.seeds = parse_seeds(argv[++i]);
+    } else if (arg == "--output-dir" && i + 1 < argc) {
+      args.output_dir = argv[++i];
+    } else if (arg == "--name" && i + 1 < argc) {
+      args.experiment_name = argv[++i];
     } else if (arg == "--no-gpu") {
       args.no_gpu = true;
-    } else if (!arg.empty() && arg[0] != '-') {
-      args.profiler_config = arg;
     }
   }
   return args;
@@ -385,11 +323,12 @@ std::string utc_timestamp_for_path() {
   return std::string(buf);
 }
 
-RunResult run_suite_member(const moonai::profiler::SuiteConfig &suite,
-                           moonai::SimulationConfig config, std::uint64_t seed,
-                           bool no_gpu) {
+RunResult run_profiler_run(const std::string &experiment_name,
+                           const std::string &output_dir, int windows,
+                           std::uint64_t seed, bool no_gpu) {
+  moonai::SimulationConfig config;
   config.seed = seed;
-  config.max_steps = suite.windows * config.report_interval_steps;
+  config.max_steps = windows * config.report_interval_steps;
 
   moonai::Random rng(config.seed);
   moonai::Registry registry;
@@ -407,8 +346,8 @@ RunResult run_suite_member(const moonai::profiler::SuiteConfig &suite,
 
   // Initialize run config
   moonai::profiler::RunConfig run_cfg;
-  run_cfg.experiment = suite.name;
-  run_cfg.output_root = suite.output_dir;
+  run_cfg.experiment = experiment_name;
+  run_cfg.output_root = output_dir;
   run_cfg.seed = seed;
   run_cfg.total_steps = config.max_steps;
   run_cfg.report_interval = config.report_interval_steps;
@@ -423,7 +362,7 @@ RunResult run_suite_member(const moonai::profiler::SuiteConfig &suite,
 #else
   run_cfg.openmp_compiled = false;
 #endif
-  run_cfg.suite = suite.name;
+  run_cfg.suite = experiment_name;
   profiler.start_run(run_cfg);
 
   const auto run_start = std::chrono::steady_clock::now();
@@ -431,7 +370,7 @@ RunResult run_suite_member(const moonai::profiler::SuiteConfig &suite,
   std::vector<moonai::Vec2> actions;
   int steps_executed = 0;
 
-  for (int window = 0; window < suite.windows; ++window) {
+  for (int window = 0; window < windows; ++window) {
     profiler.start_window(window);
     const int window_end = std::min(
         config.max_steps, steps_executed + config.report_interval_steps);
@@ -496,20 +435,18 @@ RunResult run_suite_member(const moonai::profiler::SuiteConfig &suite,
   return result;
 }
 
-void write_suite_manifest(const moonai::profiler::SuiteConfig &suite,
-                          const moonai::SimulationConfig &config,
-                          std::vector<RunResult> runs,
-                          const std::filesystem::path &output_path) {
+void write_manifest(const std::string &experiment_name, int windows,
+                    std::vector<RunResult> runs,
+                    const std::filesystem::path &output_path) {
   nlohmann::json manifest;
   manifest["schema_version"] = 1;
-  manifest["suite"] = {{"name", suite.name}, {"windows", suite.windows}};
+  manifest["suite"] = {{"name", experiment_name}, {"windows", windows}};
 
   nlohmann::json run_rows = nlohmann::json::array();
   for (const auto &run : runs) {
     run_rows.push_back({{"seed", run.seed}, {"profile_data", run.profile}});
   }
   manifest["runs"] = std::move(run_rows);
-  // Note: All analysis (outlier removal, averaging, etc.) moved to Python
 
   std::filesystem::create_directories(output_path.parent_path());
   std::ofstream file(output_path);
@@ -526,31 +463,28 @@ void write_suite_manifest(const moonai::profiler::SuiteConfig &suite,
 
 int main(int argc, const char *argv[]) {
   const Args args = parse_args(argc, argv);
-  if (args.suite_name.empty()) {
+
+  if (args.seeds.empty()) {
     std::fprintf(stderr,
-                 "Usage: moonai_profiler profiler.lua --suite <name>\n");
+                 "Error: No seeds specified. Use --seeds 41,42,43,...\n");
     return 1;
   }
 
-  auto suites = moonai::profiler::load_suites_lua(args.profiler_config);
-  auto suite_it = suites.find(args.suite_name);
-  if (suite_it == suites.end()) {
-    spdlog::error("Profiler suite '{}' not found", args.suite_name);
-    return 1;
-  }
-
-  const auto &suite = suite_it->second;
   moonai::SimulationConfig config;
 
   std::vector<RunResult> runs;
-  runs.reserve(suite.seeds.size());
+  runs.reserve(args.seeds.size());
   const auto output_path =
-      std::filesystem::path(suite.output_dir) /
-      (utc_timestamp_for_path() + "_" + suite.name + ".json");
-  for (std::uint64_t seed : suite.seeds)
-    runs.push_back(run_suite_member(suite, config, seed, args.no_gpu));
+      std::filesystem::path(args.output_dir) /
+      (utc_timestamp_for_path() + "_" + args.experiment_name + ".json");
 
-  write_suite_manifest(suite, config, std::move(runs), output_path);
+  for (std::uint64_t seed : args.seeds) {
+    runs.push_back(run_profiler_run(args.experiment_name, args.output_dir,
+                                    args.windows, seed, args.no_gpu));
+  }
+
+  write_manifest(args.experiment_name, args.windows, std::move(runs),
+                 output_path);
   spdlog::info("Profiler output written to: {}", output_path.string());
   return 0;
 }
@@ -559,16 +493,10 @@ int main(int argc, const char *argv[]) {
 #ifndef MOONAI_BUILD_PROFILER
 
 #define MOONAI_PROFILE_SCOPE(event_name) ((void)0)
-#define MOONAI_PROFILE_MARK_CPU_USED(value) ((void)0)
-#define MOONAI_PROFILE_MARK_GPU_USED(value) ((void)0)
 
 #else
 
 #define MOONAI_PROFILE_SCOPE(event_name)                                       \
   ::moonai::profiler::ScopedTimer _moonai_scoped_timer(event_name)
-#define MOONAI_PROFILE_MARK_CPU_USED(value)                                    \
-  ::moonai::profiler::mark_cpu_used(value)
-#define MOONAI_PROFILE_MARK_GPU_USED(value)                                    \
-  ::moonai::profiler::mark_gpu_used(value)
 
 #endif
