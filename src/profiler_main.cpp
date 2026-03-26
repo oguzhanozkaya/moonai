@@ -10,7 +10,6 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
-#include <csignal>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -266,12 +265,6 @@ nlohmann::json Profiler::finish_run(std::int64_t run_total_ns) {
 
 namespace {
 
-volatile std::sig_atomic_t g_running = 1;
-
-void signal_handler(int) {
-  g_running = 0;
-}
-
 struct Args {
   int windows = 24;
   std::vector<std::uint64_t> seeds = {41, 42, 43, 44, 45, 46};
@@ -337,6 +330,12 @@ RunResult run_profiler(const std::string &experiment_name,
                        std::uint64_t seed, bool no_gpu, bool headless) {
   using namespace moonai;
 
+  auto &profiler = profiler::Profiler::instance();
+  profiler.set_enabled(true);
+
+  // Window tracking state
+  int current_window = 0;
+
   // Build SessionConfig for profiling with GUI
   SessionConfig session_cfg;
   session_cfg.sim_config = SimulationConfig(); // default config
@@ -353,6 +352,21 @@ RunResult run_profiler(const std::string &experiment_name,
   session_cfg.auto_run = true;             // Run continuously
   session_cfg.speed_multiplier = 1;        // Normal speed
 
+  // Set up profiler window tracking via callback
+  session_cfg.on_report_callback = [&profiler, &current_window,
+                                    windows](const StepMetrics &snapshot) {
+    if (current_window < windows) {
+      profiler.finish_window({current_window, snapshot.predator_count,
+                              snapshot.prey_count, snapshot.num_species,
+                              snapshot.best_fitness, snapshot.avg_fitness,
+                              snapshot.avg_genome_complexity});
+      current_window++;
+      if (current_window < windows) {
+        profiler.start_window(current_window);
+      }
+    }
+  };
+
   // Check for display if not headless
   if (!headless && std::getenv("DISPLAY") == nullptr &&
       std::getenv("WAYLAND_DISPLAY") == nullptr) {
@@ -360,13 +374,7 @@ RunResult run_profiler(const std::string &experiment_name,
     session_cfg.headless = true;
   }
 
-  // Create Session
-  Session session(session_cfg);
-
-  auto &profiler = profiler::Profiler::instance();
-  profiler.set_enabled(true);
-
-  // Initialize run config
+  // Initialize profiler run config
   profiler::RunConfig run_cfg;
   run_cfg.experiment = experiment_name;
   run_cfg.output_root = output_dir;
@@ -388,35 +396,13 @@ RunResult run_profiler(const std::string &experiment_name,
   profiler.start_run(run_cfg);
 
   const auto run_start = std::chrono::steady_clock::now();
-  int current_window = 0;
-
-  // Define the should_stop callback to check both signal and window completion
-  auto should_stop = [&]() -> bool { return g_running == 0; };
-
-  // Define the on_report callback to capture profiler windows
-  auto on_report = [&session, &profiler, &current_window,
-                    windows](const StepMetrics &snapshot) mutable {
-    if (current_window < windows) {
-      profiler.finish_window({current_window, snapshot.predator_count,
-                              snapshot.prey_count, snapshot.num_species,
-                              snapshot.best_fitness, snapshot.avg_fitness,
-                              snapshot.avg_genome_complexity});
-      current_window++;
-      if (current_window < windows) {
-        profiler.start_window(current_window);
-      }
-    }
-    spdlog::info(
-        "Step {:6d}: predators={} prey={} births={} deaths={} species={}",
-        snapshot.step, snapshot.predator_count, snapshot.prey_count,
-        snapshot.births, snapshot.deaths, snapshot.num_species);
-  };
 
   // Start first window
   profiler.start_window(0);
 
-  // Run the event loop
-  auto stop_reason = session.run_event_loop(should_stop, on_report);
+  // Create Session and run - signals handled internally
+  Session session(session_cfg);
+  auto stop_reason = session.run();
 
   // If stopped early, fill remaining windows with empty data
   while (current_window < windows) {
@@ -485,10 +471,6 @@ void write_manifest(const std::string &experiment_name, int windows,
 
 int main(int argc, const char *argv[]) {
   const Args args = parse_args(argc, argv);
-
-  // Setup signal handlers
-  std::signal(SIGINT, signal_handler);
-  std::signal(SIGTERM, signal_handler);
 
   std::vector<RunResult> runs;
   runs.reserve(args.seeds.size());

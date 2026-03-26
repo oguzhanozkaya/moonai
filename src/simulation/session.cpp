@@ -9,6 +9,7 @@
 #include "simulation/registry.hpp"
 #include "simulation/simulation_manager.hpp"
 #include "visualization/visualization_manager.hpp"
+#include <csignal>
 
 #include <spdlog/spdlog.h>
 
@@ -17,6 +18,28 @@
 #include <memory>
 
 namespace moonai {
+
+// Static signal handling members
+volatile sig_atomic_t Session::g_running_ = 1;
+bool Session::handlers_registered_ = false;
+
+void Session::signal_handler(int) {
+  g_running_ = 0;
+}
+
+void Session::register_signal_handlers() {
+  if (!handlers_registered_) {
+    signal(SIGINT, signal_handler);
+    signal(SIGTERM, signal_handler);
+    handlers_registered_ = true;
+  }
+  g_running_ = 1; // Reset for this session
+}
+
+void Session::restore_signal_handlers() {
+  // Note: We don't actually restore old handlers for simplicity
+  // The handlers remain registered but g_running_ is reset for new sessions
+}
 
 Session::Session(const SessionConfig &cfg)
     : cfg_(cfg),
@@ -61,9 +84,14 @@ Session::Session(const SessionConfig &cfg)
 
   // Enable GPU if available
   evolution_.enable_gpu(cfg_.enable_gpu);
+
+  // Register signal handlers
+  register_signal_handlers();
 }
 
-Session::~Session() = default;
+Session::~Session() {
+  restore_signal_handlers();
+}
 
 Registry &Session::registry() {
   return registry_;
@@ -265,36 +293,59 @@ void Session::update_selected_visualization() {
   }
 }
 
-bool Session::should_continue(std::function<bool()> should_stop) const {
+bool Session::should_continue() const {
   // Check max steps
   if (cfg_.sim_config.max_steps > 0 &&
       steps_executed_ >= cfg_.sim_config.max_steps) {
     return false;
   }
 
-  // Check external stop signal
-  if (should_stop && should_stop()) {
+  // Check signal
+  if (g_running_ == 0) {
     return false;
   }
 
   return true;
 }
 
-StopReason
-Session::run_event_loop(std::function<bool()> should_stop,
-                        std::function<void(const StepMetrics &)> on_report) {
+void Session::log_report(const StepMetrics &snapshot) const {
+  spdlog::info(
+      "Step {:6d}: predators={} prey={} births={} deaths={} species={}",
+      snapshot.step, snapshot.predator_count, snapshot.prey_count,
+      snapshot.births, snapshot.deaths, snapshot.num_species);
+}
+
+void Session::log_stop_reason(StopReason reason) const {
+  switch (reason) {
+    case StopReason::UserQuit:
+      spdlog::info("Simulation stopped by user (window closed)");
+      break;
+    case StopReason::Signal:
+      spdlog::info("Simulation stopped by signal (Ctrl+C)");
+      break;
+    case StopReason::Completed:
+      // Don't log for normal completion
+      break;
+  }
+}
+
+StopReason Session::run() {
   const float dt = 1.0f / static_cast<float>(cfg_.sim_config.target_fps);
+  StopReason stop_reason = StopReason::Completed;
 
   if (cfg_.headless) {
     // Headless mode: run as fast as possible
-    while (should_continue(should_stop)) {
+    while (should_continue()) {
       step(dt);
 
       // Check for report interval
       if (steps_executed_ % cfg_.sim_config.report_interval_steps == 0) {
         auto snapshot = record_and_log(births_in_window_, deaths_in_window_);
-        if (on_report) {
-          on_report(snapshot);
+        log_report(snapshot);
+
+        // Call custom callback if provided
+        if (cfg_.on_report_callback) {
+          cfg_.on_report_callback(snapshot);
         }
       }
     }
@@ -309,86 +360,98 @@ Session::run_event_loop(std::function<bool()> should_stop,
       logger_->flush();
     }
 
-    return should_stop && should_stop() ? StopReason::Signal
-                                        : StopReason::Completed;
-  }
-
-  // GUI mode
-  if (!visualization_) {
-    spdlog::error("Visualization requested but not initialized");
-    return StopReason::Completed;
-  }
-
-  while (should_continue(should_stop)) {
-    MOONAI_PROFILE_SCOPE("frame_total");
-
-    // Handle events
-    {
-      MOONAI_PROFILE_SCOPE("handle_events");
-      visualization_->handle_events();
+    stop_reason =
+        (g_running_ == 0) ? StopReason::Signal : StopReason::Completed;
+  } else {
+    // GUI mode
+    if (!visualization_) {
+      spdlog::error("Visualization requested but not initialized");
+      return StopReason::Completed;
     }
 
-    // Check for window close
-    if (visualization_->should_close()) {
-      return StopReason::UserQuit;
-    }
+    while (should_continue()) {
+      MOONAI_PROFILE_SCOPE("frame_total");
 
-    // Handle pause (unless auto_run)
-    if (!cfg_.auto_run && visualization_->is_paused() &&
-        !visualization_->should_step()) {
-      MOONAI_PROFILE_SCOPE("render");
-      visualization_->render_ecs(registry_, evolution_, simulation_,
-                                 steps_executed_);
-      continue;
-    }
+      // Handle events
+      {
+        MOONAI_PROFILE_SCOPE("handle_events");
+        visualization_->handle_events();
+      }
 
-    if (!cfg_.auto_run) {
-      visualization_->clear_step();
-    }
+      // Check for window close
+      if (visualization_->should_close()) {
+        stop_reason = StopReason::UserQuit;
+        break;
+      }
 
-    // Run simulation steps
-    int steps_to_run = cfg_.auto_run ? cfg_.speed_multiplier
-                                     : visualization_->speed_multiplier();
-    steps_to_run = std::max(1, steps_to_run);
+      // Check signal during loop
+      if (g_running_ == 0) {
+        stop_reason = StopReason::Signal;
+        break;
+      }
 
-    for (int i = 0; i < steps_to_run && should_continue(should_stop); ++i) {
-      step(dt);
+      // Handle pause (unless auto_run)
+      if (!cfg_.auto_run && visualization_->is_paused() &&
+          !visualization_->should_step()) {
+        MOONAI_PROFILE_SCOPE("render");
+        visualization_->render_ecs(registry_, evolution_, simulation_,
+                                   steps_executed_);
+        continue;
+      }
 
-      // Check for report interval
-      if (steps_executed_ % cfg_.sim_config.report_interval_steps == 0) {
-        auto snapshot = record_and_log(births_in_window_, deaths_in_window_);
-        if (on_report) {
-          on_report(snapshot);
+      if (!cfg_.auto_run) {
+        visualization_->clear_step();
+      }
+
+      // Run simulation steps
+      int steps_to_run = cfg_.auto_run ? cfg_.speed_multiplier
+                                       : visualization_->speed_multiplier();
+      steps_to_run = std::max(1, steps_to_run);
+
+      for (int i = 0; i < steps_to_run && should_continue(); ++i) {
+        step(dt);
+
+        // Check for report interval
+        if (steps_executed_ % cfg_.sim_config.report_interval_steps == 0) {
+          auto snapshot = record_and_log(births_in_window_, deaths_in_window_);
+          log_report(snapshot);
+
+          // Call custom callback if provided
+          if (cfg_.on_report_callback) {
+            cfg_.on_report_callback(snapshot);
+          }
         }
+      }
+
+      // Update selected visualization (only if interactions enabled)
+      if (cfg_.enable_interactions) {
+        MOONAI_PROFILE_SCOPE("update_selected");
+        update_selected_visualization();
+      }
+
+      // Render
+      {
+        MOONAI_PROFILE_SCOPE("render");
+        visualization_->render_ecs(registry_, evolution_, simulation_,
+                                   steps_executed_);
       }
     }
 
-    // Update selected visualization (only if interactions enabled)
-    if (cfg_.enable_interactions) {
-      MOONAI_PROFILE_SCOPE("update_selected");
-      update_selected_visualization();
+    // Final record if needed
+    if (births_in_window_ > 0 || deaths_in_window_ > 0 ||
+        metrics_.history().empty()) {
+      record_and_log(births_in_window_, deaths_in_window_);
     }
 
-    // Render
-    {
-      MOONAI_PROFILE_SCOPE("render");
-      visualization_->render_ecs(registry_, evolution_, simulation_,
-                                 steps_executed_);
+    if (logger_) {
+      logger_->flush();
     }
   }
 
-  // Final record if needed
-  if (births_in_window_ > 0 || deaths_in_window_ > 0 ||
-      metrics_.history().empty()) {
-    record_and_log(births_in_window_, deaths_in_window_);
-  }
+  // Log stop reason
+  log_stop_reason(stop_reason);
 
-  if (logger_) {
-    logger_->flush();
-  }
-
-  return should_stop && should_stop() ? StopReason::Signal
-                                      : StopReason::Completed;
+  return stop_reason;
 }
 
 } // namespace moonai

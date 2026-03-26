@@ -10,6 +10,7 @@
 #include "simulation/simulation_manager.hpp"
 #include "visualization/visualization_manager.hpp"
 
+#include <csignal>
 #include <cstring>
 #include <functional>
 #include <memory>
@@ -32,6 +33,10 @@ struct SessionConfig {
   bool enable_interactions = true; // Allow pause, step, selection
   bool auto_run = false;           // Ignore pause, run continuously
   int speed_multiplier = 1;        // Steps per frame (1 = normal)
+
+  // Optional callback for custom report handling (e.g., profiler window
+  // tracking)
+  std::function<void(const StepMetrics &)> on_report_callback = nullptr;
 };
 
 enum class StopReason { Completed, UserQuit, Signal };
@@ -61,13 +66,9 @@ public:
   void step(float dt);
   StepMetrics record_and_log(int births_in_window, int deaths_in_window);
 
-  // Event loop delegation
-  // Runs the full simulation loop with visualization
-  // should_stop: callback to check for external stop signal (e.g., Ctrl+C)
-  // Returns reason why loop stopped
-  StopReason
-  run_event_loop(std::function<bool()> should_stop = nullptr,
-                 std::function<void(const StepMetrics &)> on_report = nullptr);
+  // Run the full simulation loop
+  // Handles signals internally, logs reports, returns stop reason
+  StopReason run();
 
   // State
   int steps_executed() const;
@@ -94,9 +95,18 @@ private:
   int deaths_in_window_ = 0;
   std::vector<Vec2> actions_buffer_;
 
+  // Signal handling (static - shared across all sessions)
+  static volatile std::sig_atomic_t g_running_;
+  static void signal_handler(int);
+  static void register_signal_handlers();
+  static void restore_signal_handlers();
+  static bool handlers_registered_;
+
   // Internal helpers
   void update_selected_visualization();
-  bool should_continue(std::function<bool()> should_stop) const;
+  bool should_continue() const;
+  void log_report(const StepMetrics &snapshot) const;
+  void log_stop_reason(StopReason reason) const;
 };
 
 } // namespace moonai

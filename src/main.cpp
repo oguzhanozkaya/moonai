@@ -1,26 +1,13 @@
 #include "core/config.hpp"
-#include "core/random.hpp"
 #include "data/logger.hpp"
-#include "evolution/evolution_manager.hpp"
-#include "simulation/components.hpp"
 #include "simulation/session.hpp"
-#include "visualization/visualization_manager.hpp"
 
 #include <spdlog/spdlog.h>
 
-#include <algorithm>
-#include <csignal>
 #include <cstdio>
 #include <cstdlib>
-#include <limits>
 
 namespace {
-
-volatile std::sig_atomic_t g_running = 1;
-
-void signal_handler(int) {
-  g_running = 0;
-}
 
 int run_experiment(const std::string &name, moonai::SimulationConfig config,
                    const moonai::CLIArgs &args) {
@@ -52,29 +39,9 @@ int run_experiment(const std::string &name, moonai::SimulationConfig config,
     session_cfg.sim_config.max_steps = args.max_steps_override;
   }
 
-  // Create Session
+  // Create Session and run - signals handled internally
   moonai::Session session(session_cfg);
-
-  // Define should_stop callback
-  auto should_stop = []() -> bool { return g_running == 0; };
-
-  // Define on_report callback
-  auto on_report = [&](const moonai::StepMetrics &snapshot) {
-    spdlog::info(
-        "Step {:6d}: predators={} prey={} births={} deaths={} species={}",
-        snapshot.step, snapshot.predator_count, snapshot.prey_count,
-        snapshot.births, snapshot.deaths, snapshot.num_species);
-  };
-
-  // Run the event loop
-  auto stop_reason = session.run_event_loop(should_stop, on_report);
-
-  // Log stop reason
-  if (stop_reason == moonai::StopReason::UserQuit) {
-    spdlog::info("Experiment stopped by user (window closed)");
-  } else if (stop_reason == moonai::StopReason::Signal) {
-    spdlog::info("Experiment stopped by signal (Ctrl+C)");
-  }
+  session.run();
 
   if (session.logger()) {
     spdlog::info("Output saved to: {}", session.logger()->run_dir());
@@ -93,8 +60,6 @@ int main(int argc, const char *argv[]) {
   }
 
   spdlog::set_level(args.verbose ? spdlog::level::debug : spdlog::level::info);
-  std::signal(SIGINT, signal_handler);
-  std::signal(SIGTERM, signal_handler);
 
   auto configs = moonai::load_all_configs_lua(args.config_path);
   if (configs.empty()) {
