@@ -26,7 +26,6 @@ struct SessionConfig {
   bool enable_gpu = true;
   int speed_multiplier = 1;
   std::optional<std::string> run_name_override;
-  std::function<void(const StepMetrics &)> on_report_callback = nullptr;
 };
 
 class Session {

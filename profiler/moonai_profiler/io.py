@@ -11,19 +11,19 @@ from pathlib import Path
 @dataclass(frozen=True)
 class SuiteMember:
     seed: int
-    avg_window_ms: float
+    avg_frame_ms: float
     run_total_ms: float
-    window_count: int
+    frame_count: int
     disposition: str
-    window_times_ms: list[float]
+    frame_times_ms: list[float]
 
 
 @dataclass(frozen=True)
 class ProfileSuite:
     path: Path
     name: str
-    windows: int
-    avg_window_ms: float
+    frames: int
+    avg_frame_ms: float
     stddev: float
     members: list[SuiteMember]
     kept: list[SuiteMember]
@@ -50,26 +50,26 @@ def load_suites(input_dir: Path) -> list[ProfileSuite]:
 
 
 def _analyze_run(profile_data: dict) -> dict:
-    """Compute per-run statistics from raw window data."""
-    windows = profile_data.get("windows", [])
-    if not windows:
+    """Compute per-run statistics from raw frame data."""
+    frames = profile_data.get("frames", [])
+    if not frames:
         return {
-            "window_count": 0,
+            "frame_count": 0,
             "run_total_ms": 0.0,
-            "avg_window_ms": 0.0,
+            "avg_frame_ms": 0.0,
             "events": {},
-            "window_times_ms": [],
+            "frame_times_ms": [],
         }
 
-    # Extract window times for the main timing metric
-    window_times_ms = [w.get("events_ms", {}).get("window_total", 0.0) for w in windows]
-    run_total_ms = sum(window_times_ms)
-    avg_window_ms = run_total_ms / len(windows) if windows else 0.0
+    # Extract frame times for the main timing metric
+    frame_times_ms = [f.get("events_ms", {}).get("frame_total", 0.0) for f in frames]
+    run_total_ms = sum(frame_times_ms)
+    avg_frame_ms = run_total_ms / len(frames) if frames else 0.0
 
-    # Aggregate all events across windows
+    # Aggregate all events across frames
     events = {}
-    for window in windows:
-        for event_name, ms in window.get("events_ms", {}).items():
+    for frame in frames:
+        for event_name, ms in frame.get("events_ms", {}).items():
             if event_name not in events:
                 events[event_name] = {"total_ms": 0.0, "nonzero_count": 0}
             events[event_name]["total_ms"] += ms
@@ -77,11 +77,11 @@ def _analyze_run(profile_data: dict) -> dict:
                 events[event_name]["nonzero_count"] += 1
 
     return {
-        "window_count": len(windows),
+        "frame_count": len(frames),
         "run_total_ms": run_total_ms,
-        "avg_window_ms": avg_window_ms,
+        "avg_frame_ms": avg_frame_ms,
         "events": events,
-        "window_times_ms": window_times_ms,
+        "frame_times_ms": frame_times_ms,
     }
 
 
@@ -97,16 +97,16 @@ def _analyze_suite(runs: list[dict]) -> dict:
 
     if not analyzed:
         return {
-            "avg_window_ms": 0.0,
-            "avg_window_ms_stddev": 0.0,
+            "avg_frame_ms": 0.0,
+            "avg_frame_ms_stddev": 0.0,
             "avg_run_total_ms": 0.0,
             "events": {},
             "kept": [],
             "dropped": [],
         }
 
-    # Sort by avg_window_ms for outlier removal
-    analyzed.sort(key=lambda x: x["avg_window_ms"])
+    # Sort by avg_frame_ms for outlier removal
+    analyzed.sort(key=lambda x: x["avg_frame_ms"])
 
     # Drop fastest and slowest (outlier removal)
     if len(analyzed) > 2:
@@ -117,46 +117,46 @@ def _analyze_suite(runs: list[dict]) -> dict:
         dropped = []
 
     # Compute suite aggregates from kept runs
-    avg_window_ms = sum(r["avg_window_ms"] for r in kept) / len(kept) if kept else 0.0
+    avg_frame_ms = sum(r["avg_frame_ms"] for r in kept) / len(kept) if kept else 0.0
     avg_run_total_ms = sum(r["run_total_ms"] for r in kept) / len(kept) if kept else 0.0
 
     # Standard deviation
     if kept:
-        variance = sum((r["avg_window_ms"] - avg_window_ms) ** 2 for r in kept) / len(
+        variance = sum((r["avg_frame_ms"] - avg_frame_ms) ** 2 for r in kept) / len(
             kept
         )
         stddev = math.sqrt(variance)
     else:
         stddev = 0.0
 
-    # Aggregate events across all windows in all kept runs
-    total_windows = sum(r["window_count"] for r in kept)
+    # Aggregate events across all frames in all kept runs
+    total_frames = sum(r["frame_count"] for r in kept)
     event_totals = {}
     for run in kept:
         for event_name, stats in run["events"].items():
             if event_name not in event_totals:
                 event_totals[event_name] = {
                     "total_ms": 0.0,
-                    "nonzero_window_count": 0,
+                    "nonzero_frame_count": 0,
                 }
             event_totals[event_name]["total_ms"] += stats["total_ms"]
-            event_totals[event_name]["nonzero_window_count"] += stats.get(
+            event_totals[event_name]["nonzero_frame_count"] += stats.get(
                 "nonzero_count", 0
             )
 
-    # Compute suite-level averages across all windows
+    # Compute suite-level averages across all frames
     for stats in event_totals.values():
-        stats["avg_ms_per_window"] = (
-            stats["total_ms"] / total_windows if total_windows > 0 else 0.0
+        stats["avg_ms_per_frame"] = (
+            stats["total_ms"] / total_frames if total_frames > 0 else 0.0
         )
-        nonzero = stats["nonzero_window_count"]
-        stats["avg_ms_per_nonzero_window"] = (
+        nonzero = stats["nonzero_frame_count"]
+        stats["avg_ms_per_nonzero_frame"] = (
             stats["total_ms"] / nonzero if nonzero > 0 else 0.0
         )
 
     return {
-        "avg_window_ms": avg_window_ms,
-        "avg_window_ms_stddev": stddev,
+        "avg_frame_ms": avg_frame_ms,
+        "avg_frame_ms_stddev": stddev,
         "avg_run_total_ms": avg_run_total_ms,
         "events": event_totals,
         "kept": kept,
@@ -186,23 +186,26 @@ def _parse_suite(path: Path, data: dict) -> ProfileSuite:
         members.append(
             SuiteMember(
                 seed=seed,
-                avg_window_ms=run_stats["avg_window_ms"],
+                avg_frame_ms=run_stats["avg_frame_ms"],
                 run_total_ms=run_stats["run_total_ms"],
-                window_count=run_stats["window_count"],
+                frame_count=run_stats["frame_count"],
                 disposition=disposition,
-                window_times_ms=run_stats["window_times_ms"],
+                frame_times_ms=run_stats["frame_times_ms"],
             )
         )
 
     kept = [m for m in members if m.disposition == "kept"]
     dropped = [m for m in members if m.disposition != "kept"]
 
+    # Get total frame count directly from suite config
+    total_frames = int(suite.get("frames", 0))
+
     return ProfileSuite(
         path=path,
         name=path.stem,
-        windows=int(suite.get("windows", 0)),
-        avg_window_ms=analysis["avg_window_ms"],
-        stddev=analysis["avg_window_ms_stddev"],
+        frames=total_frames,
+        avg_frame_ms=analysis["avg_frame_ms"],
+        stddev=analysis["avg_frame_ms_stddev"],
         members=members,
         kept=kept,
         dropped=dropped,

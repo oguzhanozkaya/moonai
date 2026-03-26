@@ -11,14 +11,6 @@ namespace {
 
 int run_experiment(const std::string &name, moonai::SimulationConfig config,
                    const moonai::CLIArgs &args) {
-  // Check for display
-  bool headless = args.headless;
-  if (!headless && std::getenv("DISPLAY") == nullptr &&
-      std::getenv("WAYLAND_DISPLAY") == nullptr) {
-    headless = true;
-    spdlog::warn("No display server found; switching to headless mode.");
-  }
-
   // Build SessionConfig
   moonai::SessionConfig session_cfg;
   session_cfg.sim_config = config;
@@ -26,7 +18,7 @@ int run_experiment(const std::string &name, moonai::SimulationConfig config,
     session_cfg.sim_config.seed = args.seed_override;
   }
   session_cfg.experiment_name = name;
-  session_cfg.headless = headless;
+  session_cfg.headless = args.headless;
   session_cfg.enable_gpu = !args.no_gpu;
   session_cfg.run_name_override =
       args.run_name.empty() ? std::nullopt : std::optional(args.run_name);

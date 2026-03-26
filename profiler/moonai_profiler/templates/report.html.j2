@@ -306,20 +306,20 @@
       <thead>
         <tr>
           <th>Run</th>
-          <th>Windows / Run</th>
+          <th>Frames / Run</th>
           <th>Kept Runs</th>
-          <th>Avg Window (ms)</th>
+          <th>Avg Frame (ms)</th>
           <th>Top Event</th>
-          <th>Top Event Avg (ms/window)</th>
+          <th>Top Event Avg (ms/frame)</th>
         </tr>
       </thead>
       <tbody>
         {% for row in summary_rows %}
         <tr>
           <td>{{ row.name }}</td>
-          <td>{{ row.total_windows }}</td>
+          <td>{{ row.total_frames }}</td>
           <td>{{ row.kept_runs }}</td>
-          <td>{{ row.avg_window_ms }}</td>
+          <td>{{ row.avg_frame_ms }}</td>
           <td>{{ row.top_event }}</td>
           <td>{{ row.top_event_avg_ms }}</td>
         </tr>
@@ -352,9 +352,9 @@
           <thead>
             <tr>
               <th>Seed</th>
-              <th>Avg Window (ms)</th>
+              <th>Avg Frame (ms)</th>
               <th>Run Total (ms)</th>
-              <th>Window Count</th>
+              <th>Frame Count</th>
               <th>Disposition</th>
             </tr>
           </thead>
@@ -362,9 +362,9 @@
             {% for member in run.members %}
             <tr>
               <td>{{ member.seed }}</td>
-              <td>{{ member.avg_window_ms }}</td>
+              <td>{{ member.avg_frame_ms }}</td>
               <td>{{ member.run_total_ms }}</td>
-              <td>{{ member.window_count }}</td>
+              <td>{{ member.frame_count }}</td>
               <td>{{ member.disposition }}</td>
             </tr>
             {% endfor %}
@@ -387,9 +387,9 @@
             <tr>
               <th>Event</th>
               <th>%</th>
-              <th>Avg / Window</th>
-              <th>Nonzero Windows</th>
-              <th>Avg / Nonzero Window</th>
+              <th>Avg / Frame</th>
+              <th>Nonzero Frames</th>
+              <th>Avg / Nonzero Frame</th>
               <th>Total (ms)</th>
             </tr>
           </thead>
@@ -398,9 +398,9 @@
             <tr>
               <td>{{ row.name }}</td>
               <td>{{ row.percentage }}</td>
-              <td>{{ row.avg_ms_per_window }}</td>
-              <td>{{ row.nonzero_window_count }}</td>
-              <td>{{ row.avg_ms_per_nonzero_window }}</td>
+              <td>{{ row.avg_ms_per_frame }}</td>
+              <td>{{ row.nonzero_frame_count }}</td>
+              <td>{{ row.avg_ms_per_nonzero_frame }}</td>
               <td>{{ row.total_ms }}</td>
             </tr>
             {% endfor %}

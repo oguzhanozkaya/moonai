@@ -380,8 +380,8 @@ The analysis code is structured as a small package under `analysis/moonai_analys
 Profiler runs use the dedicated `moonai_profiler` entry point. The profiler is configured via CLI arguments instead of a config file.
 
 ```bash
-just profile                    # Run with defaults (24 windows, seeds 41-46)
-./moonai_profiler --windows 12  # Custom window count
+just profile                    # Run with defaults (600 frames, seeds 41-46)
+./moonai_profiler --frames 300  # Custom frame count
 ./moonai_profiler --seeds 100,200,300,400  # Custom seeds
 ./moonai_profiler --name mytest --output-dir results  # Custom name and output
 ```
@@ -390,7 +390,7 @@ just profile                    # Run with defaults (24 windows, seeds 41-46)
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--windows N` | 24 | Number of report windows to run |
+| `--frames N` | 600 | Number of frames to capture per run |
 | `--seeds A,B,C...` | 41,42,43,44,45,46 | Comma-separated list of random seeds |
 | `--name <name>` | profile | Experiment name (used in output filename) |
 | `--output-dir <path>` | output/profiles | Output directory |
@@ -400,9 +400,9 @@ Each profiler run writes a single JSON file to `output/profiles/`:
 
 | File | Contents |
 |------|----------|
-| `YYYY-MM-DD_HH-MM-SS_name.json` | Suite manifest with raw run data from all seeds |
+| `YYYY-MM-DD_HH-MM-SS_name.json` | Suite manifest with per-frame timing data from all seeds |
 
-The profiler drops the fastest and slowest runs by average window time, and reports aggregate timing data from the remaining runs. Standard simulation builds do not include profiler instrumentation.
+The profiler drops the fastest and slowest runs by average frame time, and reports aggregate timing data from the remaining runs. Standard simulation builds do not include profiler instrumentation.
 
 To generate the standalone profiler report:
 
@@ -457,11 +457,11 @@ just compdb
 # Benchmark NN forward-pass timing (requires release build)
 just bench-nn
 
-# Run the profiler with default settings (24 windows, seeds 41-46)
+# Run the profiler with default settings (600 frames, seeds 41-46)
 just profile
 
 # Run profiler with custom settings
-./moonai_profiler --windows 12 --seeds 100,200,300,400,500,600
+./moonai_profiler --frames 300 --seeds 100,200,300,400
 
 # Generate the standalone profiler HTML report
 just analyse-profile

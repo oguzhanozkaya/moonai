@@ -10,6 +10,7 @@
 #include "simulation/simulation_manager.hpp"
 #include "visualization/visualization_manager.hpp"
 #include <csignal>
+#include <cstdlib>
 
 #include <spdlog/spdlog.h>
 
@@ -245,6 +246,15 @@ void Session::log_early_stop(bool user_quit) const {
 }
 
 bool Session::run() {
+  // Check for display availability if GUI mode requested
+  if (!cfg_.headless) {
+    if (std::getenv("DISPLAY") == nullptr &&
+        std::getenv("WAYLAND_DISPLAY") == nullptr) {
+      spdlog::error("No display server found. GUI mode requires a display.");
+      return false;
+    }
+  }
+
   const float dt = 1.0f / static_cast<float>(cfg_.sim_config.target_fps);
   bool completed = true;
   bool user_quit = false;
@@ -258,11 +268,6 @@ bool Session::run() {
       if (steps_executed_ % cfg_.sim_config.report_interval_steps == 0) {
         auto snapshot = record_and_log();
         log_report(snapshot);
-
-        // Call custom callback if provided
-        if (cfg_.on_report_callback) {
-          cfg_.on_report_callback(snapshot);
-        }
       }
     }
 
@@ -328,11 +333,6 @@ bool Session::run() {
         if (steps_executed_ % cfg_.sim_config.report_interval_steps == 0) {
           auto snapshot = record_and_log();
           log_report(snapshot);
-
-          // Call custom callback if provided
-          if (cfg_.on_report_callback) {
-            cfg_.on_report_callback(snapshot);
-          }
         }
       }
 
