@@ -155,6 +155,7 @@ void EvolutionManager::seed_initial_population_ecs(Registry &registry) {
 Entity EvolutionManager::create_offspring_ecs(Registry &registry,
                                               Entity parent_a, Entity parent_b,
                                               Vec2 spawn_position) {
+  MOONAI_PROFILE_SCOPE("evolution_offspring");
   if (!registry.valid(parent_a) || !registry.valid(parent_b)) {
     return INVALID_ENTITY;
   }
@@ -224,6 +225,7 @@ Entity EvolutionManager::create_offspring_ecs(Registry &registry,
 }
 
 void EvolutionManager::refresh_fitness_ecs(const Registry &registry) {
+  MOONAI_PROFILE_SCOPE("evolution_refresh_fitness");
   for (Entity e : registry.living_entities()) {
     auto it = entity_genomes_.find(e);
     if (it != entity_genomes_.end()) {
@@ -287,6 +289,7 @@ void EvolutionManager::refresh_species_ecs(Registry &registry) {
 
 void EvolutionManager::compute_actions_ecs(Registry &registry,
                                            std::vector<Vec2> &actions) {
+  MOONAI_PROFILE_SCOPE("evolution_compute_actions");
   actions.clear();
   actions.reserve(registry.size());
 

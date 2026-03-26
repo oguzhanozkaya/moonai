@@ -1,4 +1,5 @@
 #include "simulation/systems/energy.hpp"
+#include "core/profiler_macros.hpp"
 #include "simulation/components.hpp"
 
 namespace moonai {
@@ -10,6 +11,7 @@ EnergySystem::EnergySystem(float predator_energy_cost, float prey_energy_cost,
       max_energy_(max_energy) {}
 
 void EnergySystem::update(Registry &registry, float dt) {
+  MOONAI_PROFILE_SCOPE("energy_update");
   auto &vitals = registry.vitals();
   auto &identity = registry.identity();
   auto &stats = registry.stats();

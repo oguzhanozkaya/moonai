@@ -43,6 +43,10 @@ int run_experiment(const std::string &name, moonai::SimulationConfig config,
   session_cfg.enable_logger = true;
   session_cfg.run_name_override =
       args.run_name.empty() ? std::nullopt : std::optional(args.run_name);
+  // Default interaction settings for normal run
+  session_cfg.enable_interactions = true;
+  session_cfg.auto_run = false;
+  session_cfg.speed_multiplier = 1;
 
   if (args.max_steps_override != 0) {
     session_cfg.sim_config.max_steps = args.max_steps_override;
@@ -51,97 +55,31 @@ int run_experiment(const std::string &name, moonai::SimulationConfig config,
   // Create Session
   moonai::Session session(session_cfg);
 
-  const float dt = 1.0f / static_cast<float>(config.target_fps);
-  auto *visualization = session.visualization();
+  // Define should_stop callback
+  auto should_stop = []() -> bool { return g_running == 0; };
 
-  auto update_selected_visualization = [&session, visualization]() -> void {
-    if (!visualization)
-      return;
-
-    moonai::Entity selected = visualization->selected_entity();
-    auto &registry = session.registry();
-    if (selected == moonai::INVALID_ENTITY || !registry.valid(selected)) {
-      return;
-    }
-
-    size_t idx = registry.index_of(selected);
-    const auto *genome = session.evolution().genome_for(selected);
-    if (!genome || !registry.vitals().alive[idx]) {
-      return;
-    }
-
-    const float *sensors = registry.sensors().input_ptr(idx);
-    std::vector<float> sensor_vec(sensors,
-                                  sensors + moonai::SensorSoA::INPUT_COUNT);
-
-    moonai::NeuralNetwork *network =
-        session.evolution().network_cache().get_network(selected);
-    if (network) {
-      network->activate(sensor_vec);
-      visualization->set_selected_activations(network->last_activations(),
-                                              network->node_index_map());
-    }
+  // Define on_report callback
+  auto on_report = [&](const moonai::StepMetrics &snapshot) {
+    spdlog::info(
+        "Step {:6d}: predators={} prey={} births={} deaths={} species={}",
+        snapshot.step, snapshot.predator_count, snapshot.prey_count,
+        snapshot.births, snapshot.deaths, snapshot.num_species);
   };
 
-  auto advance_one_step = [&session, dt, &config]() -> void {
-    session.step(dt);
+  // Run the event loop
+  auto stop_reason = session.run_event_loop(should_stop, on_report);
 
-    if (session.steps_executed() % config.report_interval_steps == 0) {
-      auto snapshot = session.record_and_log(session.births_in_window(),
-                                             session.deaths_in_window());
-      spdlog::info(
-          "Step {:>6d}: predators={} prey={} births={} deaths={} species={}",
-          session.steps_executed(), snapshot.predator_count,
-          snapshot.prey_count, snapshot.births, snapshot.deaths,
-          snapshot.num_species);
-    }
-  };
-
-  while (g_running && (config.max_steps == 0 ||
-                       session.steps_executed() < config.max_steps)) {
-    if (headless) {
-      advance_one_step();
-      continue;
-    }
-
-    visualization->handle_events();
-    if (visualization->should_close()) {
-      break;
-    }
-
-    if (visualization->is_paused() && !visualization->should_step()) {
-      visualization->render_ecs(session.registry(), session.evolution(),
-                                session.simulation(), session.steps_executed());
-      continue;
-    }
-    visualization->clear_step();
-
-    const int frame_steps = std::max(1, visualization->speed_multiplier());
-    for (int i = 0; i < frame_steps &&
-                    (config.max_steps == 0 ||
-                     session.steps_executed() < config.max_steps) &&
-                    g_running;
-         ++i) {
-      advance_one_step();
-    }
-
-    update_selected_visualization();
-
-    visualization->render_ecs(session.registry(), session.evolution(),
-                              session.simulation(), session.steps_executed());
-  }
-
-  // Final record if needed
-  if (session.births_in_window() > 0 || session.deaths_in_window() > 0 ||
-      session.metrics().history().empty()) {
-    session.record_and_log(session.births_in_window(),
-                           session.deaths_in_window());
+  // Log stop reason
+  if (stop_reason == moonai::StopReason::UserQuit) {
+    spdlog::info("Experiment stopped by user (window closed)");
+  } else if (stop_reason == moonai::StopReason::Signal) {
+    spdlog::info("Experiment stopped by signal (Ctrl+C)");
   }
 
   if (session.logger()) {
-    session.logger()->flush();
     spdlog::info("Output saved to: {}", session.logger()->run_dir());
   }
+
   return 0;
 }
 

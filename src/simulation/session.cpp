@@ -1,8 +1,10 @@
 #include "simulation/session.hpp"
 
+#include "core/profiler_macros.hpp"
 #include "data/logger.hpp"
 #include "evolution/evolution_manager.hpp"
 #include "evolution/genome.hpp"
+#include "evolution/neural_network.hpp"
 #include "simulation/components.hpp"
 #include "simulation/registry.hpp"
 #include "simulation/simulation_manager.hpp"
@@ -10,7 +12,6 @@
 
 #include <spdlog/spdlog.h>
 
-#include <algorithm>
 #include <chrono>
 #include <limits>
 #include <memory>
@@ -123,6 +124,7 @@ void Session::step(float dt) {
   evolution_.compute_actions_ecs(registry_, actions_buffer_);
 
   // Apply actions to entities
+  MOONAI_PROFILE_SCOPE("evolution_apply_actions");
   size_t action_idx = 0;
   for (Entity e : registry_.living_entities()) {
     size_t idx = registry_.index_of(e);
@@ -234,6 +236,159 @@ StepMetrics Session::record_and_log(int births, int deaths) {
 
   reset_window_counters();
   return snapshot;
+}
+
+void Session::update_selected_visualization() {
+  if (!visualization_ || !cfg_.enable_interactions) {
+    return;
+  }
+
+  Entity selected = visualization_->selected_entity();
+  if (selected == INVALID_ENTITY || !registry_.valid(selected)) {
+    return;
+  }
+
+  size_t idx = registry_.index_of(selected);
+  const auto *genome = evolution_.genome_for(selected);
+  if (!genome || !registry_.vitals().alive[idx]) {
+    return;
+  }
+
+  const float *sensors = registry_.sensors().input_ptr(idx);
+  std::vector<float> sensor_vec(sensors, sensors + SensorSoA::INPUT_COUNT);
+
+  NeuralNetwork *network = evolution_.network_cache().get_network(selected);
+  if (network) {
+    network->activate(sensor_vec);
+    visualization_->set_selected_activations(network->last_activations(),
+                                             network->node_index_map());
+  }
+}
+
+bool Session::should_continue(std::function<bool()> should_stop) const {
+  // Check max steps
+  if (cfg_.sim_config.max_steps > 0 &&
+      steps_executed_ >= cfg_.sim_config.max_steps) {
+    return false;
+  }
+
+  // Check external stop signal
+  if (should_stop && should_stop()) {
+    return false;
+  }
+
+  return true;
+}
+
+StopReason
+Session::run_event_loop(std::function<bool()> should_stop,
+                        std::function<void(const StepMetrics &)> on_report) {
+  const float dt = 1.0f / static_cast<float>(cfg_.sim_config.target_fps);
+
+  if (cfg_.headless) {
+    // Headless mode: run as fast as possible
+    while (should_continue(should_stop)) {
+      step(dt);
+
+      // Check for report interval
+      if (steps_executed_ % cfg_.sim_config.report_interval_steps == 0) {
+        auto snapshot = record_and_log(births_in_window_, deaths_in_window_);
+        if (on_report) {
+          on_report(snapshot);
+        }
+      }
+    }
+
+    // Final record if needed
+    if (births_in_window_ > 0 || deaths_in_window_ > 0 ||
+        metrics_.history().empty()) {
+      record_and_log(births_in_window_, deaths_in_window_);
+    }
+
+    if (logger_) {
+      logger_->flush();
+    }
+
+    return should_stop && should_stop() ? StopReason::Signal
+                                        : StopReason::Completed;
+  }
+
+  // GUI mode
+  if (!visualization_) {
+    spdlog::error("Visualization requested but not initialized");
+    return StopReason::Completed;
+  }
+
+  while (should_continue(should_stop)) {
+    MOONAI_PROFILE_SCOPE("frame_total");
+
+    // Handle events
+    {
+      MOONAI_PROFILE_SCOPE("handle_events");
+      visualization_->handle_events();
+    }
+
+    // Check for window close
+    if (visualization_->should_close()) {
+      return StopReason::UserQuit;
+    }
+
+    // Handle pause (unless auto_run)
+    if (!cfg_.auto_run && visualization_->is_paused() &&
+        !visualization_->should_step()) {
+      MOONAI_PROFILE_SCOPE("render");
+      visualization_->render_ecs(registry_, evolution_, simulation_,
+                                 steps_executed_);
+      continue;
+    }
+
+    if (!cfg_.auto_run) {
+      visualization_->clear_step();
+    }
+
+    // Run simulation steps
+    int steps_to_run = cfg_.auto_run ? cfg_.speed_multiplier
+                                     : visualization_->speed_multiplier();
+    steps_to_run = std::max(1, steps_to_run);
+
+    for (int i = 0; i < steps_to_run && should_continue(should_stop); ++i) {
+      step(dt);
+
+      // Check for report interval
+      if (steps_executed_ % cfg_.sim_config.report_interval_steps == 0) {
+        auto snapshot = record_and_log(births_in_window_, deaths_in_window_);
+        if (on_report) {
+          on_report(snapshot);
+        }
+      }
+    }
+
+    // Update selected visualization (only if interactions enabled)
+    if (cfg_.enable_interactions) {
+      MOONAI_PROFILE_SCOPE("update_selected");
+      update_selected_visualization();
+    }
+
+    // Render
+    {
+      MOONAI_PROFILE_SCOPE("render");
+      visualization_->render_ecs(registry_, evolution_, simulation_,
+                                 steps_executed_);
+    }
+  }
+
+  // Final record if needed
+  if (births_in_window_ > 0 || deaths_in_window_ > 0 ||
+      metrics_.history().empty()) {
+    record_and_log(births_in_window_, deaths_in_window_);
+  }
+
+  if (logger_) {
+    logger_->flush();
+  }
+
+  return should_stop && should_stop() ? StopReason::Signal
+                                      : StopReason::Completed;
 }
 
 } // namespace moonai

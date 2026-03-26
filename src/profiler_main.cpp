@@ -1,12 +1,8 @@
 #include "core/config.hpp"
 #include "core/profiler_macros.hpp"
-#include "core/random.hpp"
 #include "data/metrics.hpp"
 #include "evolution/evolution_manager.hpp"
-#include "simulation/components.hpp"
-#include "simulation/registry.hpp"
 #include "simulation/session.hpp"
-#include "simulation/simulation_manager.hpp"
 
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
@@ -14,11 +10,11 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <csignal>
 #include <cstdint>
-#include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <map>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -73,6 +69,10 @@ public:
   void add_duration(const char *event_name, std::int64_t ns);
   void finish_window(const WindowMeta &meta);
   nlohmann::json finish_run(std::int64_t run_total_ns);
+
+  int current_window() const {
+    return static_cast<int>(records_.size());
+  }
 
 private:
   Profiler() = default;
@@ -224,7 +224,7 @@ nlohmann::json Profiler::finish_run(std::int64_t run_total_ns) {
                     {"total_steps", total_steps_},
                     {"report_interval_steps", report_interval_},
                     {"gpu_allowed", gpu_allowed_},
-                    {"headless_only", true},
+                    {"headless_only", false}, // Now runs with GUI
 #ifdef _WIN32
                     {"platform", "windows"},
 #else
@@ -266,12 +266,19 @@ nlohmann::json Profiler::finish_run(std::int64_t run_total_ns) {
 
 namespace {
 
+volatile std::sig_atomic_t g_running = 1;
+
+void signal_handler(int) {
+  g_running = 0;
+}
+
 struct Args {
   int windows = 24;
   std::vector<std::uint64_t> seeds = {41, 42, 43, 44, 45, 46};
   std::string output_dir = "output/profiles";
   std::string experiment_name = "profile";
   bool no_gpu = false;
+  bool headless = false; // GUI mode by default
 };
 
 std::vector<std::uint64_t> parse_seeds(const std::string &str) {
@@ -303,6 +310,8 @@ Args parse_args(int argc, const char *argv[]) {
       args.experiment_name = argv[++i];
     } else if (arg == "--no-gpu") {
       args.no_gpu = true;
+    } else if (arg == "--headless") {
+      args.headless = true;
     }
   }
   return args;
@@ -325,10 +334,10 @@ std::string utc_timestamp_for_path() {
 
 RunResult run_profiler(const std::string &experiment_name,
                        const std::string &output_dir, int windows,
-                       std::uint64_t seed, bool no_gpu) {
+                       std::uint64_t seed, bool no_gpu, bool headless) {
   using namespace moonai;
 
-  // Build SessionConfig
+  // Build SessionConfig for profiling with GUI
   SessionConfig session_cfg;
   session_cfg.sim_config = SimulationConfig(); // default config
   session_cfg.sim_config.seed = seed;
@@ -337,9 +346,19 @@ RunResult run_profiler(const std::string &experiment_name,
   session_cfg.experiment_name = experiment_name;
   session_cfg.output_dir = output_dir;
   session_cfg.seed = seed;
-  session_cfg.headless = true;
+  session_cfg.headless = headless;
   session_cfg.enable_gpu = !no_gpu;
-  session_cfg.enable_logger = false; // Profiler doesn't need logger
+  session_cfg.enable_logger = false;       // Profiler doesn't need logger
+  session_cfg.enable_interactions = false; // Disable pause, step, selection
+  session_cfg.auto_run = true;             // Run continuously
+  session_cfg.speed_multiplier = 1;        // Normal speed
+
+  // Check for display if not headless
+  if (!headless && std::getenv("DISPLAY") == nullptr &&
+      std::getenv("WAYLAND_DISPLAY") == nullptr) {
+    spdlog::warn("No display server found; switching to headless mode.");
+    session_cfg.headless = true;
+  }
 
   // Create Session
   Session session(session_cfg);
@@ -369,31 +388,55 @@ RunResult run_profiler(const std::string &experiment_name,
   profiler.start_run(run_cfg);
 
   const auto run_start = std::chrono::steady_clock::now();
-  const float dt = 1.0f / static_cast<float>(session_cfg.sim_config.target_fps);
-  int steps_executed = 0;
+  int current_window = 0;
 
-  for (int window = 0; window < windows; ++window) {
-    profiler.start_window(window);
-    const int window_end =
-        std::min(session_cfg.sim_config.max_steps,
-                 steps_executed + session_cfg.sim_config.report_interval_steps);
+  // Define the should_stop callback to check both signal and window completion
+  auto should_stop = [&]() -> bool { return g_running == 0; };
 
-    while (steps_executed < window_end) {
-      session.step(dt);
-      ++steps_executed;
+  // Define the on_report callback to capture profiler windows
+  auto on_report = [&session, &profiler, &current_window,
+                    windows](const StepMetrics &snapshot) mutable {
+    if (current_window < windows) {
+      profiler.finish_window({current_window, snapshot.predator_count,
+                              snapshot.prey_count, snapshot.num_species,
+                              snapshot.best_fitness, snapshot.avg_fitness,
+                              snapshot.avg_genome_complexity});
+      current_window++;
+      if (current_window < windows) {
+        profiler.start_window(current_window);
+      }
     }
+    spdlog::info(
+        "Step {:6d}: predators={} prey={} births={} deaths={} species={}",
+        snapshot.step, snapshot.predator_count, snapshot.prey_count,
+        snapshot.births, snapshot.deaths, snapshot.num_species);
+  };
 
+  // Start first window
+  profiler.start_window(0);
+
+  // Run the event loop
+  auto stop_reason = session.run_event_loop(should_stop, on_report);
+
+  // If stopped early, fill remaining windows with empty data
+  while (current_window < windows) {
+    // Get current state for the remaining windows
     auto &evolution = session.evolution();
     auto &metrics = session.metrics();
     auto &registry = session.registry();
 
     evolution.refresh_species_ecs(registry);
-    const auto snapshot = metrics.collect_ecs(
-        steps_executed, registry, evolution, 0, 0, evolution.species_count());
-    profiler.finish_window({window, snapshot.predator_count,
+    const auto snapshot =
+        metrics.collect_ecs(session.steps_executed(), registry, evolution, 0, 0,
+                            evolution.species_count());
+    profiler.finish_window({current_window, snapshot.predator_count,
                             snapshot.prey_count, snapshot.num_species,
                             snapshot.best_fitness, snapshot.avg_fitness,
                             snapshot.avg_genome_complexity});
+    current_window++;
+    if (current_window < windows) {
+      profiler.start_window(current_window);
+    }
   }
 
   const auto run_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -404,6 +447,13 @@ RunResult run_profiler(const std::string &experiment_name,
   RunResult result;
   result.seed = seed;
   result.profile = std::move(profile_json);
+
+  if (stop_reason == StopReason::UserQuit) {
+    spdlog::info("Run stopped by user (window closed)");
+  } else if (stop_reason == StopReason::Signal) {
+    spdlog::info("Run stopped by signal (Ctrl+C)");
+  }
+
   return result;
 }
 
@@ -436,6 +486,10 @@ void write_manifest(const std::string &experiment_name, int windows,
 int main(int argc, const char *argv[]) {
   const Args args = parse_args(argc, argv);
 
+  // Setup signal handlers
+  std::signal(SIGINT, signal_handler);
+  std::signal(SIGTERM, signal_handler);
+
   std::vector<RunResult> runs;
   runs.reserve(args.seeds.size());
   const auto output_path =
@@ -444,7 +498,8 @@ int main(int argc, const char *argv[]) {
 
   for (std::uint64_t seed : args.seeds) {
     runs.push_back(run_profiler(args.experiment_name, args.output_dir,
-                                args.windows, seed, args.no_gpu));
+                                args.windows, seed, args.no_gpu,
+                                args.headless));
   }
 
   write_manifest(args.experiment_name, args.windows, std::move(runs),

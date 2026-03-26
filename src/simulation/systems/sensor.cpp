@@ -1,4 +1,5 @@
 #include "simulation/systems/sensor.hpp"
+#include "core/profiler_macros.hpp"
 #include "simulation/components.hpp"
 #include <algorithm>
 #include <cmath>
@@ -13,6 +14,7 @@ SensorSystem::SensorSystem(const SpatialGridECS &agent_grid, float world_width,
       has_walls_(has_walls) {}
 
 void SensorSystem::update(Registry &registry, float dt) {
+  MOONAI_PROFILE_SCOPE("sensor_update");
   auto &positions = registry.positions();
   auto &vitals = registry.vitals();
   auto &identity = registry.identity();

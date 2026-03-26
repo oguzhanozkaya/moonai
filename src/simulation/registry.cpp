@@ -1,5 +1,4 @@
 #include "simulation/registry.hpp"
-#include <algorithm>
 
 namespace moonai {
 

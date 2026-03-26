@@ -1,4 +1,5 @@
 #include "simulation/systems/combat.hpp"
+#include "core/profiler_macros.hpp"
 #include "simulation/components.hpp"
 #include <cmath>
 #include <limits>
@@ -10,6 +11,7 @@ CombatSystem::CombatSystem(const SpatialGridECS &agent_grid, float attack_range)
       attack_range_sq_(attack_range * attack_range) {}
 
 void CombatSystem::update(Registry &registry, float dt) {
+  MOONAI_PROFILE_SCOPE("combat_update");
   kill_events_.clear();
   food_events_.clear();
 

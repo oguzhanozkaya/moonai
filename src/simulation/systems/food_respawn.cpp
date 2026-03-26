@@ -1,5 +1,6 @@
 #include "simulation/systems/food_respawn.hpp"
 #include "core/deterministic_respawn.hpp"
+#include "core/profiler_macros.hpp"
 #include "simulation/components.hpp"
 
 namespace moonai {
@@ -10,6 +11,7 @@ FoodRespawnSystem::FoodRespawnSystem(float world_width, float world_height,
       respawn_rate_(respawn_rate), seed_(seed) {}
 
 void FoodRespawnSystem::update(Registry &registry, float dt) {
+  MOONAI_PROFILE_SCOPE("food_respawn");
   (void)dt;
 
   auto &living = registry.living_entities();

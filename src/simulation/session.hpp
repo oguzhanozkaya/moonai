@@ -11,6 +11,7 @@
 #include "visualization/visualization_manager.hpp"
 
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <optional>
 
@@ -26,7 +27,14 @@ struct SessionConfig {
   bool enable_logger = true;
   std::optional<std::string> run_name_override;
   int max_steps_override = 0;
+
+  // Event loop configuration
+  bool enable_interactions = true; // Allow pause, step, selection
+  bool auto_run = false;           // Ignore pause, run continuously
+  int speed_multiplier = 1;        // Steps per frame (1 = normal)
 };
+
+enum class StopReason { Completed, UserQuit, Signal };
 
 class Session {
 public:
@@ -53,6 +61,14 @@ public:
   void step(float dt);
   StepMetrics record_and_log(int births_in_window, int deaths_in_window);
 
+  // Event loop delegation
+  // Runs the full simulation loop with visualization
+  // should_stop: callback to check for external stop signal (e.g., Ctrl+C)
+  // Returns reason why loop stopped
+  StopReason
+  run_event_loop(std::function<bool()> should_stop = nullptr,
+                 std::function<void(const StepMetrics &)> on_report = nullptr);
+
   // State
   int steps_executed() const;
   int births_in_window() const;
@@ -77,6 +93,10 @@ private:
   int births_in_window_ = 0;
   int deaths_in_window_ = 0;
   std::vector<Vec2> actions_buffer_;
+
+  // Internal helpers
+  void update_selected_visualization();
+  bool should_continue(std::function<bool()> should_stop) const;
 };
 
 } // namespace moonai
