@@ -206,7 +206,7 @@ def _chart_timelines(suites: list[ProfileSuite]) -> Chart:
         ]
         has_data = True
         ax.plot(
-            list(range(count)),
+            list(range(1, count + 1)),
             averaged,
             label=suite.name,
             color="#355070",
