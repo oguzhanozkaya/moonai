@@ -260,7 +260,6 @@ def _suite_charts(suite: ProfileSuite) -> list[Chart]:
     return [
         _chart_member_means(suite),
         _chart_top_events(suite),
-        _chart_run_totals(suite),
     ]
 
 
@@ -305,26 +304,6 @@ def _chart_top_events(suite: ProfileSuite) -> Chart:
         title="Top Aggregate Events",
         image_uri=_to_data_uri(fig),
         caption="Aggregate event ranking from four kept runs.",
-    )
-
-
-def _chart_run_totals(suite: ProfileSuite) -> Chart:
-    fig, ax = plt.subplots(figsize=(10, 4.8))
-    labels = [f"seed {m.seed}" for m in suite.members]
-    values = [m.run_total_ms for m in suite.members]
-    colors = [
-        "#2d6a4f" if m.disposition == "kept" else "#c97b63" for m in suite.members
-    ]
-    ax.bar(labels, values, color=colors)
-    ax.set_ylabel("Run total time (ms)")
-    ax.set_title(f"Suite Member Run Totals - {suite.name}")
-    ax.tick_params(axis="x", rotation=35, labelsize=8)
-    ax.grid(axis="y", alpha=0.25)
-    fig.tight_layout()
-    return Chart(
-        title="Run Total Time",
-        image_uri=_to_data_uri(fig),
-        caption="Whole-run wall time per member run.",
     )
 
 
