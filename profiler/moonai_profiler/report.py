@@ -33,7 +33,6 @@ def generate_report(input_dir: Path, output_dir: Path) -> None:
     # Generate comparison charts
     comparison = [
         _chart_window_comparison(suites),
-        _chart_variability(suites),
         _chart_hotspots(suites),
         _chart_timelines(suites),
     ]
@@ -159,36 +158,38 @@ def _top_event(suite: ProfileSuite) -> tuple[str, float]:
 
 
 def _chart_window_comparison(suites: list[ProfileSuite]) -> Chart:
-    fig, ax = plt.subplots(figsize=(10, 4.8))
+    fig, ax1 = plt.subplots(figsize=(10, 4.8))
     labels = [s.name for s in suites]
     values = [s.avg_window_ms for s in suites]
-    ax.bar(labels, values, color="#355070")
-    ax.set_ylabel("Average report-window time (ms)")
-    ax.set_title("Trimmed Suite Report-Window Time")
-    ax.tick_params(axis="x", rotation=35, labelsize=7)
-    ax.grid(axis="y", alpha=0.25)
+
+    # Bar chart on primary y-axis (left)
+    bars = ax1.bar(labels, values, color="#355070", label="Avg Window Time")
+    ax1.set_ylabel("Average report-window time (ms)", color="#355070")
+    ax1.tick_params(axis="y", labelcolor="#355070")
+    ax1.set_title("Trimmed Suite Report-Window Time")
+    ax1.tick_params(axis="x", rotation=35, labelsize=7)
+    ax1.grid(axis="y", alpha=0.25)
+
+    # Standard deviation line on secondary y-axis (right)
+    ax2 = ax1.twinx()
+    stddev_values = [s.stddev for s in suites]
+    ax2.plot(
+        labels,
+        stddev_values,
+        color="#c97b63",
+        marker="o",
+        linewidth=2,
+        markersize=6,
+        label="Std Dev",
+    )
+    ax2.set_ylabel("Standard deviation (ms)", color="#c97b63")
+    ax2.tick_params(axis="y", labelcolor="#c97b63")
+
     fig.tight_layout()
     return Chart(
         title="Average Report-Window Time",
         image_uri=_to_data_uri(fig),
-        caption="Mean of middle four runs after dropping fastest and slowest.",
-    )
-
-
-def _chart_variability(suites: list[ProfileSuite]) -> Chart:
-    fig, ax = plt.subplots(figsize=(10, 4.8))
-    labels = [s.name for s in suites]
-    values = [s.stddev for s in suites]
-    ax.bar(labels, values, color="#b56576")
-    ax.set_ylabel("Stddev of kept run means (ms)")
-    ax.set_title("Run-to-Run Stability")
-    ax.tick_params(axis="x", rotation=35, labelsize=7)
-    ax.grid(axis="y", alpha=0.25)
-    fig.tight_layout()
-    return Chart(
-        title="Suite Variability",
-        image_uri=_to_data_uri(fig),
-        caption="Lower is better. Uses four kept runs only.",
+        caption="Bars: Mean of middle four runs. Line: Standard deviation (lower is more stable).",
     )
 
 
