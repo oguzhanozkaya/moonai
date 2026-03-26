@@ -387,35 +387,38 @@ The analysis code is structured as a small package under `analysis/moonai_analys
 
 ### Profiler output and analysis
 
-Profiler runs now use the dedicated `moonai_profiler` entry point with a separate
-`profiler.lua` config. The standard `moonai` binary no longer owns profiler
-orchestration.
+Profiler runs use the dedicated `moonai_profiler` entry point. The profiler is configured via CLI arguments instead of a config file.
 
 ```bash
-just profile
+just profile                    # Run with defaults (24 windows, seeds 41-46)
+./moonai_profiler --windows 12  # Custom window count
+./moonai_profiler --seeds 100,200,300,400  # Custom seeds
+./moonai_profiler --name mytest --output-dir results  # Custom name and output
 ```
 
-Each profiler suite writes to its own timestamped directory under `output/profiles/`
-by default. Every suite contains six raw run artifacts plus one suite-level
-aggregate artifact:
+**CLI Arguments:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--windows N` | 24 | Number of report windows to run |
+| `--seeds A,B,C...` | 41,42,43,44,45,46 | Comma-separated list of random seeds |
+| `--name <name>` | profile | Experiment name (used in output filename) |
+| `--output-dir <path>` | output/profiles | Output directory |
+| `--no-gpu` | false | Disable GPU acceleration |
+
+Each profiler run writes a single JSON file to `output/profiles/`:
 
 | File | Contents |
 |------|----------|
-| `raw/*/profile.json` | Full raw run payload: run metadata, event/counter definitions, per-window records, and summary statistics |
-| `profile_suite.json` | Suite manifest: six raw runs, dropped fastest/slowest runs, and aggregate timing/counter summaries from the remaining four runs |
+| `YYYY-MM-DD_HH-MM-SS_name.json` | Suite manifest with raw run data from all seeds |
 
-The profiler suite uses six fixed seeds from `profiler.lua`, drops the fastest and
-slowest runs by average window time, and reports aggregate timing/counter data
-from the remaining four runs. Standard simulation builds do not include profiler
-instrumentation, so normal runtime overhead stays unchanged.
+The profiler drops the fastest and slowest runs by average window time, and reports aggregate timing data from the remaining runs. Standard simulation builds do not include profiler instrumentation.
 
 To generate the standalone profiler report:
 
 ```bash
 just analyse-profile
 ```
-
-Internally this runs the packaged profiler entry point via `just analyse-profile`.
 
 The profiler writes a timestamped self-contained HTML report to `profiler/output/`, for example `profile_report_20260324_154233.html`.
 
@@ -464,8 +467,11 @@ just compdb
 # Benchmark NN forward-pass timing (requires release build)
 just bench-nn
 
-# Run the dedicated profiler suite entry point
+# Run the profiler with default settings (24 windows, seeds 41-46)
 just profile
+
+# Run profiler with custom settings
+./moonai_profiler --windows 12 --seeds 100,200,300,400,500,600
 
 # Generate the standalone profiler HTML report
 just analyse-profile
