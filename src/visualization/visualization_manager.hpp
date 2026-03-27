@@ -123,6 +123,8 @@ public:
   void enter_experiment_select_mode();
 
 private:
+  static constexpr unsigned int kGuiMaxFps = 360;
+
   void handle_mouse_click_ecs(float world_x, float world_y,
                               const Registry &registry);
   void update_camera();

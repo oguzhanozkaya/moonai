@@ -8,10 +8,11 @@
 namespace moonai {
 
 SensorSystem::SensorSystem(const SpatialGridECS &agent_grid, float world_width,
-                           float world_height, float max_energy, bool has_walls)
+                           float world_height, float vision_range,
+                           float max_energy)
     : agent_grid_(agent_grid), world_width_(world_width),
-      world_height_(world_height), max_energy_(max_energy),
-      has_walls_(has_walls) {}
+      world_height_(world_height), vision_range_(vision_range),
+      max_energy_(max_energy) {}
 
 void SensorSystem::update(Registry &registry) {
   MOONAI_PROFILE_SCOPE("sensor_update");
@@ -37,7 +38,7 @@ void SensorSystem::build_sensors_for_entity(size_t entity_idx,
   auto &sensors = registry.sensors();
 
   Vec2 pos{positions.x[entity_idx], positions.y[entity_idx]};
-  float vision = VISION_RANGE;
+  float vision = vision_range_;
   float vision_sq = vision * vision;
   uint8_t my_type = identity.type[entity_idx];
 
@@ -71,17 +72,13 @@ void SensorSystem::build_sensors_for_entity(size_t entity_idx,
   int local_predators = 0;
   int local_prey = 0;
 
-  // Get entity list for looking up component data
-  const auto &living = registry.living_entities();
-
   for (Entity other_e : nearby) {
-    // Skip self
-    if (other_e.index == registry.living_entities()[entity_idx].index) {
+    size_t other_idx = registry.index_of(other_e);
+    if (other_idx == std::numeric_limits<size_t>::max()) {
       continue;
     }
 
-    size_t other_idx = registry.index_of(other_e);
-    if (other_idx == std::numeric_limits<size_t>::max()) {
+    if (other_idx == entity_idx) {
       continue;
     }
 
@@ -105,7 +102,7 @@ void SensorSystem::build_sensors_for_entity(size_t entity_idx,
         nearest_pred_dist_sq = dist_sq;
         nearest_pred_dir = diff;
       }
-    } else {
+    } else if (other_type == IdentitySoA::TYPE_PREY) {
       ++local_prey;
       if (dist_sq < nearest_prey_dist_sq) {
         nearest_prey_dist_sq = dist_sq;
@@ -176,24 +173,18 @@ void SensorSystem::build_sensors_for_entity(size_t entity_idx,
   sensor_ptr[10] =
       std::clamp(static_cast<float>(local_prey) / MAX_DENSITY, 0.0f, 1.0f);
 
-  // Wall proximity (only in wall mode)
-  if (has_walls_) {
-    sensor_ptr[11] = std::clamp(pos.x / vision, 0.0f, 1.0f);
-    sensor_ptr[12] = std::clamp((world_width_ - pos.x) / vision, 0.0f, 1.0f);
-    sensor_ptr[13] = std::clamp(pos.y / vision, 0.0f, 1.0f);
-    sensor_ptr[14] = std::clamp((world_height_ - pos.y) / vision, 0.0f, 1.0f);
-  }
+  sensor_ptr[11] = 1.0f;
+  sensor_ptr[12] = 1.0f;
+  sensor_ptr[13] = 1.0f;
+  sensor_ptr[14] = 1.0f;
 }
 
 Vec2 SensorSystem::wrap_diff(Vec2 diff) const {
-  if (!has_walls_) {
-    if (std::abs(diff.x) > world_width_ * 0.5f) {
-      diff.x = (diff.x > 0.0f) ? diff.x - world_width_ : diff.x + world_width_;
-    }
-    if (std::abs(diff.y) > world_height_ * 0.5f) {
-      diff.y =
-          (diff.y > 0.0f) ? diff.y - world_height_ : diff.y + world_height_;
-    }
+  if (std::abs(diff.x) > world_width_ * 0.5f) {
+    diff.x = (diff.x > 0.0f) ? diff.x - world_width_ : diff.x + world_width_;
+  }
+  if (std::abs(diff.y) > world_height_ * 0.5f) {
+    diff.y = (diff.y > 0.0f) ? diff.y - world_height_ : diff.y + world_height_;
   }
   return diff;
 }

@@ -19,18 +19,6 @@ void lua_get(const sol::table &tbl, const char *key, T &field) {
   }
 }
 
-void lua_get_boundary(const sol::table &tbl, const char *key,
-                      BoundaryMode &field) {
-  auto val = tbl[key];
-  if (val.valid()) {
-    std::string s = val.get<std::string>();
-    if (s == "wrap")
-      field = BoundaryMode::Wrap;
-    else if (s == "clamp")
-      field = BoundaryMode::Clamp;
-  }
-}
-
 void lua_get_bool(const sol::table &tbl, const char *key, bool &field) {
   auto val = tbl[key];
   if (val.valid()) {
@@ -50,7 +38,6 @@ SimulationConfig table_to_config(const sol::table &tbl) {
   SimulationConfig config;
 
   lua_get(tbl, "grid_size", config.grid_size);
-  lua_get_boundary(tbl, "boundary_mode", config.boundary_mode);
   lua_get(tbl, "predator_count", config.predator_count);
   lua_get(tbl, "prey_count", config.prey_count);
   lua_get(tbl, "predator_speed", config.predator_speed);
@@ -78,7 +65,6 @@ SimulationConfig table_to_config(const sol::table &tbl) {
   lua_get(tbl, "c3_weight", config.c3_weight);
   lua_get(tbl, "species_update_interval_steps",
           config.species_update_interval_steps);
-  lua_get(tbl, "target_fps", config.target_fps);
   lua_get_uint64(tbl, "seed", config.seed);
   lua_get(tbl, "output_dir", config.output_dir);
   lua_get(tbl, "report_interval_steps", config.report_interval_steps);
@@ -105,8 +91,6 @@ void inject_defaults(sol::state &lua) {
   SimulationConfig d;
   sol::table t = lua.create_table();
   t["grid_size"] = d.grid_size;
-  t["boundary_mode"] =
-      (d.boundary_mode == BoundaryMode::Wrap) ? "wrap" : "clamp";
   t["predator_count"] = d.predator_count;
   t["prey_count"] = d.prey_count;
   t["predator_speed"] = d.predator_speed;
@@ -133,7 +117,6 @@ void inject_defaults(sol::state &lua) {
   t["c2_disjoint"] = d.c2_disjoint;
   t["c3_weight"] = d.c3_weight;
   t["species_update_interval_steps"] = d.species_update_interval_steps;
-  t["target_fps"] = d.target_fps;
   t["seed"] = static_cast<double>(d.seed);
   t["output_dir"] = d.output_dir;
   t["report_interval_steps"] = d.report_interval_steps;
@@ -156,8 +139,6 @@ void inject_defaults(sol::state &lua) {
 sol::table config_to_table(sol::state &lua, const SimulationConfig &c) {
   sol::table t = lua.create_table();
   t["grid_size"] = c.grid_size;
-  t["boundary_mode"] =
-      (c.boundary_mode == BoundaryMode::Wrap) ? "wrap" : "clamp";
   t["predator_count"] = c.predator_count;
   t["prey_count"] = c.prey_count;
   t["predator_speed"] = c.predator_speed;
@@ -184,7 +165,6 @@ sol::table config_to_table(sol::state &lua, const SimulationConfig &c) {
   t["c2_disjoint"] = c.c2_disjoint;
   t["c3_weight"] = c.c3_weight;
   t["species_update_interval_steps"] = c.species_update_interval_steps;
-  t["target_fps"] = c.target_fps;
   t["seed"] = static_cast<double>(c.seed);
   t["output_dir"] = c.output_dir;
   t["report_interval_steps"] = c.report_interval_steps;

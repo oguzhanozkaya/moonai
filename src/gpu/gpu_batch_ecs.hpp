@@ -16,7 +16,6 @@ namespace gpu {
 struct GpuStepParams {
   float world_width = 0.0f;
   float world_height = 0.0f;
-  bool has_walls = false;
   float energy_drain_per_step = 0.0f;
   float vision_range = 120.0f;
   float max_energy = 150.0f;
@@ -102,13 +101,13 @@ void launch_build_sensors_kernel(const float *d_pos_x, const float *d_pos_y,
                                  float *d_sensor_inputs, std::size_t count,
                                  float world_width, float world_height,
                                  float vision_range, float max_energy,
-                                 bool has_walls, cudaStream_t stream);
+                                 cudaStream_t stream);
 
 void launch_apply_movement_kernel(
     float *d_pos_x, float *d_pos_y, float *d_vel_x, float *d_vel_y,
     const float *d_speed, uint32_t *d_alive, const uint8_t *d_types,
     float *d_distance_traveled, const float *d_brain_outputs, std::size_t count,
-    float world_width, float world_height, bool has_walls, cudaStream_t stream);
+    float world_width, float world_height, cudaStream_t stream);
 
 void launch_update_vitals_kernel(float *d_energy, int *d_age,
                                  int *d_reproduction_cooldown,

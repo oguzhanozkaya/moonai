@@ -8,11 +8,8 @@
 
 namespace moonai {
 
-enum class BoundaryMode { Clamp, Wrap };
-
 struct SimulationConfig {
   int grid_size = 3000;
-  BoundaryMode boundary_mode = BoundaryMode::Wrap;
 
   int predator_count = 600;
   int prey_count = 2400;
@@ -45,7 +42,6 @@ struct SimulationConfig {
   float c3_weight = 0.4f;
   int species_update_interval_steps = 60;
 
-  int target_fps = 300;
   std::uint64_t seed = 0;
 
   std::string output_dir = "output";

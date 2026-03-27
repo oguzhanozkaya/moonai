@@ -30,15 +30,13 @@ SimulationManager::SimulationManager(const SimulationConfig &config)
       grid_(config.grid_size, config.grid_size,
             std::max(config.vision_range, 1.0f)),
       sensor_system_(grid_, static_cast<float>(config.grid_size),
-                     static_cast<float>(config.grid_size),
-                     config.initial_energy,
-                     config.boundary_mode == BoundaryMode::Clamp),
+                     static_cast<float>(config.grid_size), config.vision_range,
+                     config.initial_energy),
       energy_system_(config.energy_drain_per_step, config.energy_drain_per_step,
                      static_cast<float>(config.max_steps),
                      config.initial_energy),
       movement_system_(static_cast<float>(config.grid_size),
-                       static_cast<float>(config.grid_size),
-                       config.boundary_mode == BoundaryMode::Clamp),
+                       static_cast<float>(config.grid_size)),
       combat_system_(grid_, config.attack_range),
       food_respawn_system_(static_cast<float>(config.grid_size),
                            static_cast<float>(config.grid_size),
@@ -390,7 +388,6 @@ void SimulationManager::step_gpu_ecs(Registry &registry,
   gpu::GpuStepParams params;
   params.world_width = static_cast<float>(config_.grid_size);
   params.world_height = static_cast<float>(config_.grid_size);
-  params.has_walls = (config_.boundary_mode == BoundaryMode::Clamp);
   params.energy_drain_per_step = config_.energy_drain_per_step;
   params.vision_range = config_.vision_range;
   params.max_energy = static_cast<float>(config_.initial_energy);

@@ -30,18 +30,6 @@ void lua_get(const sol::table &tbl, const char *key, T &field) {
   }
 }
 
-void lua_get_boundary(const sol::table &tbl, const char *key,
-                      BoundaryMode &field) {
-  auto val = tbl[key];
-  if (val.valid()) {
-    std::string s = val.get<std::string>();
-    if (s == "wrap")
-      field = BoundaryMode::Wrap;
-    else if (s == "clamp")
-      field = BoundaryMode::Clamp;
-  }
-}
-
 void lua_get_bool(const sol::table &tbl, const char *key, bool &field) {
   auto val = tbl[key];
   if (val.valid()) {
@@ -62,7 +50,6 @@ SimulationConfig table_to_config(const sol::table &tbl) {
   SimulationConfig config;
 
   lua_get(tbl, "grid_size", config.grid_size);
-  lua_get_boundary(tbl, "boundary_mode", config.boundary_mode);
   lua_get(tbl, "predator_count", config.predator_count);
   lua_get(tbl, "prey_count", config.prey_count);
   lua_get(tbl, "predator_speed", config.predator_speed);
@@ -90,7 +77,6 @@ SimulationConfig table_to_config(const sol::table &tbl) {
   lua_get(tbl, "c3_weight", config.c3_weight);
   lua_get(tbl, "species_update_interval_steps",
           config.species_update_interval_steps);
-  lua_get(tbl, "target_fps", config.target_fps);
   lua_get_uint64(tbl, "seed", config.seed);
   lua_get(tbl, "output_dir", config.output_dir);
   lua_get(tbl, "report_interval_steps", config.report_interval_steps);
@@ -132,8 +118,6 @@ load_all_configs_lua(const std::string &filepath) {
     SimulationConfig d;
     sol::table t = lua.create_table();
     t["grid_size"] = d.grid_size;
-    t["boundary_mode"] =
-        (d.boundary_mode == BoundaryMode::Wrap) ? "wrap" : "clamp";
     t["predator_count"] = d.predator_count;
     t["prey_count"] = d.prey_count;
     t["predator_speed"] = d.predator_speed;
@@ -160,7 +144,6 @@ load_all_configs_lua(const std::string &filepath) {
     t["c2_disjoint"] = d.c2_disjoint;
     t["c3_weight"] = d.c3_weight;
     t["species_update_interval_steps"] = d.species_update_interval_steps;
-    t["target_fps"] = d.target_fps;
     t["seed"] = static_cast<double>(d.seed);
     t["output_dir"] = d.output_dir;
     t["report_interval_steps"] = d.report_interval_steps;
@@ -225,8 +208,6 @@ load_all_configs_lua(const std::string &filepath) {
 nlohmann::json config_to_json(const SimulationConfig &config) {
   nlohmann::json j;
   j["grid_size"] = config.grid_size;
-  j["boundary_mode"] =
-      (config.boundary_mode == BoundaryMode::Wrap) ? "wrap" : "clamp";
   j["predator_count"] = config.predator_count;
   j["prey_count"] = config.prey_count;
   j["predator_speed"] = config.predator_speed;
@@ -253,7 +234,6 @@ nlohmann::json config_to_json(const SimulationConfig &config) {
   j["c2_disjoint"] = config.c2_disjoint;
   j["c3_weight"] = config.c3_weight;
   j["species_update_interval_steps"] = config.species_update_interval_steps;
-  j["target_fps"] = config.target_fps;
   j["seed"] = config.seed;
   j["output_dir"] = config.output_dir;
   j["report_interval_steps"] = config.report_interval_steps;
@@ -350,8 +330,6 @@ std::vector<ConfigError> validate_config(const SimulationConfig &config) {
         "species_update_interval_steps", "must be >= 1");
 
   // Simulation
-  check(config.target_fps >= 1 && config.target_fps <= 1000, "target_fps",
-        "must be in [1, 1000]");
   check(config.report_interval_steps >= 1, "report_interval_steps",
         "must be >= 1");
   check(config.mate_range > 0.0f, "mate_range", "must be > 0");
@@ -395,8 +373,6 @@ std::vector<ConfigError> apply_overrides(
         config.max_steps = std::stoi(val);
       else if (key == "species_update_interval_steps")
         config.species_update_interval_steps = std::stoi(val);
-      else if (key == "target_fps")
-        config.target_fps = std::stoi(val);
       else if (key == "report_interval_steps")
         config.report_interval_steps = std::stoi(val);
       else if (key == "min_reproductive_age_steps")
@@ -468,14 +444,7 @@ std::vector<ConfigError> apply_overrides(
       else if (key == "birth_spawn_radius")
         config.birth_spawn_radius = std::stof(val);
       // String fields
-      else if (key == "boundary_mode") {
-        if (val == "wrap")
-          config.boundary_mode = BoundaryMode::Wrap;
-        else if (val == "clamp")
-          config.boundary_mode = BoundaryMode::Clamp;
-        else
-          errors.push_back({key, "must be 'wrap' or 'clamp'"});
-      } else if (key == "output_dir")
+      else if (key == "output_dir")
         config.output_dir = val;
       else if (key == "activation_function")
         config.activation_function = val;

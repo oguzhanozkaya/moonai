@@ -16,11 +16,7 @@ __device__ float clampf(float value, float min_value, float max_value) {
 }
 
 __device__ void apply_wrap(float &dx, float &dy, float world_width,
-                           float world_height, bool has_walls) {
-  if (has_walls) {
-    return;
-  }
-
+                           float world_height) {
   const float half_width = world_width * 0.5f;
   const float half_height = world_height * 0.5f;
   if (fabsf(dx) > half_width) {
@@ -43,7 +39,7 @@ __global__ void kernel_build_sensors(
     const float *__restrict__ speed, const uint8_t *__restrict__ types,
     const uint32_t *__restrict__ alive, const float *__restrict__ energy,
     float *__restrict__ sensor_inputs, int count, float world_width,
-    float world_height, float vision_range, float max_energy, bool has_walls) {
+    float world_height, float vision_range, float max_energy) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= count)
     return;
@@ -92,7 +88,7 @@ __global__ void kernel_build_sensors(
 
     float dx = pos_x[other] - self_x;
     float dy = pos_y[other] - self_y;
-    apply_wrap(dx, dy, world_width, world_height, has_walls);
+    apply_wrap(dx, dy, world_width, world_height);
     const float dist_sq = dx * dx + dy * dy;
     if (dist_sq > vision_sq) {
       continue;
@@ -141,12 +137,10 @@ __global__ void kernel_build_sensors(
   out[9] = clampf(static_cast<float>(local_predators) / kMaxDensity, 0.0f, 1.0f);
   out[10] = clampf(static_cast<float>(local_prey) / kMaxDensity, 0.0f, 1.0f);
 
-  if (has_walls) {
-    out[11] = clampf(self_x / vision_range, 0.0f, 1.0f);
-    out[12] = clampf((world_width - self_x) / vision_range, 0.0f, 1.0f);
-    out[13] = clampf(self_y / vision_range, 0.0f, 1.0f);
-    out[14] = clampf((world_height - self_y) / vision_range, 0.0f, 1.0f);
-  }
+  out[11] = 1.0f;
+  out[12] = 1.0f;
+  out[13] = 1.0f;
+  out[14] = 1.0f;
 }
 
 // Kernel: Apply movement from brain outputs
@@ -173,8 +167,6 @@ __global__ void kernel_update_vitals(float *__restrict__ energy,
   if (died_of_starvation || died_of_age) {
     energy[idx] = 0.0f;
     alive[idx] = 0;
-  } else if (energy[idx] > max_energy) {
-    energy[idx] = max_energy;
   }
 }
 
@@ -186,7 +178,7 @@ kernel_apply_movement(float *__restrict__ pos_x, float *__restrict__ pos_y,
                       const uint8_t *__restrict__ types,
                       float *__restrict__ distance_traveled,
                       const float *__restrict__ brain_outputs, int count,
-                      float world_width, float world_height, bool has_walls) {
+                      float world_width, float world_height) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= count)
     return;
@@ -220,36 +212,18 @@ kernel_apply_movement(float *__restrict__ pos_x, float *__restrict__ pos_y,
   pos_y[idx] += vel_y[idx];
 
   // Boundary handling
-  if (has_walls) {
-    if (pos_x[idx] < 0.0f) {
-      pos_x[idx] = 0.0f;
-      vel_x[idx] = 0.0f;
-    } else if (pos_x[idx] > world_width) {
-      pos_x[idx] = world_width;
-      vel_x[idx] = 0.0f;
-    }
-
-    if (pos_y[idx] < 0.0f) {
-      pos_y[idx] = 0.0f;
-      vel_y[idx] = 0.0f;
-    } else if (pos_y[idx] > world_height) {
-      pos_y[idx] = world_height;
-      vel_y[idx] = 0.0f;
-    }
-  } else {
-    while (pos_x[idx] < 0.0f)
-      pos_x[idx] += world_width;
-    while (pos_x[idx] >= world_width)
-      pos_x[idx] -= world_width;
-    while (pos_y[idx] < 0.0f)
-      pos_y[idx] += world_height;
-    while (pos_y[idx] >= world_height)
-      pos_y[idx] -= world_height;
-  }
+  while (pos_x[idx] < 0.0f)
+    pos_x[idx] += world_width;
+  while (pos_x[idx] >= world_width)
+    pos_x[idx] -= world_width;
+  while (pos_y[idx] < 0.0f)
+    pos_y[idx] += world_height;
+  while (pos_y[idx] >= world_height)
+    pos_y[idx] -= world_height;
 
   float dx_pos = pos_x[idx] - old_x;
   float dy_pos = pos_y[idx] - old_y;
-  apply_wrap(dx_pos, dy_pos, world_width, world_height, has_walls);
+  apply_wrap(dx_pos, dy_pos, world_width, world_height);
   distance_traveled[idx] += sqrtf(dx_pos * dx_pos + dy_pos * dy_pos);
 
 }
@@ -348,7 +322,7 @@ void GpuBatchECS::launch_full_step_async(const GpuStepParams &params,
       buffer_.device_speed(), buffer_.device_types(), buffer_.device_alive(),
       buffer_.device_energy(), buffer_.device_sensor_inputs(),
       static_cast<int>(agent_count), params.world_width, params.world_height,
-      params.vision_range, params.max_energy, params.has_walls);
+      params.vision_range, params.max_energy);
   check_launch_error();
 
   CUDA_CHECK(cudaMemsetAsync(buffer_.device_kill_counts(), 0,
@@ -368,8 +342,7 @@ void GpuBatchECS::launch_full_step_async(const GpuStepParams &params,
       buffer_.device_velocities_x(), buffer_.device_velocities_y(),
       buffer_.device_speed(), buffer_.device_alive(), buffer_.device_types(),
       buffer_.device_distance_traveled(), buffer_.device_brain_outputs(),
-      static_cast<int>(agent_count), params.world_width, params.world_height,
-      params.has_walls);
+      static_cast<int>(agent_count), params.world_width, params.world_height);
   check_launch_error();
 
   kernel_process_combat<<<blocks, kThreadsPerBlock, 0, stream>>>(
@@ -406,7 +379,7 @@ void GpuBatchECS::launch_build_sensors_async(const GpuStepParams &params,
       buffer_.device_speed(), buffer_.device_types(), buffer_.device_alive(),
       buffer_.device_energy(), buffer_.device_sensor_inputs(),
       static_cast<int>(agent_count), params.world_width, params.world_height,
-      params.vision_range, params.max_energy, params.has_walls);
+      params.vision_range, params.max_energy);
   CUDA_CHECK(cudaMemsetAsync(buffer_.device_brain_outputs(), 0,
                              agent_count * 2 * sizeof(float), stream));
   check_launch_error();
@@ -426,8 +399,7 @@ void GpuBatchECS::launch_apply_movement_async(const GpuStepParams &params,
       buffer_.device_velocities_x(), buffer_.device_velocities_y(),
       buffer_.device_speed(), buffer_.device_alive(), buffer_.device_types(),
       buffer_.device_distance_traveled(), buffer_.device_brain_outputs(),
-      static_cast<int>(agent_count), params.world_width, params.world_height,
-      params.has_walls);
+      static_cast<int>(agent_count), params.world_width, params.world_height);
   check_launch_error();
 }
 
@@ -487,32 +459,32 @@ void GpuBatchECS::check_launch_error() {
 void launch_build_sensors_kernel(const float *d_pos_x, const float *d_pos_y,
                                  const float *d_vel_x, const float *d_vel_y,
                                  const float *d_speed, const uint8_t *d_types,
-                                 const uint32_t *d_alive,
-                                 const float *d_energy,
-                                 float *d_sensor_inputs, std::size_t count,
-                                 float world_width, float world_height,
-                                 float vision_range, float max_energy,
-                                 bool has_walls, cudaStream_t stream) {
+                                  const uint32_t *d_alive,
+                                  const float *d_energy,
+                                  float *d_sensor_inputs, std::size_t count,
+                                  float world_width, float world_height,
+                                  float vision_range, float max_energy,
+                                  cudaStream_t stream) {
   const int blocks =
       (static_cast<int>(count) + kThreadsPerBlock - 1) / kThreadsPerBlock;
   kernel_build_sensors<<<blocks, kThreadsPerBlock, 0, stream>>>(
       d_pos_x, d_pos_y, d_vel_x, d_vel_y, d_speed, d_types, d_alive, d_energy,
       d_sensor_inputs, static_cast<int>(count), world_width, world_height,
-      vision_range, max_energy, has_walls);
+      vision_range, max_energy);
 }
 
 void launch_apply_movement_kernel(
     float *d_pos_x, float *d_pos_y, float *d_vel_x, float *d_vel_y,
     const float *d_speed, uint32_t *d_alive, const uint8_t *d_types,
     float *d_distance_traveled, const float *d_brain_outputs,
-    std::size_t count, float world_width, float world_height, bool has_walls,
+    std::size_t count, float world_width, float world_height,
     cudaStream_t stream) {
   const int blocks =
       (static_cast<int>(count) + kThreadsPerBlock - 1) / kThreadsPerBlock;
   kernel_apply_movement<<<blocks, kThreadsPerBlock, 0, stream>>>(
       d_pos_x, d_pos_y, d_vel_x, d_vel_y, d_speed, d_alive, d_types,
       d_distance_traveled, d_brain_outputs, static_cast<int>(count),
-      world_width, world_height, has_walls);
+      world_width, world_height);
 }
 
 void launch_update_vitals_kernel(float *d_energy, int *d_age,

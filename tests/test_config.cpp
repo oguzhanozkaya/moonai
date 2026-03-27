@@ -169,7 +169,6 @@ TEST(ApplyOverrides, ValidOverrides) {
       {"mutation_rate", "0.1"},
       {"prey_count", "75"},
       {"activation_function", "tanh"},
-      {"boundary_mode", "clamp"},
       {"seed", "42"},
   };
 
@@ -178,8 +177,18 @@ TEST(ApplyOverrides, ValidOverrides) {
   EXPECT_FLOAT_EQ(config.mutation_rate, 0.1f);
   EXPECT_EQ(config.prey_count, 75);
   EXPECT_EQ(config.activation_function, "tanh");
-  EXPECT_EQ(config.boundary_mode, BoundaryMode::Clamp);
   EXPECT_EQ(config.seed, 42u);
+}
+
+TEST(ApplyOverrides, BoundaryModeIsUnknownKey) {
+  SimulationConfig config;
+  std::vector<std::pair<std::string, std::string>> overrides = {
+      {"boundary_mode", "clamp"},
+  };
+
+  auto errors = apply_overrides(config, overrides);
+  EXPECT_EQ(errors.size(), 1u);
+  EXPECT_EQ(errors[0].field, "boundary_mode");
 }
 
 TEST(ApplyOverrides, UnknownKey) {
@@ -202,6 +211,23 @@ TEST(ApplyOverrides, InvalidValue) {
   auto errors = apply_overrides(config, overrides);
   EXPECT_EQ(errors.size(), 1u);
   EXPECT_EQ(errors[0].field, "predator_count");
+}
+
+TEST(ApplyOverrides, TargetFpsIsUnknownKey) {
+  SimulationConfig config;
+  std::vector<std::pair<std::string, std::string>> overrides = {
+      {"target_fps", "240"},
+  };
+
+  auto errors = apply_overrides(config, overrides);
+  EXPECT_EQ(errors.size(), 1u);
+  EXPECT_EQ(errors[0].field, "target_fps");
+}
+
+TEST(ConfigJson, DoesNotSerializeTargetFps) {
+  SimulationConfig config;
+  auto json = config_to_json(config);
+  EXPECT_FALSE(json.contains("target_fps"));
 }
 
 // ── LuaRuntime Tests ────────────────────────────────────────────────────

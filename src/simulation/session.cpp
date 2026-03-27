@@ -289,22 +289,27 @@ bool Session::run() {
         break;
       }
 
+      const bool step_requested =
+          cfg_.interactive && visualization_->should_step();
+
       // Handle pause (when interactive)
-      if (cfg_.interactive && visualization_->is_paused() &&
-          !visualization_->should_step()) {
+      if (cfg_.interactive && visualization_->is_paused() && !step_requested) {
         MOONAI_PROFILE_SCOPE("render");
         visualization_->render_ecs(registry_, evolution_, simulation_,
                                    steps_executed_);
         continue;
       }
 
-      if (cfg_.interactive) {
+      if (cfg_.interactive && step_requested) {
         visualization_->clear_step();
       }
 
       // Run simulation steps
-      int steps_to_run = cfg_.interactive ? visualization_->speed_multiplier()
-                                          : cfg_.speed_multiplier;
+      int steps_to_run =
+          step_requested
+              ? 1
+              : (cfg_.interactive ? visualization_->speed_multiplier()
+                                  : cfg_.speed_multiplier);
       steps_to_run = std::max(1, steps_to_run);
 
       for (int i = 0; i < steps_to_run && should_continue(); ++i) {
