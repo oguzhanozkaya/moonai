@@ -3,16 +3,12 @@
 #include "core/config.hpp"
 #include "core/random.hpp"
 #include "simulation/entity.hpp"
+#include "simulation/food_store.hpp"
 #include "simulation/spatial_grid_ecs.hpp"
 #include "simulation/step_state.hpp"
-#include "simulation/systems/combat.hpp"
-#include "simulation/systems/energy.hpp"
-#include "simulation/systems/food_respawn.hpp"
-#include "simulation/systems/movement.hpp"
-#include "simulation/systems/sensor.hpp"
 
 #include <cstddef>
-#include <functional>
+#include <memory>
 #include <vector>
 
 namespace moonai {
@@ -62,6 +58,10 @@ public:
     return grid_;
   }
 
+  const FoodStore &food_store() const {
+    return food_store_;
+  }
+
   int alive_predators() const {
     return alive_predators_;
   }
@@ -94,24 +94,19 @@ private:
   void apply_step_state(Registry &registry, const PackedStepState &state);
   void run_cpu_backend(PackedStepState &state, EvolutionManager &evolution);
   void finalize_step(Registry &registry, const PackedStepState &state);
+  void rebuild_food_grid();
   void rebuild_spatial_grid_ecs(const Registry &registry);
-  void process_food_ecs(Registry &registry);
-  void process_step_deaths_ecs(Registry &registry);
   void count_alive_ecs(const Registry &registry);
 
   SimulationConfig config_;
   Random rng_;
   SpatialGridECS grid_;
+  SpatialGridECS food_grid_;
+  FoodStore food_store_;
   std::vector<SimEvent> last_events_;
   int current_step_ = 0;
   int alive_predators_ = 0;
   int alive_prey_ = 0;
-
-  SensorSystem sensor_system_;
-  EnergySystem energy_system_;
-  MovementSystem movement_system_;
-  CombatSystem combat_system_;
-  FoodRespawnSystem food_respawn_system_;
 
   // GPU support
   bool gpu_enabled_ = false;

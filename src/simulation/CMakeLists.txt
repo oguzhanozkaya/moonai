@@ -1,14 +1,13 @@
 set(MOONAI_SIMULATION_SOURCES
+    food_store.cpp
     simulation_manager.cpp
     registry.cpp
     system.cpp
     spatial_grid_ecs.cpp
     session.cpp
     systems/movement.cpp
-    systems/sensor.cpp
     systems/combat.cpp
     systems/energy.cpp
-    systems/food_respawn.cpp
 )
 
 add_library(moonai_simulation STATIC ${MOONAI_SIMULATION_SOURCES})

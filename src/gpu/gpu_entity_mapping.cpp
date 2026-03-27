@@ -36,5 +36,13 @@ void GpuEntityMapping::build(const std::vector<Entity> &living) {
   count_ = gpu_idx;
 }
 
+void GpuEntityMapping::build_count(std::size_t count) {
+  clear();
+  if (count > gpu_to_entity_.size()) {
+    gpu_to_entity_.resize(count);
+  }
+  count_ = static_cast<uint32_t>(count);
+}
+
 } // namespace gpu
 } // namespace moonai

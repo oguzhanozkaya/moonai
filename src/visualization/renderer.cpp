@@ -1,4 +1,5 @@
 #include "visualization/renderer.hpp"
+#include "simulation/food_store.hpp"
 #include "simulation/registry.hpp"
 #include "visualization/visual_constants.hpp"
 
@@ -9,6 +10,18 @@
 #include <cmath>
 
 namespace moonai {
+
+namespace {
+Vec2 wrap_diff(Vec2 diff, float world_width, float world_height) {
+  if (std::abs(diff.x) > world_width * 0.5f) {
+    diff.x = diff.x > 0.0f ? diff.x - world_width : diff.x + world_width;
+  }
+  if (std::abs(diff.y) > world_height * 0.5f) {
+    diff.y = diff.y > 0.0f ? diff.y - world_height : diff.y + world_height;
+  }
+  return diff;
+}
+} // namespace
 
 namespace ecs {
 class Registry;
@@ -63,31 +76,20 @@ void Renderer::draw_boundaries(sf::RenderTarget &target, int width,
   target.draw(border);
 }
 
-void Renderer::draw_food_ecs(sf::RenderTarget &target,
-                             const Registry &registry) {
+void Renderer::draw_food(sf::RenderTarget &target,
+                         const FoodStore &food_store) {
   circle_.setRadius(sizes::FOOD_RADIUS);
   circle_.setOrigin({sizes::FOOD_RADIUS, sizes::FOOD_RADIUS});
-
-  const auto &living = registry.living_entities();
-  const auto &positions = registry.positions();
-  const auto &identity = registry.identity();
-  const auto &food_state = registry.food_state();
 
   sf::Color color(chart_colors::FOOD_R, chart_colors::FOOD_G,
                   chart_colors::FOOD_B, visual::FOOD_ALPHA);
 
-  for (Entity entity : living) {
-    size_t idx = registry.index_of(entity);
-
-    if (identity.type[idx] != IdentitySoA::TYPE_FOOD) {
+  for (std::size_t i = 0; i < food_store.size(); ++i) {
+    if (!food_store.active()[i]) {
       continue;
     }
 
-    if (!food_state.active[idx]) {
-      continue;
-    }
-
-    circle_.setPosition({positions.x[idx], positions.y[idx]});
+    circle_.setPosition({food_store.pos_x()[i], food_store.pos_y()[i]});
     circle_.setFillColor(color);
     circle_.setOutlineThickness(0);
     target.draw(circle_);
@@ -212,8 +214,9 @@ void Renderer::draw_vision_range_ecs(sf::RenderTarget &target,
 }
 
 void Renderer::draw_sensor_lines_ecs(sf::RenderTarget &target,
-                                     const Registry &registry, Entity entity,
-                                     float vision_range) {
+                                     const Registry &registry,
+                                     const FoodStore &food_store, Entity entity,
+                                     float vision_range, float world_size) {
   if (!registry.valid(entity)) {
     return;
   }
@@ -266,18 +269,12 @@ void Renderer::draw_sensor_lines_ecs(sf::RenderTarget &target,
     lines.append(sf::Vertex{{other_pos.x, other_pos.y}, line_color});
   }
 
-  const auto &food_state = registry.food_state();
-  for (Entity food_entity : living) {
-    size_t food_idx = registry.index_of(food_entity);
-    if (identity.type[food_idx] != IdentitySoA::TYPE_FOOD) {
+  for (std::size_t food_idx = 0; food_idx < food_store.size(); ++food_idx) {
+    if (!food_store.active()[food_idx]) {
       continue;
     }
-    if (!food_state.active[food_idx]) {
-      continue;
-    }
-    const auto &food_positions = registry.positions();
-    Vec2 food_pos{food_positions.x[food_idx], food_positions.y[food_idx]};
-    Vec2 diff = food_pos - pos;
+    Vec2 food_pos{food_store.pos_x()[food_idx], food_store.pos_y()[food_idx]};
+    Vec2 diff = wrap_diff(food_pos - pos, world_size, world_size);
     if (diff.length() > vision_range)
       continue;
 

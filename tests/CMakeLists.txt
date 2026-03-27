@@ -4,6 +4,7 @@ include(GoogleTest)
 add_executable(moonai_tests
     test_evolution.cpp
     test_config.cpp
+    test_food_store.cpp
     test_random.cpp
     test_logger.cpp
 )
@@ -18,5 +19,4 @@ target_link_libraries(moonai_tests PRIVATE
 )
 
 gtest_discover_tests(moonai_tests)
-
 

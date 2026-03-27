@@ -71,7 +71,6 @@ struct PackedAgentStepState {
 };
 
 struct PackedFoodStepState {
-  std::vector<Entity> entities;
   std::vector<float> pos_x;
   std::vector<float> pos_y;
   std::vector<uint8_t> active;
@@ -80,7 +79,6 @@ struct PackedFoodStepState {
   std::vector<int> consumed_by;
 
   void resize(std::size_t count) {
-    entities.resize(count);
     pos_x.resize(count);
     pos_y.resize(count);
     active.resize(count);
@@ -90,7 +88,7 @@ struct PackedFoodStepState {
   }
 
   std::size_t size() const {
-    return entities.size();
+    return pos_x.size();
   }
 };
 

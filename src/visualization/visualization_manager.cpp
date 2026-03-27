@@ -116,8 +116,7 @@ void VisualizationManager::render_ecs(const Registry &registry,
   renderer_.draw_grid(*window_, config_.grid_size, config_.grid_size, 500.0f);
   renderer_.draw_boundaries(*window_, config_.grid_size, config_.grid_size);
 
-  // Draw food (ECS-based)
-  renderer_.draw_food_ecs(*window_, registry);
+  renderer_.draw_food(*window_, simulation.food_store());
 
   // Count entities and calculate stats
   int alive_predators = 0;
@@ -128,25 +127,15 @@ void VisualizationManager::render_ecs(const Registry &registry,
   float prey_dist[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
 
   const auto &living = registry.living_entities();
-  const auto &food_state = registry.food_state();
   const auto &identity = registry.identity();
   const auto &vitals = registry.vitals();
 
-  // Count active food
-  for (Entity entity : living) {
-    size_t idx = registry.index_of(entity);
-    if (identity.type[idx] == IdentitySoA::TYPE_FOOD &&
-        food_state.active[idx]) {
-      active_food++;
-    }
+  for (uint8_t active : simulation.food_store().active()) {
+    active_food += active ? 1 : 0;
   }
 
   for (Entity entity : living) {
     size_t idx = registry.index_of(entity);
-
-    if (identity.type[idx] == IdentitySoA::TYPE_FOOD) {
-      continue; // Skip food in predator/prey counting
-    }
 
     if (vitals.alive[idx]) {
       if (identity.type[idx] == IdentitySoA::TYPE_PREDATOR) {
@@ -192,8 +181,9 @@ void VisualizationManager::render_ecs(const Registry &registry,
   if (selected_entity_ != INVALID_ENTITY && registry.valid(selected_entity_)) {
     Renderer::draw_vision_range_ecs(*window_, registry, selected_entity_,
                                     config_.vision_range);
-    Renderer::draw_sensor_lines_ecs(*window_, registry, selected_entity_,
-                                    config_.vision_range);
+    Renderer::draw_sensor_lines_ecs(*window_, registry, simulation.food_store(),
+                                    selected_entity_, config_.vision_range,
+                                    static_cast<float>(config_.grid_size));
   }
 
   // Update FPS counter

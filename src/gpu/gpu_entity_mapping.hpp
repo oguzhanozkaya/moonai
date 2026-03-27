@@ -13,6 +13,7 @@ public:
   void resize(std::size_t max_entities);
 
   void build(const std::vector<Entity> &living);
+  void build_count(std::size_t count);
 
   [[nodiscard]] int32_t gpu_index(Entity e) const noexcept {
     if (e.index >= entity_to_gpu_.size()) {

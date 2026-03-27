@@ -88,7 +88,7 @@ void prepare_step_state_for_gpu(const PackedStepState &state,
                                 GpuEntityMapping &food_mapping,
                                 GpuDataBuffer &buffer) {
   agent_mapping.build(state.agents.entities);
-  food_mapping.build(state.foods.entities);
+  food_mapping.build_count(state.foods.size());
 
   if (agent_mapping.count() > buffer.agent_capacity()) {
     throw std::runtime_error("GPU agent buffer capacity exceeded.");

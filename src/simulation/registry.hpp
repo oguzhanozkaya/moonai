@@ -87,22 +87,6 @@ public:
     return brain_;
   }
 
-  FoodStateSoA &food_state() {
-    return food_state_;
-  }
-  const FoodStateSoA &food_state() const {
-    return food_state_;
-  }
-
-  Entity create_food(Vec2 position, uint32_t slot_index, float radius,
-                     uint32_t color_rgba);
-
-  std::vector<Entity> query_food() const;
-
-  static bool is_food(const IdentitySoA &identity, size_t idx) {
-    return identity.type[idx] == IdentitySoA::TYPE_FOOD;
-  }
-
   float &pos_x(Entity e) {
     return positions_.x[index_of(e)];
   }
@@ -136,8 +120,6 @@ private:
   StatsSoA stats_;
   VisualSoA visual_;
   BrainSoA brain_;
-  FoodStateSoA food_state_;
-
   uint32_t next_entity_index_ = 1;
   std::vector<uint32_t> free_slots_;
   std::vector<uint32_t> generations_;
