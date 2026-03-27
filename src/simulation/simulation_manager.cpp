@@ -461,7 +461,8 @@ void SimulationManager::finalize_step(Registry &registry,
   for (std::size_t food_idx = 0; food_idx < state.foods.size(); ++food_idx) {
     const int prey_idx = state.foods.consumed_by[food_idx];
     if (!state.foods.was_active[food_idx] || state.foods.active[food_idx] ||
-        prey_idx < 0) {
+        prey_idx < 0 ||
+        static_cast<std::size_t>(prey_idx) >= state.agents.size()) {
       continue;
     }
 
@@ -484,7 +485,9 @@ void SimulationManager::finalize_step(Registry &registry,
           static_cast<int>(state.agents.kill_counts[agent_idx]);
     }
 
-    if (state.agents.killed_by[agent_idx] >= 0) {
+    if (state.agents.killed_by[agent_idx] >= 0 &&
+        static_cast<std::size_t>(state.agents.killed_by[agent_idx]) <
+            state.agents.size()) {
       const Entity killer = state.agents.entities[static_cast<std::size_t>(
           state.agents.killed_by[agent_idx])];
       Vec2 pos{positions.x[ecs_idx], positions.y[ecs_idx]};

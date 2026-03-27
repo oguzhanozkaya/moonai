@@ -11,6 +11,7 @@ namespace {
 constexpr int kThreadsPerBlock = 256;
 constexpr float kPi = 3.14159265f;
 constexpr float kMaxDensity = 10.0f;
+constexpr int kUnclaimed = 0x7f7f7f7f;
 
 __device__ float clampf(float value, float min_value, float max_value) {
   return fminf(fmaxf(value, min_value), max_value);
@@ -233,7 +234,7 @@ __global__ void kernel_finalize_food(float *__restrict__ agent_energy,
   }
 
   const int prey_idx = food_consumed_by[idx];
-  if (prey_idx >= 0 && agent_alive[prey_idx] != 0) {
+  if (prey_idx != kUnclaimed && prey_idx >= 0 && agent_alive[prey_idx] != 0) {
     food_active[idx] = 0;
     atomicAdd(&agent_energy[prey_idx], energy_gain_from_food);
   }
@@ -290,7 +291,7 @@ __global__ void kernel_finalize_combat(float *__restrict__ agent_energy,
   }
 
   const int killer_idx = agent_killed_by[idx];
-  if (killer_idx >= 0 && agent_alive[killer_idx] != 0) {
+  if (killer_idx != kUnclaimed && killer_idx >= 0 && agent_alive[killer_idx] != 0) {
     agent_alive[idx] = 0;
     atomicAdd(&agent_energy[killer_idx], energy_gain_from_kill);
     atomicAdd(&agent_kill_counts[killer_idx], 1U);
@@ -494,11 +495,11 @@ void launch_post_inference_kernel(
 
   CUDA_CHECK(cudaMemsetAsync(d_agent_kill_counts, 0,
                              agent_count * sizeof(uint32_t), stream));
-  CUDA_CHECK(cudaMemsetAsync(d_agent_killed_by, 0xFF,
+  CUDA_CHECK(cudaMemsetAsync(d_agent_killed_by, 0x7F,
                              agent_count * sizeof(int), stream));
 
   if (food_count > 0) {
-    CUDA_CHECK(cudaMemsetAsync(d_food_consumed_by, 0xFF,
+    CUDA_CHECK(cudaMemsetAsync(d_food_consumed_by, 0x7F,
                                food_count * sizeof(int), stream));
     kernel_claim_food<<<agent_blocks, kThreadsPerBlock, 0, stream>>>(
         d_agent_pos_x, d_agent_pos_y, d_agent_types, d_agent_alive, d_food_pos_x,
