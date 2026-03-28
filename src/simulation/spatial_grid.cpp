@@ -1,30 +1,28 @@
-#include "simulation/spatial_grid_ecs.hpp"
+#include "simulation/spatial_grid.hpp"
 #include <algorithm>
 #include <cmath>
 
 namespace moonai {
 
-SpatialGridECS::SpatialGridECS(float world_width, float world_height,
-                               float cell_size)
+SpatialGrid::SpatialGrid(float world_width, float world_height, float cell_size)
     : cell_size_(cell_size), world_width_(world_width),
       world_height_(world_height) {
   cols_ = static_cast<int>(std::ceil(world_width / cell_size));
   rows_ = static_cast<int>(std::ceil(world_height / cell_size));
 }
 
-void SpatialGridECS::clear() {
+void SpatialGrid::clear() {
   cells_.clear();
   entities_.clear();
 }
 
-void SpatialGridECS::insert(Entity e, Vec2 pos) {
+void SpatialGrid::insert(Entity e, Vec2 pos) {
   CellKey key = cell_key(pos);
   cells_[key].push_back(e);
   entities_.push_back(e);
 }
 
-std::vector<Entity> SpatialGridECS::query_radius(Vec2 center,
-                                                 float radius) const {
+std::vector<Entity> SpatialGrid::query_radius(Vec2 center, float radius) const {
   std::vector<Entity> result;
   float radius_sq = radius * radius;
 
@@ -56,15 +54,15 @@ std::vector<Entity> SpatialGridECS::query_radius(Vec2 center,
   return result;
 }
 
-SpatialGridECS::CellKey SpatialGridECS::cell_key(Vec2 pos) const {
+SpatialGrid::CellKey SpatialGrid::cell_key(Vec2 pos) const {
   return cell_key(cell_x(pos.x), cell_y(pos.y));
 }
 
-int SpatialGridECS::cell_x(float x) const {
+int SpatialGrid::cell_x(float x) const {
   return static_cast<int>(x / cell_size_);
 }
 
-int SpatialGridECS::cell_y(float y) const {
+int SpatialGrid::cell_y(float y) const {
   return static_cast<int>(y / cell_size_);
 }
 

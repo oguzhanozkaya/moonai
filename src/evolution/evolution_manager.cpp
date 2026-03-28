@@ -1,7 +1,7 @@
 #include "evolution/evolution_manager.hpp"
 #include "core/profiler_macros.hpp"
 #include "evolution/crossover.hpp"
-#include "gpu/gpu_batch_ecs.hpp"
+#include "gpu/gpu_batch.hpp"
 #include "gpu/gpu_network_cache.hpp"
 #include "simulation/registry.hpp"
 
@@ -50,7 +50,7 @@ Genome EvolutionManager::create_child_genome(const Genome &parent_a,
   return child;
 }
 
-void EvolutionManager::seed_initial_population_ecs(Registry &registry) {
+void EvolutionManager::seed_initial_population(Registry &registry) {
   entity_genomes_.clear();
   network_cache_.clear();
 
@@ -138,9 +138,9 @@ void EvolutionManager::seed_initial_population_ecs(Registry &registry) {
   }
 }
 
-Entity EvolutionManager::create_offspring_ecs(Registry &registry,
-                                              Entity parent_a, Entity parent_b,
-                                              Vec2 spawn_position) {
+Entity EvolutionManager::create_offspring(Registry &registry, Entity parent_a,
+                                          Entity parent_b,
+                                          Vec2 spawn_position) {
   MOONAI_PROFILE_SCOPE("evolution_offspring");
   if (!registry.valid(parent_a) || !registry.valid(parent_b)) {
     return INVALID_ENTITY;
@@ -205,7 +205,7 @@ Entity EvolutionManager::create_offspring_ecs(Registry &registry,
   return child;
 }
 
-void EvolutionManager::refresh_fitness_ecs(const Registry &registry) {
+void EvolutionManager::refresh_fitness(const Registry &registry) {
   MOONAI_PROFILE_SCOPE("evolution_refresh_fitness");
   for (Entity e : registry.living_entities()) {
     auto it = entity_genomes_.find(e);
@@ -232,7 +232,7 @@ void EvolutionManager::refresh_fitness_ecs(const Registry &registry) {
   }
 }
 
-void EvolutionManager::refresh_species_ecs(Registry &registry) {
+void EvolutionManager::refresh_species(Registry &registry) {
   for (auto &species : species_) {
     species.clear_members();
   }
@@ -268,7 +268,7 @@ void EvolutionManager::refresh_species_ecs(Registry &registry) {
   }
 }
 
-void EvolutionManager::compute_actions_ecs(Registry &registry) {
+void EvolutionManager::compute_actions(Registry &registry) {
   MOONAI_PROFILE_SCOPE("evolution_compute_actions");
   const auto &living = registry.living_entities();
 
@@ -322,11 +322,11 @@ const Genome *EvolutionManager::genome_for(Entity e) const {
   return nullptr;
 }
 
-void EvolutionManager::get_fitness_by_type_ecs(const Registry &registry,
-                                               float &best_predator,
-                                               float &avg_predator,
-                                               float &best_prey,
-                                               float &avg_prey) const {
+void EvolutionManager::get_fitness_by_type(const Registry &registry,
+                                           float &best_predator,
+                                           float &avg_predator,
+                                           float &best_prey,
+                                           float &avg_prey) const {
   best_predator = 0.0f;
   avg_predator = 0.0f;
   best_prey = 0.0f;
@@ -384,7 +384,7 @@ void EvolutionManager::enable_gpu(bool use_gpu) {
   }
 }
 
-void EvolutionManager::launch_gpu_neural(gpu::GpuBatchECS &gpu_batch,
+void EvolutionManager::launch_gpu_neural(gpu::GpuBatch &gpu_batch,
                                          std::size_t agent_count) {
   MOONAI_PROFILE_SCOPE("gpu_neural", gpu_batch.stream());
 

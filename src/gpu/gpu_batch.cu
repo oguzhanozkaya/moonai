@@ -1,5 +1,5 @@
 #include "gpu/cuda_utils.cuh"
-#include "gpu/gpu_batch_ecs.hpp"
+#include "gpu/gpu_batch.hpp"
 #include "core/profiler_macros.hpp"
 
 #include <spdlog/spdlog.h>
@@ -349,18 +349,18 @@ __global__ void kernel_apply_movement(
 }
 } // namespace
 
-GpuBatchECS::GpuBatchECS(std::size_t max_agents, std::size_t max_food)
+GpuBatch::GpuBatch(std::size_t max_agents, std::size_t max_food)
     : buffer_(max_agents, max_food) {
   init_cuda_resources();
   agent_mapping_.resize(max_agents);
   food_mapping_.resize(max_food);
 }
 
-GpuBatchECS::~GpuBatchECS() {
+GpuBatch::~GpuBatch() {
   cleanup_cuda_resources();
 }
 
-void GpuBatchECS::init_cuda_resources() {
+void GpuBatch::init_cuda_resources() {
   const cudaError_t err =
       cudaStreamCreate(reinterpret_cast<cudaStream_t *>(&stream_));
   if (err != cudaSuccess) {
@@ -368,20 +368,20 @@ void GpuBatchECS::init_cuda_resources() {
   }
 }
 
-void GpuBatchECS::cleanup_cuda_resources() {
+void GpuBatch::cleanup_cuda_resources() {
   if (stream_) {
     cudaStreamDestroy(static_cast<cudaStream_t>(stream_));
     stream_ = nullptr;
   }
 }
 
-void GpuBatchECS::upload_async(std::size_t agent_count, std::size_t food_count) {
+void GpuBatch::upload_async(std::size_t agent_count, std::size_t food_count) {
   MOONAI_PROFILE_SCOPE("gpu_upload", static_cast<cudaStream_t>(stream_));
   buffer_.upload_async(agent_count, food_count, static_cast<cudaStream_t>(stream_));
   check_launch_error();
 }
 
-void GpuBatchECS::download_async(std::size_t agent_count,
+void GpuBatch::download_async(std::size_t agent_count,
                                  std::size_t food_count) {
   MOONAI_PROFILE_SCOPE("gpu_download", static_cast<cudaStream_t>(stream_));
   buffer_.download_async(agent_count, food_count,
@@ -389,7 +389,7 @@ void GpuBatchECS::download_async(std::size_t agent_count,
   check_launch_error();
 }
 
-void GpuBatchECS::launch_build_sensors_async(const GpuStepParams &params,
+void GpuBatch::launch_build_sensors_async(const GpuStepParams &params,
                                              std::size_t agent_count,
                                              std::size_t food_count) {
   if (agent_count == 0 || had_error_) {
@@ -417,7 +417,7 @@ void GpuBatchECS::launch_build_sensors_async(const GpuStepParams &params,
   check_launch_error();
 }
 
-void GpuBatchECS::launch_post_inference_async(const GpuStepParams &params,
+void GpuBatch::launch_post_inference_async(const GpuStepParams &params,
                                               std::size_t agent_count,
                                               std::size_t food_count) {
   MOONAI_PROFILE_SCOPE("gpu_step", static_cast<cudaStream_t>(stream_));
@@ -438,7 +438,7 @@ void GpuBatchECS::launch_post_inference_async(const GpuStepParams &params,
   check_launch_error();
 }
 
-void GpuBatchECS::synchronize() {
+void GpuBatch::synchronize() {
   const cudaError_t err =
       cudaStreamSynchronize(static_cast<cudaStream_t>(stream_));
   if (err != cudaSuccess) {
@@ -447,11 +447,11 @@ void GpuBatchECS::synchronize() {
   }
 }
 
-void GpuBatchECS::mark_error() {
+void GpuBatch::mark_error() {
   had_error_ = true;
 }
 
-void GpuBatchECS::check_launch_error() {
+void GpuBatch::check_launch_error() {
   const cudaError_t err = cudaGetLastError();
   if (err != cudaSuccess) {
     spdlog::error("GPU kernel launch failed: {}", cudaGetErrorString(err));

@@ -26,15 +26,15 @@ struct GpuStepParams {
   float energy_gain_from_kill = 60.0f;
 };
 
-class GpuBatchECS {
+class GpuBatch {
 public:
-  GpuBatchECS(std::size_t max_agents, std::size_t max_food);
-  ~GpuBatchECS();
+  GpuBatch(std::size_t max_agents, std::size_t max_food);
+  ~GpuBatch();
 
-  GpuBatchECS(const GpuBatchECS &) = delete;
-  GpuBatchECS &operator=(const GpuBatchECS &) = delete;
-  GpuBatchECS(GpuBatchECS &&) = delete;
-  GpuBatchECS &operator=(GpuBatchECS &&) = delete;
+  GpuBatch(const GpuBatch &) = delete;
+  GpuBatch &operator=(const GpuBatch &) = delete;
+  GpuBatch(GpuBatch &&) = delete;
+  GpuBatch &operator=(GpuBatch &&) = delete;
 
   [[nodiscard]] GpuDataBuffer &buffer() {
     return buffer_;

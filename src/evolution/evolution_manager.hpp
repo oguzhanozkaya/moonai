@@ -19,7 +19,7 @@ namespace moonai {
 
 class Registry;
 namespace gpu {
-class GpuBatchECS;
+class GpuBatch;
 class GpuNetworkCache;
 } // namespace gpu
 
@@ -34,15 +34,15 @@ public:
   Genome create_child_genome(const Genome &parent_a,
                              const Genome &parent_b) const;
 
-  void seed_initial_population_ecs(Registry &registry);
+  void seed_initial_population(Registry &registry);
 
-  Entity create_offspring_ecs(Registry &registry, Entity parent_a,
-                              Entity parent_b, Vec2 spawn_position);
+  Entity create_offspring(Registry &registry, Entity parent_a, Entity parent_b,
+                          Vec2 spawn_position);
 
-  void refresh_fitness_ecs(const Registry &registry);
-  void refresh_species_ecs(Registry &registry);
+  void refresh_fitness(const Registry &registry);
+  void refresh_species(Registry &registry);
 
-  void compute_actions_ecs(Registry &registry);
+  void compute_actions(Registry &registry);
   void compute_actions_batch(const std::vector<Entity> &entities,
                              const std::vector<float> &all_inputs,
                              std::vector<float> &all_outputs);
@@ -66,9 +66,9 @@ public:
     return static_cast<int>(species_.size());
   }
 
-  void get_fitness_by_type_ecs(const Registry &registry, float &best_predator,
-                               float &avg_predator, float &best_prey,
-                               float &avg_prey) const;
+  void get_fitness_by_type(const Registry &registry, float &best_predator,
+                           float &avg_predator, float &best_prey,
+                           float &avg_prey) const;
 
   void update_config(const SimulationConfig &cfg) {
     config_ = cfg;
@@ -79,7 +79,7 @@ public:
   }
 
   // GPU neural inference (called by SimulationManager during GPU step)
-  void launch_gpu_neural(gpu::GpuBatchECS &gpu_batch, std::size_t agent_count);
+  void launch_gpu_neural(gpu::GpuBatch &gpu_batch, std::size_t agent_count);
 
 private:
   SimulationConfig config_;

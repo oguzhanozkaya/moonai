@@ -25,9 +25,9 @@ struct StepMetrics {
 
 class MetricsCollector {
 public:
-  StepMetrics collect_ecs(int step, const Registry &registry,
-                          const EvolutionManager &evolution,
-                          const std::vector<SimEvent> &events, int num_species);
+  StepMetrics collect(int step, const Registry &registry,
+                      const EvolutionManager &evolution,
+                      const std::vector<SimEvent> &events, int num_species);
 
   const std::vector<StepMetrics> &history() const {
     return history_;

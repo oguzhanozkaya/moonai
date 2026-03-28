@@ -490,7 +490,7 @@ moonai/
 │   │   ├── registry.hpp/cpp    # Sparse-set ECS registry with SoA storage
 │   │   ├── entity.hpp          # Entity handles (index + generation)
 │   │   ├── components.hpp      # SoA component definitions
-│   │   ├── spatial_grid_ecs.hpp/cpp  # Entity-based spatial indexing
+│   │   ├── spatial_grid.hpp/cpp  # Entity-based spatial indexing
 │   │   ├── simulation_manager.hpp/cpp # Coordinates ECS systems
 │   │   └── systems/            # ECS system implementations
 │   │       ├── movement.hpp/cpp

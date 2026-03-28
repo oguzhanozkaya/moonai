@@ -9,10 +9,10 @@
 
 namespace moonai {
 
-StepMetrics MetricsCollector::collect_ecs(int step, const Registry &registry,
-                                          const EvolutionManager &evolution,
-                                          const std::vector<SimEvent> &events,
-                                          int num_species) {
+StepMetrics MetricsCollector::collect(int step, const Registry &registry,
+                                      const EvolutionManager &evolution,
+                                      const std::vector<SimEvent> &events,
+                                      int num_species) {
   StepMetrics metrics;
   metrics.step = step;
   metrics.num_species = num_species;

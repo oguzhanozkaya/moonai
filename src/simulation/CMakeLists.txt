@@ -2,7 +2,7 @@ set(MOONAI_SIMULATION_SOURCES
     food_store.cpp
     simulation_manager.cpp
     registry.cpp
-    spatial_grid_ecs.cpp
+    spatial_grid.cpp
 )
 
 add_library(moonai_simulation STATIC ${MOONAI_SIMULATION_SOURCES})

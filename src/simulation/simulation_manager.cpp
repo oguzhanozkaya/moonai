@@ -3,7 +3,7 @@
 #include "core/profiler_macros.hpp"
 #include "evolution/evolution_manager.hpp"
 #include "gpu/ecs_gpu_packing.hpp"
-#include "gpu/gpu_batch_ecs.hpp"
+#include "gpu/gpu_batch.hpp"
 #include "simulation/registry.hpp"
 
 #include <algorithm>
@@ -510,8 +510,8 @@ void SimulationManager::refresh_world_state_after_step(Registry &registry) {
     MOONAI_PROFILE_SCOPE("rebuild_food_grid");
     rebuild_food_grid();
   }
-  rebuild_spatial_grid_ecs(registry);
-  count_alive_ecs(registry);
+  rebuild_spatial_grid(registry);
+  count_alive(registry);
   ++current_step_;
 }
 
@@ -527,7 +527,7 @@ void SimulationManager::rebuild_food_grid() {
 }
 
 SimulationManager::SimulationStepResult
-SimulationManager::step_ecs(Registry &registry, EvolutionManager &evolution) {
+SimulationManager::step(Registry &registry, EvolutionManager &evolution) {
   MOONAI_PROFILE_SCOPE("simulation_step_cpu");
   SimulationStepResult result;
 
@@ -544,7 +544,7 @@ void SimulationManager::reset() {
   initialize(false);
 }
 
-void SimulationManager::rebuild_spatial_grid_ecs(const Registry &registry) {
+void SimulationManager::rebuild_spatial_grid(const Registry &registry) {
   MOONAI_PROFILE_SCOPE("rebuild_spatial_grid");
   grid_.clear();
 
@@ -623,7 +623,7 @@ SimulationManager::find_reproduction_pairs(const Registry &registry) const {
   return pairs;
 }
 
-void SimulationManager::count_alive_ecs(const Registry &registry) {
+void SimulationManager::count_alive(const Registry &registry) {
   MOONAI_PROFILE_SCOPE("count_alive");
   alive_predators_ = 0;
   alive_prey_ = 0;
@@ -644,10 +644,10 @@ void SimulationManager::count_alive_ecs(const Registry &registry) {
   }
 }
 
-void SimulationManager::refresh_state_ecs(Registry &registry) {
-  rebuild_spatial_grid_ecs(registry);
+void SimulationManager::refresh_state(Registry &registry) {
+  rebuild_spatial_grid(registry);
   rebuild_food_grid();
-  count_alive_ecs(registry);
+  count_alive(registry);
 }
 
 SimulationManager::~SimulationManager() = default;
@@ -658,7 +658,7 @@ void SimulationManager::enable_gpu(bool enable) {
     const size_t max_agents =
         static_cast<size_t>((config_.predator_count + config_.prey_count) * 6);
     const size_t max_food = static_cast<size_t>(config_.food_count);
-    gpu_batch_ = std::make_unique<gpu::GpuBatchECS>(max_agents, max_food);
+    gpu_batch_ = std::make_unique<gpu::GpuBatch>(max_agents, max_food);
     spdlog::info(
         "GPU batch processing enabled with capacities {} agents / {} food",
         max_agents, max_food);
@@ -669,15 +669,14 @@ void SimulationManager::enable_gpu(bool enable) {
 }
 
 SimulationManager::SimulationStepResult
-SimulationManager::step_gpu_ecs(Registry &registry,
-                                EvolutionManager &evolution) {
+SimulationManager::step_gpu(Registry &registry, EvolutionManager &evolution) {
   MOONAI_PROFILE_SCOPE("simulation_step_gpu");
   SimulationStepResult result;
 
   if (!gpu_batch_ || !gpu_batch_->ok()) {
     spdlog::error(
         "GPU batch not initialized or in error state, falling back to CPU");
-    return step_ecs(registry, evolution);
+    return step(registry, evolution);
   }
 
   PackedStepState state;
@@ -693,7 +692,7 @@ SimulationManager::step_gpu_ecs(Registry &registry,
       spdlog::error("GPU preparation failed: {}. Falling back to CPU step.",
                     ex.what());
       gpu_enabled_ = false;
-      return step_ecs(registry, evolution);
+      return step(registry, evolution);
     }
   }
 
@@ -736,7 +735,7 @@ SimulationManager::step_gpu_ecs(Registry &registry,
     spdlog::error("GPU step failed, disabling GPU path and retrying on CPU");
     gpu_enabled_ = false;
     gpu_batch_.reset();
-    return step_ecs(registry, evolution);
+    return step(registry, evolution);
   }
 
   {

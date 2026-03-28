@@ -6,9 +6,9 @@
 
 namespace moonai {
 
-class SpatialGridECS {
+class SpatialGrid {
 public:
-  SpatialGridECS(float world_width, float world_height, float cell_size);
+  SpatialGrid(float world_width, float world_height, float cell_size);
 
   void clear();
   void insert(Entity e, Vec2 pos);

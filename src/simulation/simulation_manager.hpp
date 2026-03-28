@@ -4,7 +4,7 @@
 #include "core/random.hpp"
 #include "simulation/entity.hpp"
 #include "simulation/food_store.hpp"
-#include "simulation/spatial_grid_ecs.hpp"
+#include "simulation/spatial_grid.hpp"
 #include "simulation/step_state.hpp"
 
 #include <cstddef>
@@ -16,7 +16,7 @@ namespace moonai {
 class Registry;
 class EvolutionManager;
 namespace gpu {
-class GpuBatchECS;
+class GpuBatch;
 }
 
 struct SimEvent {
@@ -44,10 +44,9 @@ public:
   ~SimulationManager();
 
   void initialize();
-  SimulationStepResult step_ecs(Registry &registry,
+  SimulationStepResult step(Registry &registry, EvolutionManager &evolution);
+  SimulationStepResult step_gpu(Registry &registry,
                                 EvolutionManager &evolution);
-  SimulationStepResult step_gpu_ecs(Registry &registry,
-                                    EvolutionManager &evolution);
   void reset();
 
   void enable_gpu(bool enable);
@@ -62,10 +61,10 @@ public:
     ++current_step_;
   }
 
-  SpatialGridECS &spatial_grid() {
+  SpatialGrid &spatial_grid() {
     return grid_;
   }
-  const SpatialGridECS &spatial_grid() const {
+  const SpatialGrid &spatial_grid() const {
     return grid_;
   }
 
@@ -80,7 +79,7 @@ public:
     return alive_prey_;
   }
 
-  void refresh_state_ecs(Registry &registry);
+  void refresh_state(Registry &registry);
 
 private:
   void initialize(bool log_initialization);
@@ -94,13 +93,13 @@ private:
   find_reproduction_pairs(const Registry &registry) const;
   void refresh_world_state_after_step(Registry &registry);
   void rebuild_food_grid();
-  void rebuild_spatial_grid_ecs(const Registry &registry);
-  void count_alive_ecs(const Registry &registry);
+  void rebuild_spatial_grid(const Registry &registry);
+  void count_alive(const Registry &registry);
 
   SimulationConfig config_;
   Random rng_;
-  SpatialGridECS grid_;
-  SpatialGridECS food_grid_;
+  SpatialGrid grid_;
+  SpatialGrid food_grid_;
   FoodStore food_store_;
   int current_step_ = 0;
   int alive_predators_ = 0;
@@ -108,7 +107,7 @@ private:
 
   // GPU support
   bool gpu_enabled_ = false;
-  std::unique_ptr<gpu::GpuBatchECS> gpu_batch_;
+  std::unique_ptr<gpu::GpuBatch> gpu_batch_;
 };
 
 } // namespace moonai

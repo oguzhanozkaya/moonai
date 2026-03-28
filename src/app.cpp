@@ -73,8 +73,8 @@ App::App(const AppConfig &cfg)
 
   simulation_.initialize();
   evolution_.initialize(SensorSoA::INPUT_COUNT, 2);
-  evolution_.seed_initial_population_ecs(registry_);
-  simulation_.refresh_state_ecs(registry_);
+  evolution_.seed_initial_population(registry_);
+  simulation_.refresh_state(registry_);
 
   logger_.initialize(cfg_.sim_config);
 
@@ -100,15 +100,15 @@ void App::step() {
 
   SimulationManager::SimulationStepResult step_result;
   if (cfg_.enable_gpu && simulation_.gpu_enabled()) {
-    step_result = simulation_.step_gpu_ecs(registry_, evolution_);
+    step_result = simulation_.step_gpu(registry_, evolution_);
   } else {
-    step_result = simulation_.step_ecs(registry_, evolution_);
+    step_result = simulation_.step(registry_, evolution_);
   }
 
   last_step_events_ = std::move(step_result.events);
 
   for (const auto &pair : step_result.reproduction_pairs) {
-    Entity child = evolution_.create_offspring_ecs(
+    Entity child = evolution_.create_offspring(
         registry_, pair.parent_a, pair.parent_b, pair.spawn_position);
     if (child != INVALID_ENTITY) {
       last_step_events_.push_back(
@@ -118,22 +118,22 @@ void App::step() {
 
   accumulate_events(last_step_events_);
 
-  evolution_.refresh_fitness_ecs(registry_);
+  evolution_.refresh_fitness(registry_);
 
   if (cfg_.sim_config.species_update_interval_steps > 0 &&
       (steps_executed_ % cfg_.sim_config.species_update_interval_steps) == 0) {
-    evolution_.refresh_species_ecs(registry_);
+    evolution_.refresh_species(registry_);
   }
 
   ++steps_executed_;
 }
 
 StepMetrics App::record_and_log() {
-  evolution_.refresh_species_ecs(registry_);
+  evolution_.refresh_species(registry_);
 
   auto snapshot =
-      metrics_.collect_ecs(steps_executed_, registry_, evolution_,
-                           last_step_events_, evolution_.species_count());
+      metrics_.collect(steps_executed_, registry_, evolution_,
+                       last_step_events_, evolution_.species_count());
 
   logger_.log_report(snapshot);
 
@@ -260,8 +260,8 @@ FrameSnapshot App::build_frame_snapshot() const {
   float avg_pred = 0.0f;
   float best_prey = 0.0f;
   float avg_prey = 0.0f;
-  evolution_.get_fitness_by_type_ecs(registry_, best_pred, avg_pred, best_prey,
-                                     avg_prey);
+  evolution_.get_fitness_by_type(registry_, best_pred, avg_pred, best_prey,
+                                 avg_prey);
 
   frame.overlay_stats.step = steps_executed_;
   frame.overlay_stats.max_steps = cfg_.sim_config.max_steps;
