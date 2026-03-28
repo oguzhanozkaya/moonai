@@ -246,14 +246,15 @@ def _analyze_suite(runs: list[dict]) -> dict:
             ]
             event_totals[scope_name]["count"] += stats["count"]
 
-    # Compute averages per frame
+    # Compute averages per frame (not per-occurrence)
+    # This ensures that when speed_multiplier increases, the average time
+    # per frame correctly reflects the increased workload
     for stats in event_totals.values():
-        count = stats["count"]
         stats["avg_inclusive_ms"] = (
-            stats["total_inclusive_ms"] / count if count > 0 else 0.0
+            stats["total_inclusive_ms"] / total_frames if total_frames > 0 else 0.0
         )
         stats["avg_exclusive_ms"] = (
-            stats["total_exclusive_ms"] / count if count > 0 else 0.0
+            stats["total_exclusive_ms"] / total_frames if total_frames > 0 else 0.0
         )
 
     # Build averaged tree from all frames in kept runs

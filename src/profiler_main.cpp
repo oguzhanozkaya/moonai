@@ -312,7 +312,8 @@ nlohmann::json Profiler::finish_run(std::int64_t run_total_ns) {
 namespace {
 
 struct Args {
-  int frames = 1000;
+  int frames = 300;
+  int speed_multiplier = 8;
   std::vector<std::uint64_t> seeds = {61, 62, 63, 64, 65, 66};
   std::string output_dir = "output/profiles";
   std::string experiment_name = "profile";
@@ -380,7 +381,7 @@ void write_manifest(std::vector<RunResult> runs,
 
   nlohmann::json metadata;
   metadata["suite_name"] = cfg.experiment_name;
-  metadata["frame_count"] = cfg.sim_config.max_steps;
+  metadata["frame_count"] = cfg.sim_config.max_steps / cfg.speed_multiplier;
   metadata["report_interval_steps"] = cfg.sim_config.report_interval_steps;
   metadata["gpu_allowed"] = cfg.enable_gpu;
   metadata["platform"] = moonai::AppConfig::platform;
@@ -422,12 +423,12 @@ int main(int argc, const char *argv[]) {
 
   moonai::AppConfig base_cfg;
   base_cfg.sim_config = moonai::SimulationConfig();
-  base_cfg.sim_config.max_steps = args.frames;
+  base_cfg.sim_config.max_steps = args.frames * args.speed_multiplier;
   base_cfg.experiment_name = args.experiment_name;
   base_cfg.headless = false;
   base_cfg.enable_gpu = !args.no_gpu;
   base_cfg.interactive = false;
-  base_cfg.speed_multiplier = 1;
+  base_cfg.speed_multiplier = args.speed_multiplier;
   const auto output_path =
       std::filesystem::path(args.output_dir) /
       (utc_timestamp() + "_" + args.experiment_name + ".json");

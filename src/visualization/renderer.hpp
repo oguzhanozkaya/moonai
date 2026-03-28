@@ -3,12 +3,12 @@
 #include "core/types.hpp"
 #include "simulation/entity.hpp"
 
-#include <SFML/Graphics/CircleShape.hpp>
 #include <SFML/Graphics/Color.hpp>
-#include <SFML/Graphics/ConvexShape.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/RenderTarget.hpp>
+#include <SFML/Graphics/Vertex.hpp>
 
+#include <array>
 #include <cstdint>
 #include <vector>
 
@@ -41,10 +41,9 @@ public:
   static void draw_boundaries(sf::RenderTarget &target, int width, int height);
 
   void draw_food(sf::RenderTarget &target, const std::vector<RenderFood> &food);
-  void draw_agent(sf::RenderTarget &target, const RenderAgent &agent,
-                  bool selected = false);
   void draw_all_agents(sf::RenderTarget &target,
                        const std::vector<RenderAgent> &agents,
+                       int alive_predators, int alive_prey,
                        Entity selected_entity = INVALID_ENTITY);
   static void draw_vision_range(sf::RenderTarget &target, Vec2 position,
                                 float vision_range);
@@ -52,9 +51,25 @@ public:
                                 const std::vector<RenderLine> &lines);
 
 private:
-  sf::CircleShape circle_;
-  sf::ConvexShape triangle_;
+  static constexpr int kPreyCircleSegments = 6;
+
+  void initialize_circle_template();
+  static sf::Color brighten_color(sf::Color color, int amount);
+  void draw_triangles(sf::RenderTarget &target,
+                      const std::vector<sf::Vertex> &vertices) const;
+  static void write_quad(sf::Vertex *vertices, Vec2 position, float half_extent,
+                         sf::Color color);
+  static void write_triangle(sf::Vertex *vertices, const RenderAgent &agent,
+                             float size, sf::Color color);
+  void write_circle(sf::Vertex *vertices, Vec2 position, float radius,
+                    sf::Color color) const;
+
+  std::vector<sf::Vertex> food_vertices_;
+  std::vector<sf::Vertex> predator_vertices_;
+  std::vector<sf::Vertex> prey_vertices_;
+  std::vector<sf::Vertex> selected_vertices_;
   sf::RectangleShape rect_;
+  std::array<Vec2, kPreyCircleSegments + 1> prey_circle_template_{};
 };
 
 } // namespace moonai

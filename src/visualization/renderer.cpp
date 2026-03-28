@@ -2,6 +2,7 @@
 #include "simulation/components.hpp"
 #include "visualization/visual_constants.hpp"
 
+#include <SFML/Graphics/CircleShape.hpp>
 #include <SFML/Graphics/PrimitiveType.hpp>
 #include <SFML/Graphics/Vertex.hpp>
 #include <SFML/Graphics/VertexArray.hpp>
@@ -11,11 +12,33 @@
 namespace moonai {
 
 Renderer::Renderer() {
-  // Pre-configure triangle shape (3 points for predator)
-  triangle_.setPointCount(3);
+  initialize_circle_template();
+}
 
-  // Pre-configure circle for prey
-  circle_.setPointCount(20);
+void Renderer::initialize_circle_template() {
+  constexpr float pi = 3.14159265358979323846f;
+  const float step = 2.0f * pi / static_cast<float>(kPreyCircleSegments);
+
+  for (int i = 0; i <= kPreyCircleSegments; ++i) {
+    const float angle = step * static_cast<float>(i);
+    prey_circle_template_[i] = Vec2{std::cos(angle), std::sin(angle)};
+  }
+}
+
+sf::Color Renderer::brighten_color(sf::Color color, int amount) {
+  color.r = static_cast<std::uint8_t>(std::min(255, color.r + amount));
+  color.g = static_cast<std::uint8_t>(std::min(255, color.g + amount));
+  color.b = static_cast<std::uint8_t>(std::min(255, color.b + amount));
+  return color;
+}
+
+void Renderer::draw_triangles(sf::RenderTarget &target,
+                              const std::vector<sf::Vertex> &vertices) const {
+  if (vertices.empty()) {
+    return;
+  }
+
+  target.draw(vertices.data(), vertices.size(), sf::PrimitiveType::Triangles);
 }
 
 void Renderer::draw_background(sf::RenderTarget &target, int width,
@@ -61,95 +84,151 @@ void Renderer::draw_boundaries(sf::RenderTarget &target, int width,
 
 void Renderer::draw_food(sf::RenderTarget &target,
                          const std::vector<RenderFood> &food) {
-  circle_.setRadius(sizes::FOOD_RADIUS);
-  circle_.setOrigin({sizes::FOOD_RADIUS, sizes::FOOD_RADIUS});
-
   sf::Color color(chart_colors::FOOD_R, chart_colors::FOOD_G,
                   chart_colors::FOOD_B, visual::FOOD_ALPHA);
+  food_vertices_.resize(food.size() * 6);
 
+  std::size_t vertex_index = 0;
   for (const auto &item : food) {
-    circle_.setPosition({item.position.x, item.position.y});
-    circle_.setFillColor(color);
-    circle_.setOutlineThickness(0);
-    target.draw(circle_);
+    const float r = sizes::FOOD_RADIUS;
+    write_quad(food_vertices_.data() + vertex_index, item.position, r, color);
+    vertex_index += 6;
   }
+
+  draw_triangles(target, food_vertices_);
 }
 
-void Renderer::draw_agent(sf::RenderTarget &target, const RenderAgent &agent,
-                          bool selected) {
-  sf::Color base_color;
-  float visual_radius;
-  if (agent.type == IdentitySoA::TYPE_PREDATOR) {
-    base_color = sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G,
-                           chart_colors::PREDATOR_B);
-    visual_radius = sizes::PREDATOR_RADIUS;
+void Renderer::write_quad(sf::Vertex *vertices, Vec2 position,
+                          float half_extent, sf::Color color) {
+  const float left = position.x - half_extent;
+  const float right = position.x + half_extent;
+  const float top = position.y - half_extent;
+  const float bottom = position.y + half_extent;
+
+  vertices[0] = sf::Vertex{{left, top}, color};
+  vertices[1] = sf::Vertex{{right, top}, color};
+  vertices[2] = sf::Vertex{{right, bottom}, color};
+  vertices[3] = sf::Vertex{{left, top}, color};
+  vertices[4] = sf::Vertex{{right, bottom}, color};
+  vertices[5] = sf::Vertex{{left, bottom}, color};
+}
+
+void Renderer::write_triangle(sf::Vertex *vertices, const RenderAgent &agent,
+                              float size, sf::Color color) {
+  Vec2 forward = agent.velocity;
+  const float velocity_length_sq =
+      forward.x * forward.x + forward.y * forward.y;
+  if (velocity_length_sq > 1e-6f) {
+    const float inv_length = 1.0f / std::sqrt(velocity_length_sq);
+    forward.x *= inv_length;
+    forward.y *= inv_length;
   } else {
-    base_color = sf::Color(chart_colors::PREY_R, chart_colors::PREY_G,
-                           chart_colors::PREY_B);
-    visual_radius = sizes::PREY_RADIUS;
+    forward = Vec2{1.0f, 0.0f};
   }
 
-  if (selected) {
-    base_color.r = std::min(255, base_color.r + 60);
-    base_color.g = std::min(255, base_color.g + 60);
-    base_color.b = std::min(255, base_color.b + 60);
-  }
+  const Vec2 perpendicular{-forward.y, forward.x};
+  const float tip_scale = size * visual::TRIANGLE_TIP_FACTOR;
+  const float base_scale = size * visual::TRIANGLE_BASE_FACTOR;
+  const float width_scale = size * visual::TRIANGLE_WIDTH_FACTOR;
+  const Vec2 tip{agent.position.x + forward.x * tip_scale,
+                 agent.position.y + forward.y * tip_scale};
+  const Vec2 left{agent.position.x - forward.x * base_scale -
+                      perpendicular.x * width_scale,
+                  agent.position.y - forward.y * base_scale -
+                      perpendicular.y * width_scale};
+  const Vec2 right{agent.position.x - forward.x * base_scale +
+                       perpendicular.x * width_scale,
+                   agent.position.y - forward.y * base_scale +
+                       perpendicular.y * width_scale};
 
-  sf::Color outline_color(std::min(255, base_color.r + 30),
-                          std::min(255, base_color.g + 30),
-                          std::min(255, base_color.b + 30));
+  vertices[0] = sf::Vertex{{tip.x, tip.y}, color};
+  vertices[1] = sf::Vertex{{left.x, left.y}, color};
+  vertices[2] = sf::Vertex{{right.x, right.y}, color};
+}
 
-  bool is_triangle = agent.type == IdentitySoA::TYPE_PREDATOR;
+void Renderer::write_circle(sf::Vertex *vertices, Vec2 position, float radius,
+                            sf::Color color) const {
+  for (int i = 0; i < kPreyCircleSegments; ++i) {
+    const Vec2 &point_a = prey_circle_template_[i];
+    const Vec2 &point_b = prey_circle_template_[i + 1];
+    const int base = i * 3;
 
-  if (is_triangle) {
-    float size = visual_radius;
-    Vec2 vel = agent.velocity;
-    float angle = std::atan2(vel.y, vel.x);
-
-    float x = agent.position.x;
-    float y = agent.position.y;
-
-    float cos_a = std::cos(angle);
-    float sin_a = std::sin(angle);
-
-    triangle_.setPoint(0, {x + cos_a * size * visual::TRIANGLE_TIP_FACTOR,
-                           y + sin_a * size * visual::TRIANGLE_TIP_FACTOR});
-    float lx = -size * visual::TRIANGLE_BASE_FACTOR,
-          ly = -size * visual::TRIANGLE_WIDTH_FACTOR;
-    triangle_.setPoint(
-        1, {x + cos_a * lx - sin_a * ly, y + sin_a * lx + cos_a * ly});
-    float rx = -size * visual::TRIANGLE_BASE_FACTOR,
-          ry = size * visual::TRIANGLE_WIDTH_FACTOR;
-    triangle_.setPoint(
-        2, {x + cos_a * rx - sin_a * ry, y + sin_a * rx + cos_a * ry});
-
-    triangle_.setFillColor(base_color);
-    triangle_.setOutlineColor(outline_color);
-    triangle_.setOutlineThickness(selected ? visual::SELECTED_OUTLINE_THICKNESS
-                                           : 0.0f);
-
-    target.draw(triangle_);
-  } else {
-    float radius = visual_radius;
-    circle_.setRadius(radius);
-    circle_.setOrigin({radius, radius});
-    circle_.setPosition({agent.position.x, agent.position.y});
-    circle_.setPointCount(visual::CIRCLE_POINT_COUNT);
-
-    circle_.setFillColor(base_color);
-    circle_.setOutlineColor(outline_color);
-    circle_.setOutlineThickness(selected ? visual::SELECTED_OUTLINE_THICKNESS
-                                         : 0.0f);
-
-    target.draw(circle_);
+    vertices[base] = sf::Vertex{{position.x, position.y}, color};
+    vertices[base + 1] = sf::Vertex{
+        {position.x + radius * point_a.x, position.y + radius * point_a.y},
+        color};
+    vertices[base + 2] = sf::Vertex{
+        {position.x + radius * point_b.x, position.y + radius * point_b.y},
+        color};
   }
 }
 
 void Renderer::draw_all_agents(sf::RenderTarget &target,
                                const std::vector<RenderAgent> &agents,
+                               int alive_predators, int alive_prey,
                                Entity selected_entity) {
+  bool has_selected = false;
+  RenderAgent selected_agent;
+
+  predator_vertices_.resize(static_cast<std::size_t>(alive_predators) * 3);
+  prey_vertices_.resize(static_cast<std::size_t>(alive_prey) *
+                        kPreyCircleSegments * 3);
+
+  std::size_t predator_index = 0;
+  std::size_t prey_index = 0;
+  const sf::Color predator_color(chart_colors::PREDATOR_R,
+                                 chart_colors::PREDATOR_G,
+                                 chart_colors::PREDATOR_B);
+  const sf::Color prey_color(chart_colors::PREY_R, chart_colors::PREY_G,
+                             chart_colors::PREY_B);
+
   for (const auto &agent : agents) {
-    draw_agent(target, agent, agent.entity == selected_entity);
+    if (agent.entity == selected_entity) {
+      has_selected = true;
+      selected_agent = agent;
+    }
+
+    if (agent.type == IdentitySoA::TYPE_PREDATOR) {
+      write_triangle(predator_vertices_.data() + predator_index, agent,
+                     sizes::PREDATOR_RADIUS, predator_color);
+      predator_index += 3;
+      continue;
+    }
+
+    write_circle(prey_vertices_.data() + prey_index, agent.position,
+                 sizes::PREY_RADIUS, prey_color);
+    prey_index += kPreyCircleSegments * 3;
+  }
+
+  draw_triangles(target, predator_vertices_);
+  draw_triangles(target, prey_vertices_);
+
+  if (has_selected) {
+    const sf::Color base_color =
+        selected_agent.type == IdentitySoA::TYPE_PREDATOR ? predator_color
+                                                          : prey_color;
+    const sf::Color selected_fill = brighten_color(base_color, 60);
+    const sf::Color outline_color = brighten_color(base_color, 30);
+    const float base_size = selected_agent.type == IdentitySoA::TYPE_PREDATOR
+                                ? sizes::PREDATOR_RADIUS
+                                : sizes::PREY_RADIUS;
+    if (selected_agent.type == IdentitySoA::TYPE_PREDATOR) {
+      selected_vertices_.resize(6);
+      write_triangle(selected_vertices_.data(), selected_agent,
+                     base_size + visual::SELECTED_OUTLINE_THICKNESS,
+                     outline_color);
+      write_triangle(selected_vertices_.data() + 3, selected_agent, base_size,
+                     selected_fill);
+    } else {
+      selected_vertices_.resize(kPreyCircleSegments * 6);
+      write_circle(selected_vertices_.data(), selected_agent.position,
+                   base_size + visual::SELECTED_OUTLINE_THICKNESS,
+                   outline_color);
+      write_circle(selected_vertices_.data() + (kPreyCircleSegments * 3),
+                   selected_agent.position, base_size, selected_fill);
+    }
+
+    draw_triangles(target, selected_vertices_);
   }
 }
 

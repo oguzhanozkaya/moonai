@@ -16,12 +16,12 @@ struct SimulationConfig {
   float predator_speed = 0.06f;
   float prey_speed = 0.054f;
   float vision_range = 120.0f;
-  float attack_range = 6.0f;
+  float attack_range = 12.0f;
   float initial_energy = 120.0f;
   float energy_drain_per_step = 0.006f;
   float energy_gain_from_kill = 36.0f;
   float energy_gain_from_food = 48.0f;
-  float food_pickup_range = 6.0f;
+  float food_pickup_range = 12.0f;
 
   int food_count = 3000;
   float food_respawn_rate = 0.002f;

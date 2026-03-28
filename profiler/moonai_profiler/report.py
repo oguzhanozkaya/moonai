@@ -125,7 +125,7 @@ def _build_section(suite: ProfileSuite) -> dict:
             for m in suite.members
         ],
         "member_chart": member_chart.__dict__,
-        "events": _format_tree_events(suite.tree) if suite.tree else [],
+        "events": _format_tree_events(suite.tree, suite.frames) if suite.tree else [],
         "flame_graph": flame_graph.__dict__ if flame_graph else None,
         "metadata": {
             "suite_name": suite.metadata.get("suite_name", "N/A"),
@@ -140,11 +140,13 @@ def _build_section(suite: ProfileSuite) -> dict:
     }
 
 
-def _format_tree_events(tree: AveragedScopeNode | None) -> list[dict]:
+def _format_tree_events(tree: AveragedScopeNode | None, frame_count: int) -> list[dict]:
     """Format tree events with indentation to show hierarchy."""
     if tree is None:
         return []
 
+    # Use tree.count for total frames across all kept runs (not per-run frame_count)
+    total_frames = tree.count if tree else 0
     rows = []
 
     def traverse_node(
@@ -157,6 +159,12 @@ def _format_tree_events(tree: AveragedScopeNode | None) -> list[dict]:
             else 0.0
         )
 
+        # Calculate average per frame (consistent with percentage column)
+        # This shows the average time contribution per frame
+        avg_per_frame = (
+            node.total_inclusive_ms / total_frames if total_frames > 0 else 0.0
+        )
+
         # Store raw name; indentation is applied via CSS padding in the template
         rows.append(
             {
@@ -164,7 +172,7 @@ def _format_tree_events(tree: AveragedScopeNode | None) -> list[dict]:
                 "raw_name": node.name,
                 "depth": depth,
                 "percentage": f"{pct:.1f}",
-                "avg_ms": f"{node.avg_inclusive_ms:.3f}",
+                "avg_ms": f"{avg_per_frame:.3f}",
                 "count": str(node.count),
                 "total_ms": f"{node.total_inclusive_ms:.3f}",
             }
@@ -303,6 +311,9 @@ def _chart_flame_graph(suite: ProfileSuite) -> Chart | None:
     if not suite.tree:
         return None
 
+    # Use total frames across all kept runs (not per-run)
+    total_frames = suite.tree.count
+
     fig, ax = plt.subplots(figsize=(14, 6))
 
     # Color palette for different event types
@@ -340,11 +351,15 @@ def _chart_flame_graph(suite: ProfileSuite) -> Chart | None:
 
         # Add text label if rectangle is wide enough
         if width > 0.05 and node.name != "frame_total":
+            # Calculate per-frame average (consistent with table)
+            avg_per_frame = (
+                node.total_inclusive_ms / total_frames if total_frames > 0 else 0.0
+            )
             text_color = "white" if np.mean(color[:3]) < 0.5 else "black"
             ax.text(
                 x + width / 2,
                 y + height / 2,
-                f"{node.name}\n{node.avg_inclusive_ms:.2f}ms",
+                f"{node.name}\n{avg_per_frame:.2f}ms",
                 ha="center",
                 va="center",
                 fontsize=min(10, max(6, int(width * 100))),

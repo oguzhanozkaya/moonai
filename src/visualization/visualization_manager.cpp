@@ -122,7 +122,9 @@ void VisualizationManager::render(FrameSnapshot frame) {
   // Draw all agents using ECS
   {
     MOONAI_PROFILE_SCOPE("render_agents");
-    renderer_.draw_all_agents(*window_, frame_.agents, selected_entity_);
+    renderer_.draw_all_agents(
+        *window_, frame_.agents, frame_.overlay_stats.alive_predators,
+        frame_.overlay_stats.alive_prey, selected_entity_);
   }
 
   // Draw vision/sensor lines for selected entity (automatically shown when
