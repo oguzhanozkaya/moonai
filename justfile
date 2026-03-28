@@ -21,23 +21,6 @@ build-dir := "build" / preset
 
 # ─── Setup ──────────────────────────────────────────────────────────────────
 
-# Install vcpkg and bootstrap it
-[group('setup')]
-setup-vcpkg:
-    #!/usr/bin/env bash
-    if [ -z "$VCPKG_ROOT" ]; then
-        echo "VCPKG_ROOT is not set. Installing vcpkg to ~/.vcpkg..."
-        git clone https://github.com/microsoft/vcpkg.git ~/.vcpkg
-        ~/.vcpkg/bootstrap-vcpkg.sh
-        echo "Add to your shell profile:"
-        echo '  export VCPKG_ROOT="$HOME/.vcpkg"'
-        echo '  export PATH="$VCPKG_ROOT:$PATH"'
-    else
-        echo "vcpkg found at $VCPKG_ROOT"
-        echo "Bootstrapping..."
-        "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
-    fi
-
 # Set up Python environments for simulation and profiler analysis
 [group('setup')]
 setup-python:
@@ -64,35 +47,15 @@ release:
 
 # ─── Run ────────────────────────────────────────────────────────────────────
 
-# Run the simulation with default config (auto-selects the 'default' experiment)
+# Run the simulation with default config (pass additional args after --)
 [group('run')]
-run: build
-    {{build-dir}}/moonai config.lua --experiment default
+run *args: build
+    {{build-dir}}/moonai config.lua --experiment default {{args}}
 
-# Run the release build with default config
+# Run the release build with default config (pass additional args after --)
 [group('run')]
-run-release: release
-    ./build/linux-release/moonai config.lua --experiment default
-
-# Run with a custom config file
-[group('run')]
-run-config config_path: build
-    {{build-dir}}/moonai {{config_path}}
-
-# Run in headless mode (no window, max speed)
-[group('run')]
-run-headless: build
-    {{build-dir}}/moonai config.lua --experiment default --headless
-
-# Run with CPU-only inference (disable GPU even if compiled in)
-[group('run')]
-run-no-gpu: build
-    {{build-dir}}/moonai config.lua --experiment default --no-gpu
-
-# Run headless and CPU-only (useful on servers without a GPU or display)
-[group('run')]
-run-server: build
-    {{build-dir}}/moonai config.lua --experiment default --headless --no-gpu
+run-release *args: release
+    ./build/linux-release/moonai config.lua --experiment default {{args}}
 
 # Validate a config file
 [group('run')]
@@ -145,11 +108,6 @@ run-experiment name: release
 analyse:
     cd analysis && uv run moonai-analysis
 
-# Generate the self-contained HTML profiler report from output/profiles/
-[group('analysis')]
-analyse-profile:
-    cd profiler && uv run moonai-profiler
-
 # Full experiment pipeline: run all experiments → generate report
 [group('experiment')]
 experiment-pipeline: experiments analyse
@@ -182,6 +140,22 @@ lint: configure
         --project={{build-dir}}/compile_commands.json \
         2>&1 | head -100 || true
 
+# ─── Profile ────────────────────────────────────────────────────────────────
+
+# Full profiler pipeline: run profiler -> generate profiler report
+[group('profile')]
+profile: profile-run profile-analyse
+
+# Run the built-in profiler with optional arguments
+[group('profile')]
+profile-run *args: release
+    ./build/linux-release/moonai_profiler {{args}}
+
+# Generate the self-contained HTML profiler report from output/profiles/
+[group('profile')]
+profile-analyse:
+    cd profiler && uv run moonai-profiler
+
 # ─── Development ────────────────────────────────────────────────────────────
 
 # Generate compile_commands.json for IDE/LSP integration
@@ -189,17 +163,6 @@ lint: configure
 compdb:
     cmake --preset {{preset}} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
     ln -sf {{build-dir}}/compile_commands.json compile_commands.json
-
-# Benchmark NN forward pass over 60 steps, verbose timing
-[group('dev')]
-bench-nn: release
-    ./build/linux-release/moonai config.lua \
-        --experiment pop_large_seed42 --headless --steps 60 -v 2>&1 | grep -E "CPU eval|GPU eval|CUDA"
-
-# Run the built-in profiler with optional arguments
-[group('dev')]
-profile *args: release
-    ./build/linux-release/moonai_profiler {{args}}
 
 # Run Nsight Compute on the hottest GPU kernel with CLI output only (requires sudo for GPU perf counters)
 [group('gpu')]
@@ -237,22 +200,6 @@ nsys: release
         --output=output/nsight/nsys-baseline \
         ./build/linux-release/moonai config.lua --experiment baseline_seed42 --headless --steps 60 --name nsight-baseline
     @echo "Note: Output files may be owned by root. Run: sudo chown -R $(whoami):$(whoami) output/nsight*"
-
-# Full profiler pipeline: run profiler -> generate profiler report
-[group('dev')]
-profile-pipeline: profile analyse-profile
-
-# Run visual mode briefly and capture FPS from stdout (requires display)
-[group('dev')]
-bench-fps: build
-    timeout 10 ./build/linux-debug/moonai config.lua --experiment default 2>&1 | grep -i fps || true
-
-# Build with AddressSanitizer and run headless for 300 steps
-[group('dev')]
-check-memory:
-    cmake --preset linux-debug -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined" -B build/linux-asan
-    cmake --build build/linux-asan --parallel
-    ./build/linux-asan/moonai config.lua --experiment default --headless --steps 300 --seed 42
 
 # ─── Info ───────────────────────────────────────────────────────────────────
 

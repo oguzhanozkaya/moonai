@@ -15,6 +15,13 @@
       --accent: #1d4ed8;
       --caption: #444444;
       --zebra: #f7f7f7;
+      /* Depth colors for tree table */
+      --depth-0: #e3f2fd;
+      --depth-1: #f3e5f5;
+      --depth-2: #e8f5e9;
+      --depth-3: #fff3e0;
+      --depth-4: #fce4ec;
+      --depth-5: #e0f2f1;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -161,6 +168,24 @@
       background: var(--zebra);
     }
 
+    /* Tree table depth colors */
+    .depth-0 { background-color: var(--depth-0); font-weight: 600; }
+    .depth-1 { background-color: var(--depth-1); }
+    .depth-2 { background-color: var(--depth-2); }
+    .depth-3 { background-color: var(--depth-3); }
+    .depth-4 { background-color: var(--depth-4); }
+    .depth-5 { background-color: var(--depth-5); }
+    .depth-6 { background-color: #f5f5f5; }
+    .depth-7 { background-color: #eeeeee; }
+    
+    /* Add left border to show hierarchy */
+    .depth-0 td:first-child { border-left: 4px solid #1976d2; }
+    .depth-1 td:first-child { border-left: 4px solid #7b1fa2; }
+    .depth-2 td:first-child { border-left: 4px solid #388e3c; }
+    .depth-3 td:first-child { border-left: 4px solid #f57c00; }
+    .depth-4 td:first-child { border-left: 4px solid #c2185b; }
+    .depth-5 td:first-child { border-left: 4px solid #00796b; }
+
     /* Figures */
     .figure-grid {
       display: grid;
@@ -185,6 +210,61 @@
       font-size: 0.85rem;
       color: var(--caption);
       text-align: center;
+    }
+
+    /* Side-by-side layout for members */
+    .members-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2em;
+      margin: 1em 0;
+      align-items: start;
+    }
+    .members-table {
+      overflow-x: auto;
+    }
+    .members-chart {
+      min-width: 0;
+    }
+    .members-chart figure {
+      margin: 0;
+    }
+
+    /* Metadata section */
+    .metadata-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1em;
+      margin: 1em 0;
+      padding: 1em;
+      background: #fafafa;
+      border: 1px solid var(--rule-light);
+      border-radius: 4px;
+    }
+    .metadata-item {
+      display: flex;
+      flex-direction: column;
+    }
+    .metadata-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .metadata-value {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    /* Change percentage styling */
+    .change-positive {
+      color: #d32f2f;
+      font-weight: 600;
+    }
+    .change-negative {
+      color: #388e3c;
+      font-weight: 600;
     }
 
     /* Details / collapsibles */
@@ -260,10 +340,13 @@
       details > summary { display: none; }
       details > .details-body { display: block !important; }
       a { color: var(--ink); text-decoration: none; }
+      .members-row { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 700px) {
       body { padding: 1em; }
+      .members-row { grid-template-columns: 1fr; }
+      .metadata-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -309,8 +392,7 @@
           <th>Frames / Run</th>
           <th>Kept Runs</th>
           <th>Avg Frame (ms)</th>
-          <th>Top Event</th>
-          <th>Top Event Avg (ms/frame)</th>
+          <th>Change %</th>
         </tr>
       </thead>
       <tbody>
@@ -320,8 +402,7 @@
           <td>{{ row.total_frames }}</td>
           <td>{{ row.kept_runs }}</td>
           <td>{{ row.avg_frame_ms }}</td>
-          <td>{{ row.top_event }}</td>
-          <td>{{ row.top_event_avg_ms }}</td>
+          <td class="change-{{ row.change_class }}">{{ row.change_pct }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -346,66 +427,120 @@
     <details id="run-{{ loop.index }}" {% if loop.first %}open{% endif %}>
       <summary>{{ run.name }}</summary>
       <div class="details-body">
-        {% if run.members %}
-        <h3>Suite Members</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Seed</th>
-              <th>Avg Frame (ms)</th>
-              <th>Run Total (ms)</th>
-              <th>Frame Count</th>
-              <th>Disposition</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for member in run.members %}
-            <tr>
-              <td>{{ member.seed }}</td>
-              <td>{{ member.avg_frame_ms }}</td>
-              <td>{{ member.run_total_ms }}</td>
-              <td>{{ member.frame_count }}</td>
-              <td>{{ member.disposition }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        {% endif %}
-
-        <div class="figure-grid">
-          {% for chart in run.charts %}
-          <figure>
-            <img src="{{ chart.image_uri }}" alt="{{ chart.title }} chart">
-            <figcaption>{{ chart.title }}. {{ chart.caption }}</figcaption>
-          </figure>
-          {% endfor %}
+        
+        <!-- Metadata Section -->
+        <h3>Metadata</h3>
+        <div class="metadata-grid">
+          <div class="metadata-item">
+            <span class="metadata-label">Suite Name</span>
+            <span class="metadata-value">{{ run.metadata.suite_name }}</span>
+          </div>
+          <div class="metadata-item">
+            <span class="metadata-label">Frame Count</span>
+            <span class="metadata-value">{{ run.metadata.frame_count }}</span>
+          </div>
+          <div class="metadata-item">
+            <span class="metadata-label">Report Interval</span>
+            <span class="metadata-value">{{ run.metadata.report_interval_steps }} steps</span>
+          </div>
+          <div class="metadata-item">
+            <span class="metadata-label">Platform</span>
+            <span class="metadata-value">{{ run.metadata.platform }}</span>
+          </div>
+          <div class="metadata-item">
+            <span class="metadata-label">GPU Allowed</span>
+            <span class="metadata-value">{{ 'Yes' if run.metadata.gpu_allowed else 'No' }}</span>
+          </div>
+          <div class="metadata-item">
+            <span class="metadata-label">CUDA</span>
+            <span class="metadata-value">{{ 'Yes' if run.metadata.cuda_compiled else 'No' }}</span>
+          </div>
+          <div class="metadata-item">
+            <span class="metadata-label">OpenMP</span>
+            <span class="metadata-value">{{ 'Yes' if run.metadata.openmp_compiled else 'No' }}</span>
+          </div>
+          <div class="metadata-item">
+            <span class="metadata-label">Generated</span>
+            <span class="metadata-value">{{ run.metadata.generated_at_utc }}</span>
+          </div>
         </div>
 
-        <h3>Summary Events</h3>
-        <table>
+        <!-- Suite Members - Side by Side -->
+        {% if run.members %}
+        <h3>Suite Members</h3>
+        <div class="members-row">
+          <div class="members-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Seed</th>
+                  <th>Avg Frame (ms)</th>
+                  <th>Run Total (ms)</th>
+                  <th>Disposition</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for member in run.members %}
+                <tr>
+                  <td>{{ member.seed }}</td>
+                  <td>{{ member.avg_frame_ms }}</td>
+                  <td>{{ member.run_total_ms }}</td>
+                  <td>{{ member.disposition }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="members-chart">
+            <figure>
+              <img src="{{ run.member_chart.image_uri }}" alt="{{ run.member_chart.title }} chart">
+              <figcaption>{{ run.member_chart.title }}. {{ run.member_chart.caption }}</figcaption>
+            </figure>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Events Table with Depth Coloring -->
+        <h3>Events</h3>
+        <table class="events-table">
           <thead>
             <tr>
               <th>Event</th>
-              <th>%</th>
-              <th>Avg / Frame</th>
-              <th>Nonzero Frames</th>
-              <th>Avg / Nonzero Frame</th>
-              <th>Total (ms)</th>
+              <th>Incl %</th>
+              <th>Excl %</th>
+              <th>Avg Incl (ms)</th>
+              <th>Avg Excl (ms)</th>
+              <th>Count</th>
+              <th>Total Incl (ms)</th>
+              <th>Total Excl (ms)</th>
             </tr>
           </thead>
           <tbody>
-            {% for row in run.summary_events %}
-            <tr>
+            {% for row in run.events %}
+            <tr class="depth-{{ row.depth }}">
               <td>{{ row.name }}</td>
-              <td>{{ row.percentage }}</td>
-              <td>{{ row.avg_ms_per_frame }}</td>
-              <td>{{ row.nonzero_frame_count }}</td>
-              <td>{{ row.avg_ms_per_nonzero_frame }}</td>
-              <td>{{ row.total_ms }}</td>
+              <td>{{ row.inclusive_percentage }}</td>
+              <td>{{ row.exclusive_percentage }}</td>
+              <td>{{ row.avg_inclusive_ms }}</td>
+              <td>{{ row.avg_exclusive_ms }}</td>
+              <td>{{ row.count }}</td>
+              <td>{{ row.total_inclusive_ms }}</td>
+              <td>{{ row.total_exclusive_ms }}</td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
+
+        <!-- Flame Graph -->
+        {% if run.flame_graph %}
+        <h3>Flame Graph</h3>
+        <div class="figure-grid">
+          <figure>
+            <img src="{{ run.flame_graph.image_uri }}" alt="{{ run.flame_graph.title }} chart">
+            <figcaption>{{ run.flame_graph.title }}. {{ run.flame_graph.caption }}</figcaption>
+          </figure>
+        </div>
+        {% endif %}
       </div>
     </details>
     {% endfor %}

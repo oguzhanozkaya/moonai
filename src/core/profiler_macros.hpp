@@ -1,6 +1,10 @@
 #pragma once
 
+#include <cassert>
 #include <chrono>
+#include <memory>
+#include <string>
+#include <vector>
 
 // Profiler macros - minimal header for use in other translation units
 #ifndef MOONAI_BUILD_PROFILER
@@ -12,7 +16,9 @@
 namespace moonai {
 namespace profiler {
 
+// Forward declarations
 class Profiler;
+struct ScopeNode;
 
 class ScopedTimer {
 public:
@@ -21,7 +27,6 @@ public:
 
 private:
   const char *event_name_;
-  std::chrono::steady_clock::time_point start_;
 };
 
 } // namespace profiler

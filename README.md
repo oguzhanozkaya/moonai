@@ -128,11 +128,6 @@ git clone https://github.com/microsoft/vcpkg.git ~/.vcpkg
 export VCPKG_ROOT="$HOME/.vcpkg"  # Add to your shell profile
 ```
 
-Or with just:
-```bash
-just setup-vcpkg
-```
-
 ### 3. Configure and build
 
 ```bash
@@ -183,10 +178,16 @@ Mode selection happens at runtime via flags — no need to rebuild:
 | Command | Description |
 |---------|-------------|
 | `just run` | Default: visualization window, GPU if available for large populations |
-| `just run-headless` | No window, max speed (auto-switches if `$DISPLAY` unset) |
-| `just run-no-gpu` | Force CPU inference even if CUDA is compiled in |
-| `just run-server` | Headless + CPU-only (for servers without a display or GPU) |
-| `just run-config <path>` | Run with a custom config file |
+| `just run-release` | Release build: faster execution for large experiments |
+
+Both commands accept additional arguments after `--`:
+
+| Example | Description |
+|---------|-------------|
+| `just run -- --headless` | No window, max speed (auto-switches if `$DISPLAY` unset) |
+| `just run -- --no-gpu` | Force CPU inference even if CUDA is compiled in |
+| `just run -- --headless --no-gpu` | Headless + CPU-only (for servers without a display or GPU) |
+| `just run -- --experiment <name>` | Run specific experiment instead of default |
 
 CUDA is enabled at runtime when available. In headless runs, the fast path keeps sensing, inference, and step processing on the GPU. If GPU upload, sensing, inference, or resident step execution fails during runtime, MoonAI disables the CUDA path and continues with CPU execution.
 
@@ -297,11 +298,13 @@ experiments["adaptive"] = extend(moonai_defaults, {
 ### Examples
 
 ```bash
-./moonai config.lua --experiment default              # GUI with default config
-./moonai config.lua                                   # GUI with experiment selector
-./moonai config.lua --experiment mut_low_seed42 --headless  # One experiment
-./moonai config.lua --all --headless                  # Full batch
-./moonai config.lua --experiment default --set mutation_rate=0.1  # Ad-hoc override
+just run                                              # GUI with default config
+just run -- --headless                                # Headless mode
+just run -- --no-gpu                                  # Force CPU-only
+just run -- --headless --no-gpu                       # Server mode (no display/GPU)
+just run -- --experiment mut_low_seed42 --headless    # One experiment
+just run-release -- --all --headless                  # Full batch (release build)
+just run -- --set mutation_rate=0.1                   # Ad-hoc override
 ```
 
 Set `seed` to `0` for random seed, or a fixed value for reproducible experiments.
@@ -337,7 +340,6 @@ just run-experiment baseline_seed42
 ```bash
 just setup-python           # installs simulation + profiler analysis dependencies via uv
 just analyse                # reads output/, writes a self-contained HTML report
-just analyse-profile        # reads output/profiles/, writes a profiler HTML report
 ```
 
 ### Analysis
@@ -380,10 +382,10 @@ The analysis code is structured as a small package under `analysis/moonai_analys
 Profiler runs use the dedicated `moonai_profiler` entry point. The profiler is configured via CLI arguments instead of a config file.
 
 ```bash
-just profile                                         # Run with defaults (600 frames, 6 seeds)
-just profile --frames 300                            # Custom frame count
-just profile --name mytest --output-dir results      # Custom name and output
-just profile --frames 300 --no-gpu                   # Custom frame count, disable GPU
+just profile-run                                     # Run with defaults (600 frames, 6 seeds)
+just profile-run --frames 300                        # Custom frame count
+just profile-run --name mytest --output-dir results  # Custom name and output
+just profile-run --frames 300 --no-gpu               # Custom frame count, disable GPU
 ```
 
 **CLI Arguments:**
@@ -406,7 +408,7 @@ The profiler drops the fastest and slowest runs by average frame time, and repor
 To generate the standalone profiler report:
 
 ```bash
-just analyse-profile
+just profile-analyse
 ```
 
 The profiler writes a timestamped self-contained HTML report to `profiler/output/`, for example `profile_report_20260324_154233.html`.
@@ -453,33 +455,24 @@ Experiments with 5K+ agents require significant compute. Recommendations:
 # Generate compile_commands.json for your IDE/LSP
 just compdb
 
-# Benchmark NN forward-pass timing (requires release build)
-just bench-nn
-
 # Run the profiler with default settings (600 frames, 6 seeds)
-just profile
+just profile-run
 
 # Run profiler with custom frame count
-just profile --frames 300
+just profile-run --frames 300
 
 # Generate the standalone profiler HTML report
-just analyse-profile
+just profile-analyse
 
-# Run profiler and then build the profiler report
-just profile-pipeline
-
-# Quick FPS benchmark in visual mode (requires display)
-just bench-fps
-
-# Build with AddressSanitizer + UBSan and run 5 headless step windows
-just check-memory
+# Full profiler pipeline: run profiler and build the report
+just profile
 
 # Run GPU tests locally (requires CUDA)
 just test-gpu
 ```
 
 The dedicated profiler writes one `profile_suite.json` file per suite under a unique
-directory in `output/profiles/` by default when invoked through `just profile`.
+directory in `output/profiles/` by default when invoked through `just profile-run`.
 
 ## Project Structure
 

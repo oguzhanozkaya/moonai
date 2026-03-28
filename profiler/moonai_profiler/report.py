@@ -9,9 +9,11 @@ from io import BytesIO
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import numpy as np
 
 from .html_report import render_html_report
-from .io import ProfileSuite, load_suites
+from .io import AveragedScopeNode, ProfileSuite, load_suites
 
 
 @dataclass(frozen=True)
@@ -30,10 +32,9 @@ def generate_report(input_dir: Path, output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now()
 
-    # Generate comparison charts
+    # Generate comparison charts (without hotspots)
     comparison = [
         _chart_frame_comparison(suites),
-        _chart_hotspots(suites),
         _chart_timelines(suites),
     ]
 
@@ -47,17 +48,7 @@ def generate_report(input_dir: Path, output_dir: Path) -> None:
             "report_name": f"profile_report_{timestamp.strftime('%Y%m%d_%H%M%S')}.html",
             "input_dir": str(input_dir),
             "run_count": len(suites),
-            "summary_rows": [
-                {
-                    "name": s.name,
-                    "total_frames": s.frames,
-                    "kept_runs": len(s.kept),
-                    "avg_frame_ms": f"{s.avg_frame_ms:.2f}",
-                    "top_event": _top_event(s)[0],
-                    "top_event_avg_ms": f"{_top_event(s)[1]:.2f}",
-                }
-                for s in suites
-            ],
+            "summary_rows": _build_summary_rows(suites),
             "comparison_charts": [c.__dict__ for c in comparison],
             "run_sections": sections,
         }
@@ -71,15 +62,52 @@ def generate_report(input_dir: Path, output_dir: Path) -> None:
     print(f"Wrote report to {report_path}")
 
 
+def _build_summary_rows(suites: list[ProfileSuite]) -> list[dict]:
+    """Build summary rows with change percentage."""
+    rows = []
+    prev_avg = None
+
+    for s in suites:
+        avg_frame_ms = s.avg_frame_ms
+
+        if prev_avg is None:
+            change_pct = "N/A"
+            change_class = ""
+        else:
+            change = ((avg_frame_ms - prev_avg) / prev_avg) * 100
+            change_pct = f"{change:+.1f}%"
+            change_class = (
+                "positive" if change > 0 else "negative" if change < 0 else ""
+            )
+
+        rows.append(
+            {
+                "name": s.name,
+                "total_frames": s.frames,
+                "kept_runs": len(s.kept),
+                "avg_frame_ms": f"{avg_frame_ms:.2f}",
+                "change_pct": change_pct,
+                "change_class": change_class,
+            }
+        )
+
+        prev_avg = avg_frame_ms
+
+    return rows
+
+
 def _build_section(suite: ProfileSuite) -> dict:
     """Build a report section for a single suite."""
+    # Generate charts
+    member_chart = _chart_member_means(suite)
+    top_events_chart = _chart_top_events(suite)
+    flame_graph = _chart_flame_graph(suite) if suite.tree else None
+
     return {
         "name": suite.name,
         "total_frame_count": suite.frames,
         "kept_run_count": len(suite.kept),
         "path": str(suite.path),
-        "summary_events": _format_events(suite.events),
-        "charts": [c.__dict__ for c in _suite_charts(suite)],
         "members": [
             {
                 "seed": str(m.seed),
@@ -90,39 +118,83 @@ def _build_section(suite: ProfileSuite) -> dict:
             }
             for m in suite.members
         ],
+        "member_chart": member_chart.__dict__,
+        "events": _format_tree_events(suite.tree) if suite.tree else [],
+        "top_events_chart": top_events_chart.__dict__,
+        "flame_graph": flame_graph.__dict__ if flame_graph else None,
+        "metadata": {
+            "suite_name": suite.metadata.get("suite_name", "N/A"),
+            "frame_count": suite.metadata.get("frame_count", "N/A"),
+            "report_interval_steps": suite.metadata.get("report_interval_steps", "N/A"),
+            "gpu_allowed": suite.metadata.get("gpu_allowed", False),
+            "platform": suite.metadata.get("platform", "N/A"),
+            "cuda_compiled": suite.metadata.get("cuda_compiled", False),
+            "openmp_compiled": suite.metadata.get("openmp_compiled", False),
+            "generated_at_utc": suite.metadata.get("generated_at_utc", "N/A"),
+        },
     }
 
 
-def _format_events(events: dict) -> list[dict]:
-    """Format event stats for display."""
-    frame_total = events.get("frame_total", {}).get("total_ms", 0.0)
+def _format_tree_events(tree: AveragedScopeNode | None) -> list[dict]:
+    """Format tree events with indentation to show hierarchy."""
+    if tree is None:
+        return []
+
     rows = []
-    for name, values in events.items():
-        total = values.get("total_ms", 0.0)
-        if total <= 0:
-            continue
-        pct = (total / frame_total * 100) if frame_total > 0 else 0.0
+    # Calculate frame total for percentages
+    frame_total_ms = tree.total_inclusive_ms
+
+    def traverse_node(node: AveragedScopeNode, depth: int) -> None:
+        # Calculate percentages
+        inclusive_pct = (
+            (node.total_inclusive_ms / frame_total_ms * 100)
+            if frame_total_ms > 0
+            else 0.0
+        )
+        exclusive_pct = (
+            (node.total_exclusive_ms / frame_total_ms * 100)
+            if frame_total_ms > 0
+            else 0.0
+        )
+
+        # Create indented name with depth info for styling
+        indent = "&nbsp;&nbsp;&nbsp;&nbsp;" * depth
+        display_name = f"{indent}{node.name}"
+
         rows.append(
             {
-                "name": name,
-                "percentage": f"{pct:.1f}",
-                "avg_ms_per_frame": f"{values.get('avg_ms_per_frame', 0.0):.3f}",
-                "nonzero_frame_count": str(int(values.get("nonzero_frame_count", 0))),
-                "avg_ms_per_nonzero_frame": f"{values.get('avg_ms_per_nonzero_frame', 0.0):.3f}",
-                "total_ms": f"{total:.3f}",
+                "name": display_name,
+                "raw_name": node.name,
+                "depth": depth,
+                "inclusive_percentage": f"{inclusive_pct:.1f}",
+                "exclusive_percentage": f"{exclusive_pct:.1f}",
+                "avg_inclusive_ms": f"{node.avg_inclusive_ms:.3f}",
+                "avg_exclusive_ms": f"{node.avg_exclusive_ms:.3f}",
+                "count": str(node.count),
+                "total_inclusive_ms": f"{node.total_inclusive_ms:.3f}",
+                "total_exclusive_ms": f"{node.total_exclusive_ms:.3f}",
             }
         )
-    return sorted(rows, key=lambda r: float(r["total_ms"]), reverse=True)
+
+        # Recursively process children (sorted by exclusive time descending)
+        sorted_children = sorted(
+            node.children, key=lambda c: c.total_exclusive_ms, reverse=True
+        )
+        for child in sorted_children:
+            traverse_node(child, depth + 1)
+
+    traverse_node(tree, 0)
+    return rows
 
 
 def _top_event(suite: ProfileSuite) -> tuple[str, float]:
-    """Find the top non-frame event by average time."""
+    """Find the top non-frame event by average exclusive time."""
     best_name = "frame_total"
     best_value = 0.0
     for name, values in suite.events.items():
         if name == "frame_total":
             continue
-        avg = values.get("avg_ms_per_frame", 0.0)
+        avg = values.get("avg_exclusive_ms", 0.0)
         if avg > best_value:
             best_name = name
             best_value = avg
@@ -165,26 +237,6 @@ def _chart_frame_comparison(suites: list[ProfileSuite]) -> Chart:
         title="Average Frame Time",
         image_uri=_to_data_uri(fig),
         caption="Bars: Mean of middle four runs. Line: Standard deviation (lower is more stable).",
-    )
-
-
-def _chart_hotspots(suites: list[ProfileSuite]) -> Chart:
-    fig, ax = plt.subplots(figsize=(11, 5.4))
-    labels = [s.name for s in suites]
-    pairs = [_top_event(s) for s in suites]
-    values = [p[1] for p in pairs]
-    ax.bar(labels, values, color="#577590")
-    ax.set_ylabel("Average event time per frame (ms)")
-    ax.set_title("Top Aggregate Hotspot Per Suite")
-    ax.tick_params(axis="x", rotation=35, labelsize=7)
-    ax.grid(axis="y", alpha=0.25)
-    for i, (name, val) in enumerate(pairs):
-        ax.text(i, val, name, rotation=90, va="bottom", ha="center", fontsize=8)
-    fig.subplots_adjust(left=0.10, right=0.98, bottom=0.28, top=0.88)
-    return Chart(
-        title="Dominant Hotspots",
-        image_uri=_to_data_uri(fig),
-        caption="Highest non-frame-total aggregate event among kept runs.",
     )
 
 
@@ -231,16 +283,8 @@ def _chart_timelines(suites: list[ProfileSuite]) -> Chart:
     )
 
 
-def _suite_charts(suite: ProfileSuite) -> list[Chart]:
-    """Generate charts for a single suite."""
-    return [
-        _chart_member_means(suite),
-        _chart_top_events(suite),
-    ]
-
-
 def _chart_member_means(suite: ProfileSuite) -> Chart:
-    fig, ax = plt.subplots(figsize=(10, 4.8))
+    fig, ax = plt.subplots(figsize=(6, 4))
     labels = [f"seed {m.seed}" for m in suite.members]
     values = [m.avg_frame_ms for m in suite.members]
     colors = [
@@ -248,7 +292,7 @@ def _chart_member_means(suite: ProfileSuite) -> Chart:
     ]
     ax.bar(labels, values, color=colors)
     ax.set_ylabel("Average frame time (ms)")
-    ax.set_title(f"Suite Member Means - {suite.name}")
+    ax.set_title(f"Suite Member Means")
     ax.tick_params(axis="x", rotation=35, labelsize=8)
     ax.grid(axis="y", alpha=0.25)
     fig.tight_layout()
@@ -262,9 +306,9 @@ def _chart_member_means(suite: ProfileSuite) -> Chart:
 def _chart_top_events(suite: ProfileSuite) -> Chart:
     fig, ax = plt.subplots(figsize=(10, 4.8))
     pairs = [
-        (name, stats["avg_ms_per_frame"])
+        (name, stats["avg_exclusive_ms"])
         for name, stats in suite.events.items()
-        if name != "frame_total" and stats.get("avg_ms_per_frame", 0.0) > 0.0
+        if name != "frame_total" and stats.get("avg_exclusive_ms", 0.0) > 0.0
     ]
     pairs.sort(key=lambda x: x[1], reverse=True)
     pairs = pairs[:8]
@@ -272,15 +316,127 @@ def _chart_top_events(suite: ProfileSuite) -> Chart:
     values = [p[1] for p in pairs]
     ax.barh(labels, values, color="#6d597a")
     ax.invert_yaxis()
-    ax.set_xlabel("Average time per frame (ms)")
-    ax.set_title(f"Top Aggregate Events - {suite.name}")
+    ax.set_xlabel("Average exclusive time per frame (ms)")
+    ax.set_title(f"Top Exclusive Events")
     ax.grid(axis="x", alpha=0.25)
     fig.tight_layout()
     return Chart(
-        title="Top Aggregate Events",
+        title="Top Exclusive Events",
         image_uri=_to_data_uri(fig),
-        caption="Aggregate event ranking from four kept runs.",
+        caption="Exclusive event ranking (time minus children) from kept runs.",
     )
+
+
+def _chart_flame_graph(suite: ProfileSuite) -> Chart | None:
+    """Generate a flame graph visualization of the call tree."""
+    if not suite.tree:
+        return None
+
+    fig, ax = plt.subplots(figsize=(14, 6))
+
+    # Color palette for different event types
+    colors = plt.cm.tab20(np.linspace(0, 1, 20))
+    color_map = {}
+    color_idx = 0
+
+    def get_color(name: str) -> tuple:
+        """Get consistent color for an event name."""
+        nonlocal color_idx
+        if name not in color_map:
+            color_map[name] = colors[color_idx % len(colors)]
+            color_idx += 1
+        return color_map[name]
+
+    def draw_flame_node(
+        node: AveragedScopeNode, x: float, y: float, width: float, height: float
+    ):
+        """Recursively draw flame graph rectangles."""
+        if width <= 0:
+            return
+
+        # Draw this node
+        color = get_color(node.name)
+        rect = mpatches.FancyBboxPatch(
+            (x, y),
+            width,
+            height,
+            boxstyle="round,pad=0.01,rounding_size=0.02",
+            facecolor=color,
+            edgecolor="white",
+            linewidth=0.5,
+            alpha=0.85,
+        )
+        ax.add_patch(rect)
+
+        # Add text label if rectangle is wide enough
+        if width > 0.05 and node.name != "frame_total":
+            text_color = "white" if np.mean(color[:3]) < 0.5 else "black"
+            ax.text(
+                x + width / 2,
+                y + height / 2,
+                f"{node.name}\n{node.avg_exclusive_ms:.2f}ms",
+                ha="center",
+                va="center",
+                fontsize=min(10, max(6, int(width * 100))),
+                color=text_color,
+                weight="bold" if y > 0.5 else "normal",
+            )
+
+        # Draw children
+        if node.children and y > 0:
+            # Sort children by exclusive time (descending)
+            sorted_children = sorted(
+                node.children, key=lambda c: c.total_exclusive_ms, reverse=True
+            )
+
+            child_x = x
+            total_exclusive = sum(c.total_exclusive_ms for c in sorted_children)
+
+            for child in sorted_children:
+                child_width = (
+                    width * (child.total_exclusive_ms / node.total_inclusive_ms)
+                    if node.total_inclusive_ms > 0
+                    else 0
+                )
+                draw_flame_node(child, child_x, y - height, child_width, height)
+                child_x += child_width
+
+    # Calculate dimensions
+    total_time = suite.tree.total_inclusive_ms
+    height_per_level = 0.15
+    max_depth = _get_max_depth(suite.tree)
+
+    # Draw the flame graph
+    draw_flame_node(suite.tree, 0, max_depth * height_per_level, 1.0, height_per_level)
+
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, (max_depth + 1) * height_per_level)
+    ax.set_xlabel("Relative time (width = exclusive time proportion)")
+    ax.set_ylabel("Call depth")
+    ax.set_title(f"Flame Graph - {suite.name}")
+    ax.set_yticks(
+        [i * height_per_level + height_per_level / 2 for i in range(max_depth + 1)]
+    )
+    ax.set_yticklabels([f"L{i}" for i in range(max_depth, -1, -1)])
+    ax.grid(axis="y", alpha=0.2, linestyle="--")
+
+    # Remove top and right spines
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    fig.tight_layout()
+    return Chart(
+        title="Flame Graph",
+        image_uri=_to_data_uri(fig),
+        caption="Call hierarchy visualization. Width = exclusive time, height = call depth. Hover over blocks for details.",
+    )
+
+
+def _get_max_depth(node: AveragedScopeNode, current_depth: int = 0) -> int:
+    """Get maximum depth of the tree."""
+    if not node.children:
+        return current_depth
+    return max(_get_max_depth(child, current_depth + 1) for child in node.children)
 
 
 def _to_data_uri(fig) -> str:

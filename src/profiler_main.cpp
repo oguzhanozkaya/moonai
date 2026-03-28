@@ -7,13 +7,11 @@
 
 #include <chrono>
 #include <cstdint>
-#include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <optional>
-#include <sstream>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 std::string utc_timestamp() {
@@ -33,9 +31,13 @@ std::string utc_timestamp() {
 namespace moonai {
 namespace profiler {
 
-struct FrameRecord {
-  int index = 0;
-  std::unordered_map<std::string, std::int64_t> events_ns;
+struct ScopeNode {
+  std::string name;
+  std::chrono::steady_clock::time_point start;
+  std::int64_t inclusive_ns = 0;
+  std::int64_t exclusive_ns = 0;
+  std::vector<std::unique_ptr<ScopeNode>> children;
+  ScopeNode *parent = nullptr;
 };
 
 class Profiler {
@@ -46,62 +48,114 @@ public:
   }
 
   void start_run(const AppConfig &cfg);
-  void add_duration(const char *event_name, std::int64_t ns);
+  void begin_scope(const char *event_name);
+  void end_scope(const char *event_name);
   nlohmann::json finish_run(std::int64_t run_total_ns);
 
 private:
   Profiler() = default;
 
   std::optional<AppConfig> cfg_;
+  std::vector<std::unique_ptr<ScopeNode>> frame_trees_;
+  std::vector<ScopeNode *> active_stack_;
+  std::unique_ptr<ScopeNode> pending_root_;
 
-  std::vector<FrameRecord> records_;
-  std::unordered_map<std::string, std::int64_t> current_durations_;
+  nlohmann::json serialize_node(const ScopeNode *node) const;
 };
 
 // ScopedTimer implementation (declared in profiler_macros.hpp)
-ScopedTimer::ScopedTimer(const char *event_name)
-    : event_name_(event_name), start_(std::chrono::steady_clock::now()) {}
+ScopedTimer::ScopedTimer(const char *event_name) : event_name_(event_name) {
+  Profiler::instance().begin_scope(event_name);
+}
 
 ScopedTimer::~ScopedTimer() {
-  const auto end = std::chrono::steady_clock::now();
-  const auto ns =
-      std::chrono::duration_cast<std::chrono::nanoseconds>(end - start_)
-          .count();
-  Profiler::instance().add_duration(event_name_, ns);
+  Profiler::instance().end_scope(event_name_);
 }
 
 void Profiler::start_run(const AppConfig &cfg) {
   cfg_ = cfg;
-  records_.clear();
-  current_durations_.clear();
+  frame_trees_.clear();
+  active_stack_.clear();
+  pending_root_.reset();
 }
 
-void Profiler::add_duration(const char *event_name, std::int64_t ns) {
-  current_durations_[event_name] += ns;
+void Profiler::begin_scope(const char *event_name) {
+  auto node = std::make_unique<ScopeNode>();
+  node->name = event_name;
+  node->start = std::chrono::steady_clock::now();
 
-  if (std::strcmp(event_name, "frame_total") == 0) {
-    FrameRecord record;
-    record.index = static_cast<int>(records_.size());
-    record.events_ns = current_durations_;
-    records_.push_back(std::move(record));
-    current_durations_.clear();
+  if (active_stack_.empty()) {
+    // This is a root scope
+    node->parent = nullptr;
+    pending_root_ = std::move(node);
+    active_stack_.push_back(pending_root_.get());
+  } else {
+    // This is a child scope
+    node->parent = active_stack_.back();
+    ScopeNode *node_ptr = node.get();
+    active_stack_.back()->children.push_back(std::move(node));
+    active_stack_.push_back(node_ptr);
   }
+}
+
+void Profiler::end_scope(const char *event_name) {
+  assert(!active_stack_.empty() &&
+         "Scope stack underflow: no active scope to end");
+  assert(active_stack_.back()->name == event_name &&
+         "Scope mismatch: expected scope to match the ending scope name");
+
+  ScopeNode *node = active_stack_.back();
+  active_stack_.pop_back();
+
+  const auto end = std::chrono::steady_clock::now();
+  node->inclusive_ns =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(end - node->start)
+          .count();
+
+  // Calculate exclusive time: inclusive - sum(children inclusive)
+  std::int64_t children_sum = 0;
+  for (const auto &child : node->children) {
+    children_sum += child->inclusive_ns;
+  }
+  node->exclusive_ns = node->inclusive_ns - children_sum;
+
+  // If this is frame_total (root), commit the frame
+  if (std::strcmp(event_name, "frame_total") == 0) {
+    assert(active_stack_.empty() &&
+           "frame_total ended but scope stack not empty - scopes not properly "
+           "nested");
+    assert(pending_root_ != nullptr && "Root node should exist");
+
+    // Move the root node to frame_trees
+    frame_trees_.push_back(std::move(pending_root_));
+    pending_root_.reset();
+  }
+}
+
+nlohmann::json Profiler::serialize_node(const ScopeNode *node) const {
+  nlohmann::json j;
+  j["name"] = node->name;
+  j["inclusive_ms"] = static_cast<double>(node->inclusive_ns) / 1'000'000.0;
+  j["exclusive_ms"] = static_cast<double>(node->exclusive_ns) / 1'000'000.0;
+
+  nlohmann::json children = nlohmann::json::array();
+  for (const auto &child : node->children) {
+    children.push_back(serialize_node(child.get()));
+  }
+  j["children"] = std::move(children);
+
+  return j;
 }
 
 nlohmann::json Profiler::finish_run(std::int64_t run_total_ns) {
   nlohmann::json profile;
   profile["run_total_ms"] = static_cast<double>(run_total_ns) / 1'000'000.0;
 
-  // Per-frame raw data
-  nlohmann::json frame_rows = nlohmann::json::array();
-  for (const auto &r : records_) {
-    nlohmann::json frame_data;
-    for (const auto &[name, ns] : r.events_ns) {
-      frame_data[name] = static_cast<double>(ns) / 1'000'000.0;
-    }
-    frame_rows.push_back(std::move(frame_data));
+  nlohmann::json frames = nlohmann::json::array();
+  for (const auto &tree : frame_trees_) {
+    frames.push_back(serialize_node(tree.get()));
   }
-  profile["frames"] = std::move(frame_rows);
+  profile["frames"] = std::move(frames);
 
   return profile;
 }
@@ -178,7 +232,6 @@ void write_manifest(std::vector<RunResult> runs,
   nlohmann::json manifest;
   manifest["schema_version"] = 1;
 
-  // Metadata - all static info that is same for all runs
   nlohmann::json metadata;
   metadata["suite_name"] = cfg.experiment_name;
   metadata["frame_count"] = cfg.sim_config.max_steps;
@@ -191,7 +244,6 @@ void write_manifest(std::vector<RunResult> runs,
 
   manifest["metadata"] = metadata;
 
-  // Runs
   nlohmann::json run_rows = nlohmann::json::array();
   for (const auto &run : runs) {
     if (run.completed) {
