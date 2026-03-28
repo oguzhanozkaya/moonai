@@ -49,9 +49,9 @@ def load_suites(input_dir: Path) -> list[ProfileSuite]:
     return suites
 
 
-def _analyze_run(profile_data: dict) -> dict:
+def _analyze_run(run: dict) -> dict:
     """Compute per-run statistics from raw frame data."""
-    frames = profile_data.get("frames", [])
+    frames = run.get("frames", [])
     if not frames:
         return {
             "frame_count": 0,
@@ -61,15 +61,16 @@ def _analyze_run(profile_data: dict) -> dict:
             "frame_times_ms": [],
         }
 
-    # Extract frame times for the main timing metric
-    frame_times_ms = [f.get("events_ms", {}).get("frame_total", 0.0) for f in frames]
-    run_total_ms = sum(frame_times_ms)
+    # Extract frame times for the main timing metric (events are now at frame level)
+    frame_times_ms = [f.get("frame_total", 0.0) for f in frames]
+    # Use pre-computed run_total_ms from JSON, fallback to sum if not present
+    run_total_ms = run.get("run_total_ms", sum(frame_times_ms))
     avg_frame_ms = run_total_ms / len(frames) if frames else 0.0
 
-    # Aggregate all events across frames
+    # Aggregate all events across frames (events are now at frame level, no "events_ms" wrapper)
     events = {}
     for frame in frames:
-        for event_name, ms in frame.get("events_ms", {}).items():
+        for event_name, ms in frame.items():
             if event_name not in events:
                 events[event_name] = {"total_ms": 0.0, "nonzero_count": 0}
             events[event_name]["total_ms"] += ms
@@ -87,11 +88,10 @@ def _analyze_run(profile_data: dict) -> dict:
 
 def _analyze_suite(runs: list[dict]) -> dict:
     """Compute suite-level statistics with outlier removal."""
-    # Analyze each run from raw data
+    # Analyze each run from raw data (new format: run contains frames directly)
     analyzed = []
     for run in runs:
-        profile = run.get("profile_data", {})
-        stats = _analyze_run(profile)
+        stats = _analyze_run(run)
         stats["seed"] = run.get("seed", 0)
         analyzed.append(stats)
 
@@ -166,7 +166,7 @@ def _analyze_suite(runs: list[dict]) -> dict:
 
 def _parse_suite(path: Path, data: dict) -> ProfileSuite:
     """Parse a single profile suite from JSON."""
-    suite = data.get("suite", {})
+    metadata = data.get("metadata", {})
     runs = data.get("runs", [])
 
     # Perform analysis on raw data
@@ -175,8 +175,7 @@ def _parse_suite(path: Path, data: dict) -> ProfileSuite:
     # Build SuiteMember objects
     members = []
     for run in runs:
-        profile = run.get("profile_data", {})
-        run_stats = _analyze_run(profile)
+        run_stats = _analyze_run(run)
 
         # Determine disposition
         seed = run.get("seed", 0)
@@ -197,8 +196,10 @@ def _parse_suite(path: Path, data: dict) -> ProfileSuite:
     kept = [m for m in members if m.disposition == "kept"]
     dropped = [m for m in members if m.disposition != "kept"]
 
-    # Get total frame count directly from suite config
-    total_frames = int(suite.get("frames", 0))
+    # Get total frame count from metadata (new format) or fallback to suite config (old format)
+    total_frames = int(
+        metadata.get("frame_count", data.get("suite", {}).get("frames", 0))
+    )
 
     return ProfileSuite(
         path=path,

@@ -24,6 +24,27 @@ struct AppConfig {
   bool enable_gpu = true;
   int speed_multiplier = 1;
   std::optional<std::string> run_name_override;
+
+  static constexpr bool cuda_compiled =
+#ifdef MOONAI_ENABLE_CUDA
+      true;
+#else
+      false;
+#endif
+
+  static constexpr bool openmp_compiled =
+#ifdef MOONAI_OPENMP_ENABLED
+      true;
+#else
+      false;
+#endif
+
+  static constexpr const char *platform =
+#ifdef _WIN32
+      "windows";
+#else
+      "linux";
+#endif
 };
 
 class App {

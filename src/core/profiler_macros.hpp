@@ -21,7 +21,6 @@ public:
 
 private:
   const char *event_name_;
-  bool active_;
   std::chrono::steady_clock::time_point start_;
 };
 

@@ -380,10 +380,10 @@ The analysis code is structured as a small package under `analysis/moonai_analys
 Profiler runs use the dedicated `moonai_profiler` entry point. The profiler is configured via CLI arguments instead of a config file.
 
 ```bash
-just profile                    # Run with defaults (600 frames, seeds 41-46)
-./moonai_profiler --frames 300  # Custom frame count
-./moonai_profiler --seeds 100,200,300,400  # Custom seeds
-./moonai_profiler --name mytest --output-dir results  # Custom name and output
+just profile                                         # Run with defaults (600 frames, 6 seeds)
+just profile --frames 300                            # Custom frame count
+just profile --name mytest --output-dir results      # Custom name and output
+just profile --frames 300 --no-gpu                   # Custom frame count, disable GPU
 ```
 
 **CLI Arguments:**
@@ -391,7 +391,6 @@ just profile                    # Run with defaults (600 frames, seeds 41-46)
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--frames N` | 600 | Number of frames to capture per run |
-| `--seeds A,B,C...` | 41,42,43,44,45,46 | Comma-separated list of random seeds |
 | `--name <name>` | profile | Experiment name (used in output filename) |
 | `--output-dir <path>` | output/profiles | Output directory |
 | `--no-gpu` | false | Disable GPU acceleration |
@@ -457,11 +456,11 @@ just compdb
 # Benchmark NN forward-pass timing (requires release build)
 just bench-nn
 
-# Run the profiler with default settings (600 frames, seeds 41-46)
+# Run the profiler with default settings (600 frames, 6 seeds)
 just profile
 
-# Run profiler with custom settings
-./moonai_profiler --frames 300 --seeds 100,200,300,400
+# Run profiler with custom frame count
+just profile --frames 300
 
 # Generate the standalone profiler HTML report
 just analyse-profile
