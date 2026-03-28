@@ -124,14 +124,9 @@ void VisualizationManager::render(FrameSnapshot frame) {
     Renderer::draw_sensor_lines(*window_, frame_.sensor_lines);
   }
 
-  // Update FPS counter
-  ++frame_count_;
-  float fps_elapsed = fps_clock_.getElapsedTime().asSeconds();
-  if (fps_elapsed >= 0.5f) {
-    frame_.overlay_stats.fps = static_cast<float>(frame_count_) / fps_elapsed;
-    frame_count_ = 0;
-    fps_clock_.restart();
-  }
+  // Update FPS counter using exponential moving average
+  update_fps(frame_clock_.restart().asSeconds());
+  frame_.overlay_stats.fps = current_fps_;
 
   if (selected_entity_ != INVALID_ENTITY) {
     frame_.overlay_stats.selected_agent =
@@ -406,6 +401,14 @@ void VisualizationManager::update_camera() {
   sf::Vector2f current_center = camera_view_.getCenter();
   camera_view_.setCenter(sf::Vector2f(
       current_center.x + left_column_width() / 2.0f, current_center.y));
+}
+
+void VisualizationManager::update_fps(float dt) {
+  if (dt > 0.0f) {
+    float instant_fps = 1.0f / dt;
+    current_fps_ =
+        current_fps_ * (1.0f - fps_alpha_) + instant_fps * fps_alpha_;
+  }
 }
 
 } // namespace moonai

@@ -101,6 +101,11 @@ private:
   int frame_count_ = 0;
   int last_chart_step_ = -1;
 
+  float current_fps_ = 60.0f;
+  static constexpr float fps_alpha_ = 0.1f;
+
+  void update_fps(float dt);
+
   bool running_ = false;
   bool paused_ = false;
   bool reset_requested_ = false;
