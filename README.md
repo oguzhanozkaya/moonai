@@ -144,7 +144,9 @@ cmake --build build/linux-debug --parallel
 ### 4. Run tests
 
 ```bash
-just test
+just test              # basic run
+just test --verbose    # verbose output
+just test -R GpuTest   # filter tests
 ```
 
 ### 5. Run the simulation
@@ -281,7 +283,7 @@ Set `seed` to `0` for random seed, or a fixed value for reproducible experiments
 ### Quick start (full pipeline)
 
 ```bash
-just experiment-pipeline    # runs all experiments + generates report
+just experiment             # runs all experiments + generates report
 ```
 
 ### Step by step
@@ -298,15 +300,13 @@ just list-experiments       # shows all experiments in config.lua
 
 **3. Run experiments**
 ```bash
-just experiments            # 66 conditions × 5 seeds × 200 report windows → output/
-# or run a single experiment:
-just run-experiment baseline_seed42
+just experiment-run         # 66 conditions × 5 seeds × 200 report windows → output/
 ```
 
 **4. Set up Python and generate analysis**
 ```bash
 just setup-python           # installs simulation + profiler analysis dependencies via uv
-just analyse                # reads output/, writes a self-contained HTML report
+just experiment-analyse     # reads output/, writes a self-contained HTML report
 ```
 
 ### Analysis
@@ -314,7 +314,7 @@ just analyse                # reads output/, writes a self-contained HTML report
 The Python analysis tool has a single mode: it always generates one self-contained HTML report for all qualifying runs in `output/`.
 
 ```bash
-just analyse
+just experiment-analyse
 ```
 
 Internally this runs the packaged analysis entry point from `analysis/`:
@@ -422,6 +422,11 @@ Experiments with 5K+ agents require significant compute. Recommendations:
 # Generate compile_commands.json for your IDE/LSP
 just compdb
 
+# Run tests
+just test              # basic run
+just test --verbose    # verbose output
+just test -R GpuTest   # filter tests
+
 # Run the profiler with default settings (600 frames, 6 seeds)
 just profile-run
 
@@ -434,8 +439,6 @@ just profile-analyse
 # Full profiler pipeline: run profiler and build the report
 just profile
 
-# Run GPU tests locally (requires CUDA)
-just test-gpu
 ```
 
 The dedicated profiler writes one `profile_suite.json` file per suite under a unique
