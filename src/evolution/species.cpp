@@ -58,11 +58,6 @@ void Species::refresh_summary() {
   if (best != members_.end()) {
     best_fitness_ever_ = std::max(best_fitness_ever_, best->fitness);
   }
-  fitness_history_.push_back(average_fitness_);
-}
-
-void Species::update_representative(const Genome &genome) {
-  representative_ = genome;
 }
 
 } // namespace moonai

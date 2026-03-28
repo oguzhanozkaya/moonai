@@ -12,7 +12,6 @@ namespace moonai {
 class FoodStore {
 public:
   void initialize(const SimulationConfig &config, Random &rng);
-  void clear();
   void respawn_step(const SimulationConfig &config, int step_index,
                     std::uint64_t seed);
 

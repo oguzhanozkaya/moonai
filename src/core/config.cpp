@@ -391,20 +391,8 @@ CLIArgs parse_args(int argc, const char *argv[]) {
       }
     } else if ((arg == "-c" || arg == "--config") && i + 1 < argc) {
       args.config_path = argv[++i];
-    } else if (arg == "--resume" && i + 1 < argc) {
-      args.resume_path = argv[++i];
-    } else if (arg == "--checkpoint" && i + 1 < argc) {
-      try {
-        args.checkpoint_interval = std::stoi(argv[++i]);
-      } catch (const std::exception &) {
-        std::fprintf(stderr, "Invalid checkpoint interval '%s'\n", argv[i]);
-        args.help = true;
-      }
     } else if (arg == "--no-gpu") {
       args.no_gpu = true;
-    } else if (arg == "--compare" && i + 2 < argc) {
-      args.compare_a = argv[++i];
-      args.compare_b = argv[++i];
     }
     // New flags
     else if (arg == "--experiment" && i + 1 < argc) {

@@ -110,18 +110,6 @@ struct StatsSoA {
   }
 };
 
-struct VisualSoA {
-  std::vector<float> radius;
-  std::vector<uint32_t> color_rgba;
-  std::vector<uint8_t> shape_type;
-
-  void resize(size_t n) {
-    radius.resize(n);
-    color_rgba.resize(n);
-    shape_type.resize(n);
-  }
-};
-
 struct BrainSoA {
   std::vector<float> decision_x;
   std::vector<float> decision_y;

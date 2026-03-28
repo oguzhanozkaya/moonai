@@ -88,12 +88,8 @@ struct CLIArgs {
   bool headless = false;
   bool verbose = false;
   bool help = false;
-  bool no_gpu = false;          // --no-gpu: skip CUDA even if available
-  int max_steps_override = 0;   // 0 = use config value
-  std::string resume_path = ""; // path to checkpoint JSON; "" = fresh start
-  int checkpoint_interval = 0;  // 0 = disabled; N = save every N steps
-  std::string compare_a = "";   // --compare: path to first genome JSON
-  std::string compare_b = "";   // --compare: path to second genome JSON
+  bool no_gpu = false;        // --no-gpu: skip CUDA even if available
+  int max_steps_override = 0; // 0 = use config value
 
   // Lua config orchestration
   std::string experiment_name =

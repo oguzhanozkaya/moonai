@@ -153,13 +153,6 @@ void UIOverlay::push_population(int predators, int prey, int food) {
   // No limit - unlimited growth as requested
 }
 
-void UIOverlay::push_species(int count) {
-  species_history_.push_back(count);
-  if (static_cast<int>(species_history_.size()) > charts::CHART_MAX_POINTS) {
-    species_history_.pop_front();
-  }
-}
-
 void UIOverlay::draw_left_column(sf::RenderTarget &target,
                                  const OverlayStats &stats) {
   constexpr float COL_WIDTH = 260.0f;

@@ -54,7 +54,6 @@ void Registry::clear() {
   identity_.resize(0);
   sensors_.resize(0);
   stats_.resize(0);
-  visual_.resize(0);
   brain_.resize(0);
 
   next_entity_index_ = 1;
@@ -73,7 +72,6 @@ void Registry::ensure_capacity(size_t required_size) {
   identity_.resize(required_size);
   sensors_.resize(required_size);
   stats_.resize(required_size);
-  visual_.resize(required_size);
   brain_.resize(required_size);
 }
 

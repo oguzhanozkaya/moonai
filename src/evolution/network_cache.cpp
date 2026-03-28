@@ -7,7 +7,6 @@ namespace moonai {
 void NetworkCache::assign(Entity e, const Genome &genome,
                           const std::string &activation_func) {
   networks_[e] = std::make_unique<NeuralNetwork>(genome, activation_func);
-  gpu_cache_dirty_ = true;
 }
 
 NeuralNetwork *NetworkCache::get(Entity e) const {
@@ -20,7 +19,6 @@ NeuralNetwork *NetworkCache::get(Entity e) const {
 
 void NetworkCache::remove(Entity e) {
   networks_.erase(e);
-  gpu_cache_dirty_ = true;
 }
 
 bool NetworkCache::has(Entity e) const {
@@ -59,48 +57,8 @@ void NetworkCache::activate_batch(const std::vector<Entity> &entities,
   }
 }
 
-NetworkCache::GpuBatchData NetworkCache::prepare_gpu_batch(
-    const std::vector<Entity> &living_entities) const {
-  // TODO: Implement CSR format conversion for GPU batch
-  // This is a placeholder - actual implementation would convert
-  // variable-topology networks to CSR format for GPU processing
-
-  GpuBatchData data;
-  data.entity_to_gpu = living_entities;
-  gpu_cache_ = std::move(data);
-  gpu_cache_dirty_ = false;
-  return gpu_cache_;
-}
-
-void NetworkCache::prune_dead(const std::vector<Entity> &living) {
-  // Build set of living entities for O(1) lookup
-  std::unordered_set<Entity, EntityHash> living_set(living.begin(),
-                                                    living.end());
-
-  // Remove networks for dead entities
-  for (auto it = networks_.begin(); it != networks_.end();) {
-    if (living_set.find(it->first) == living_set.end()) {
-      it = networks_.erase(it);
-      gpu_cache_dirty_ = true;
-    } else {
-      ++it;
-    }
-  }
-}
-
 void NetworkCache::clear() {
   networks_.clear();
-  gpu_cache_ = GpuBatchData{};
-  gpu_cache_dirty_ = true;
-}
-
-std::vector<Entity> NetworkCache::entities() const {
-  std::vector<Entity> result;
-  result.reserve(networks_.size());
-  for (const auto &[entity, _] : networks_) {
-    result.push_back(entity);
-  }
-  return result;
 }
 
 } // namespace moonai

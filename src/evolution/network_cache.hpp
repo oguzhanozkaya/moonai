@@ -30,28 +30,6 @@ public:
                       std::vector<float> &all_outputs, int inputs_per_network,
                       int outputs_per_network);
 
-  // GPU batching: build CSR-formatted network data for all living entities
-  struct GpuBatchData {
-    std::vector<float> node_values;        // Flattened activations
-    std::vector<float> connection_weights; // CSR format
-    std::vector<int> topology_offsets;     // Per-entity network layout
-    std::vector<Entity> entity_to_gpu;     // Mapping: GPU index -> Entity
-  };
-  GpuBatchData
-  prepare_gpu_batch(const std::vector<Entity> &living_entities) const;
-
-  void invalidate_gpu_cache() {
-    gpu_cache_dirty_ = true;
-  }
-  bool gpu_cache_dirty() const {
-    return gpu_cache_dirty_;
-  }
-  void clear_gpu_cache_dirty() {
-    gpu_cache_dirty_ = false;
-  }
-
-  void prune_dead(const std::vector<Entity> &living);
-
   void clear();
 
   size_t size() const {
@@ -61,14 +39,9 @@ public:
     return networks_.empty();
   }
 
-  std::vector<Entity> entities() const;
-
 private:
   std::unordered_map<Entity, std::unique_ptr<NeuralNetwork>, EntityHash>
       networks_;
-
-  mutable GpuBatchData gpu_cache_;
-  mutable bool gpu_cache_dirty_ = true;
 };
 
 } // namespace moonai

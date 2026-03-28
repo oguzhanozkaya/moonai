@@ -19,17 +19,10 @@ public:
 
   int weighted_select(const std::vector<float> &weights);
 
-  template <typename T> void shuffle(std::vector<T> &vec) {
-    std::shuffle(vec.begin(), vec.end(), engine_);
-  }
-
   std::vector<int> sample_indices(int total, int count);
 
   std::uint64_t seed() const {
     return seed_;
-  }
-  std::mt19937_64 &engine() {
-    return engine_;
   }
 
 private:

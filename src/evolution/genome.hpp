@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <map>
 #include <string>
 #include <vector>
 
@@ -37,9 +36,6 @@ public:
   const std::vector<NodeGene> &nodes() const {
     return nodes_;
   }
-  std::vector<NodeGene> &nodes() {
-    return nodes_;
-  }
   const std::vector<ConnectionGene> &connections() const {
     return connections_;
   }
@@ -54,14 +50,6 @@ public:
     fitness_ = f;
   }
 
-  // Adjusted fitness (after species sharing)
-  float adjusted_fitness() const {
-    return adjusted_fitness_;
-  }
-  void set_adjusted_fitness(float f) {
-    adjusted_fitness_ = f;
-  }
-
   int num_inputs() const {
     return num_inputs_;
   }
@@ -71,7 +59,6 @@ public:
 
   // Genome complexity (nodes + connections)
   int complexity() const;
-  void sort_connections_by_innovation();
 
   static float compatibility_distance(const Genome &a, const Genome &b,
                                       float c1, float c2, float c3);
@@ -86,7 +73,6 @@ private:
   int num_inputs_ = 0;
   int num_outputs_ = 0;
   float fitness_ = 0.0f;
-  float adjusted_fitness_ = 0.0f;
 };
 
 } // namespace moonai

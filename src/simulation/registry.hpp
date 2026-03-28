@@ -4,7 +4,6 @@
 #include "simulation/entity.hpp"
 #include "simulation/sparse_set.hpp"
 #include <cstdint>
-#include <optional>
 #include <vector>
 
 namespace moonai {
@@ -16,9 +15,6 @@ public:
   void destroy(Entity e);
 
   bool valid(Entity e) const;
-  bool alive(Entity e) const {
-    return valid(e);
-  }
 
   size_t index_of(Entity e) const {
     return sparse_set_.get_index(e);
@@ -73,13 +69,6 @@ public:
     return stats_;
   }
 
-  VisualSoA &visual() {
-    return visual_;
-  }
-  const VisualSoA &visual() const {
-    return visual_;
-  }
-
   BrainSoA &brain() {
     return brain_;
   }
@@ -103,10 +92,6 @@ public:
     return sparse_set_.dense();
   }
 
-  const SparseSet &sparse_set() const {
-    return sparse_set_;
-  }
-
 private:
   void ensure_capacity(size_t required_size);
 
@@ -118,7 +103,6 @@ private:
   IdentitySoA identity_;
   SensorSoA sensors_;
   StatsSoA stats_;
-  VisualSoA visual_;
   BrainSoA brain_;
   uint32_t next_entity_index_ = 1;
   std::vector<uint32_t> free_slots_;

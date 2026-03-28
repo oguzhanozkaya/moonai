@@ -16,9 +16,6 @@ public:
   // Query entities within radius of position
   std::vector<Entity> query_radius(Vec2 center, float radius) const;
 
-  // Query entities in cell containing position
-  std::vector<Entity> query_cell(Vec2 pos) const;
-
   // Get all entities in grid
   const std::vector<Entity> &all_entities() const {
     return entities_;
@@ -26,12 +23,6 @@ public:
 
   float cell_size() const {
     return cell_size_;
-  }
-  int cols() const {
-    return cols_;
-  }
-  int rows() const {
-    return rows_;
   }
 
 private:

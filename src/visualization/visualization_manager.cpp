@@ -137,7 +137,6 @@ void VisualizationManager::render(FrameSnapshot frame) {
     overlay_.push_population(frame_.overlay_stats.alive_predators,
                              frame_.overlay_stats.alive_prey,
                              frame_.overlay_stats.active_food);
-    overlay_.push_species(frame_.overlay_stats.num_species);
     last_chart_step_ = frame_.overlay_stats.step;
   }
 

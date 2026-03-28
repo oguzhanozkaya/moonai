@@ -19,7 +19,6 @@ void EvolutionManager::initialize(int num_inputs, int num_outputs) {
   num_inputs_ = num_inputs;
   num_outputs_ = num_outputs;
   species_.clear();
-  species_refresh_step_ = -1;
 }
 
 Genome EvolutionManager::create_initial_genome() const {
@@ -137,8 +136,6 @@ void EvolutionManager::seed_initial_population_ecs(Registry &registry) {
     registry.brain().decision_x[idx] = 0.0f;
     registry.brain().decision_y[idx] = 0.0f;
   }
-
-  network_cache_.invalidate_gpu_cache();
 }
 
 Entity EvolutionManager::create_offspring_ecs(Registry &registry,
@@ -196,7 +193,6 @@ Entity EvolutionManager::create_offspring_ecs(Registry &registry,
 
   network_cache_.assign(child, entity_genomes_[child],
                         config_.activation_function);
-  network_cache_.invalidate_gpu_cache();
 
   registry.vitals().energy[registry.index_of(parent_a)] -=
       config_.reproduction_energy_cost;
@@ -414,12 +410,8 @@ void EvolutionManager::launch_gpu_neural(gpu::GpuBatchECS &gpu_batch,
     return;
   }
 
-  if (network_cache_.gpu_cache_dirty()) {
-    gpu_network_cache_->invalidate();
-  }
-
   // Rebuild GPU cache if networks changed
-  if (gpu_network_cache_->is_dirty() || network_cache_.gpu_cache_dirty() ||
+  if (gpu_network_cache_->is_dirty() ||
       gpu_network_cache_->entity_mapping().size() !=
           network_entities_with_indices.size() ||
       !std::equal(
@@ -434,7 +426,6 @@ void EvolutionManager::launch_gpu_neural(gpu::GpuBatchECS &gpu_batch,
                   network_entities_with_indices.size());
     gpu_network_cache_->build_from(network_cache_,
                                    network_entities_with_indices);
-    network_cache_.clear_gpu_cache_dirty();
   }
 
   // Launch kernel - only for entities with networks

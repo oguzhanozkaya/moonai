@@ -413,12 +413,6 @@ TEST(GenomeTest, CompatibilityDistanceWithExcess) {
   EXPECT_GT(dist, 0.0f);
 }
 
-TEST(GenomeTest, AdjustedFitness) {
-  Genome g(2, 1);
-  g.set_adjusted_fitness(0.5f);
-  EXPECT_FLOAT_EQ(g.adjusted_fitness(), 0.5f);
-}
-
 TEST(GenomeTest, JsonRoundTrip) {
   Genome g(3, 2);
   g.add_connection({0, 4, 0.5f, true, 0});

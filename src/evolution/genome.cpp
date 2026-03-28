@@ -53,13 +53,6 @@ int Genome::complexity() const {
   return static_cast<int>(nodes_.size() + connections_.size());
 }
 
-void Genome::sort_connections_by_innovation() {
-  std::sort(connections_.begin(), connections_.end(),
-            [](const ConnectionGene &lhs, const ConnectionGene &rhs) {
-              return lhs.innovation < rhs.innovation;
-            });
-}
-
 float Genome::compatibility_distance(const Genome &a, const Genome &b, float c1,
                                      float c2, float c3) {
   const auto &raw_conns_a = a.connections();

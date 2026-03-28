@@ -24,9 +24,7 @@ struct SimEvent {
   Type type;
   Entity agent_id;  // predator (kill) or prey (food)
   Entity target_id; // prey (kill), food (food), or self (death)
-  Entity parent_a_id = INVALID_ENTITY;
-  Entity parent_b_id = INVALID_ENTITY;
-  Vec2 position; // where the event occurred
+  Vec2 position;    // where the event occurred
 };
 
 class SimulationManager {

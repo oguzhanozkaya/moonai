@@ -1,6 +1,5 @@
 #pragma once
 
-#include "evolution/genome.hpp"
 #include "simulation/simulation_manager.hpp"
 
 #include <vector>
@@ -9,7 +8,6 @@ namespace moonai {
 
 class Registry;
 class EvolutionManager;
-class SimulationManager;
 
 struct StepMetrics {
   int step = 0;

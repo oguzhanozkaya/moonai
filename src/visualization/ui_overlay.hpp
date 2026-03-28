@@ -18,8 +18,6 @@
 
 namespace moonai {
 
-class SimulationManager;
-
 struct OverlayStats {
   int step = 0;
   int max_steps = 1500;
@@ -79,8 +77,6 @@ public:
 
   void push_population(int predators, int prey, int food);
 
-  void push_species(int count);
-
   int draw_experiment_selector(sf::RenderTarget &target,
                                const std::vector<std::string> &names,
                                int hover_index, int scroll_offset);
@@ -112,7 +108,6 @@ private:
 
   // Population history: tuple of {predators, prey, food}
   std::deque<std::tuple<int, int, int>> population_history_;
-  std::deque<int> species_history_;
 
   std::unordered_map<std::uint32_t, float> node_activations_;
 

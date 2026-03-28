@@ -148,15 +148,6 @@ void Mutation::add_node(Genome &genome, Random &rng, InnovationTracker &tracker,
   genome.add_connection({new_id, out_id, old_weight, true, innov2});
 }
 
-void Mutation::toggle_connection(Genome &genome, Random &rng) {
-  auto &conns = genome.connections();
-  if (conns.empty())
-    return;
-
-  int idx = rng.next_int(0, static_cast<int>(conns.size()) - 1);
-  conns[idx].enabled = !conns[idx].enabled;
-}
-
 void Mutation::delete_connection(Genome &genome, Random &rng) {
   auto &conns = genome.connections();
   if (conns.size() <= 1)

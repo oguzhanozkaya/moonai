@@ -471,8 +471,7 @@ void SimulationManager::collect_step_events(Registry &registry,
     const std::size_t ecs_idx = registry.index_of(prey);
     stats.food_eaten[ecs_idx] += 1;
     Vec2 pos{positions.x[ecs_idx], positions.y[ecs_idx]};
-    events.push_back(SimEvent{SimEvent::Food, prey, INVALID_ENTITY,
-                              INVALID_ENTITY, INVALID_ENTITY, pos});
+    events.push_back(SimEvent{SimEvent::Food, prey, INVALID_ENTITY, pos});
   }
 
   for (std::size_t agent_idx = 0; agent_idx < state.agents.size();
@@ -491,15 +490,13 @@ void SimulationManager::collect_step_events(Registry &registry,
       const Entity killer = state.agents.entities[static_cast<std::size_t>(
           state.agents.killed_by[agent_idx])];
       Vec2 pos{positions.x[ecs_idx], positions.y[ecs_idx]};
-      events.push_back(SimEvent{SimEvent::Kill, killer, entity, INVALID_ENTITY,
-                                INVALID_ENTITY, pos});
+      events.push_back(SimEvent{SimEvent::Kill, killer, entity, pos});
       continue;
     }
 
     if (state.agents.was_alive[agent_idx] && !state.agents.alive[agent_idx]) {
       Vec2 pos{positions.x[ecs_idx], positions.y[ecs_idx]};
-      events.push_back(SimEvent{SimEvent::Death, entity, entity, INVALID_ENTITY,
-                                INVALID_ENTITY, pos});
+      events.push_back(SimEvent{SimEvent::Death, entity, entity, pos});
     }
   }
 }

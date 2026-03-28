@@ -57,13 +57,6 @@ public:
     return sparse_[e.index];
   }
 
-  Entity get_entity(size_t dense_index) const {
-    if (dense_index >= dense_.size()) {
-      return INVALID_ENTITY;
-    }
-    return dense_[dense_index];
-  }
-
   size_t size() const {
     return dense_.size();
   }

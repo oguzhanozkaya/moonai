@@ -49,7 +49,6 @@ public:
                              InnovationTracker &tracker);
   static void add_node(Genome &genome, Random &rng, InnovationTracker &tracker,
                        int max_hidden_nodes = 0);
-  static void toggle_connection(Genome &genome, Random &rng);
   static void delete_connection(Genome &genome, Random &rng);
 
   static void mutate(Genome &genome, Random &rng,

@@ -111,9 +111,8 @@ void App::step() {
     Entity child = evolution_.create_offspring_ecs(
         registry_, pair.parent_a, pair.parent_b, pair.spawn_position);
     if (child != INVALID_ENTITY) {
-      last_step_events_.push_back(SimEvent{SimEvent::Birth, child, child,
-                                           pair.parent_a, pair.parent_b,
-                                           pair.spawn_position});
+      last_step_events_.push_back(
+          SimEvent{SimEvent::Birth, child, child, pair.spawn_position});
     }
   }
 

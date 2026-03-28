@@ -13,9 +13,7 @@ namespace moonai {
 
 class Genome;
 class Species;
-struct SimEvent;
 struct StepMetrics;
-class Registry;
 
 class Logger {
 public:

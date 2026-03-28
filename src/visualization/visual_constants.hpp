@@ -4,13 +4,6 @@
 
 namespace moonai {
 
-// Entity colors (RGBA hex)
-namespace colors {
-constexpr uint32_t PREDATOR = 0xFF6B35FF; // Orange-Red
-constexpr uint32_t PREY = 0x4ECDC4FF;     // Cyan
-constexpr uint32_t FOOD = 0xFFE66DFF;     // Yellow
-} // namespace colors
-
 // Entity sizes
 namespace sizes {
 constexpr float PREDATOR_RADIUS = 4.0f;
@@ -71,7 +64,6 @@ constexpr uint8_t FOOD_SENSOR_ALPHA = 60;
 // Chart constants
 namespace charts {
 constexpr int CHART_MAX_POINTS = 300;
-constexpr float LINE_WIDTH = 2.0f;
 } // namespace charts
 
 // Renderer constants
@@ -142,16 +134,6 @@ constexpr uint8_t CHART_AVG_G = 220;
 constexpr uint8_t CHART_AVG_B = 100;
 
 // NN Visualization
-constexpr uint8_t NN_CONN_ENABLED_R = 200;
-constexpr uint8_t NN_CONN_ENABLED_G = 200;
-constexpr uint8_t NN_CONN_ENABLED_B = 200;
-constexpr uint8_t NN_CONN_ENABLED_A = 80;
-
-constexpr uint8_t NN_CONN_DISABLED_R = 80;
-constexpr uint8_t NN_CONN_DISABLED_G = 80;
-constexpr uint8_t NN_CONN_DISABLED_B = 80;
-constexpr uint8_t NN_CONN_DISABLED_A = 40;
-
 constexpr uint8_t NN_NODE_OUTLINE_R = 200;
 constexpr uint8_t NN_NODE_OUTLINE_G = 200;
 constexpr uint8_t NN_NODE_OUTLINE_B = 200;

@@ -51,8 +51,6 @@ public:
   static void draw_sensor_lines(sf::RenderTarget &target,
                                 const std::vector<RenderLine> &lines);
 
-  static sf::Color species_color(int species_id);
-
 private:
   sf::CircleShape circle_;
   sf::ConvexShape triangle_;

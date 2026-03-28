@@ -89,7 +89,6 @@ private:
   int num_inputs_ = 0;
   int num_outputs_ = 0;
   bool use_gpu_ = false;
-  int species_refresh_step_ = -1;
 
   std::unordered_map<Entity, Genome, EntityHash> entity_genomes_;
 

@@ -18,13 +18,6 @@ void FoodStore::initialize(const SimulationConfig &config, Random &rng) {
   }
 }
 
-void FoodStore::clear() {
-  pos_x_.clear();
-  pos_y_.clear();
-  active_.clear();
-  slot_index_.clear();
-}
-
 void FoodStore::respawn_step(const SimulationConfig &config, int step_index,
                              std::uint64_t seed) {
   const float world_width = static_cast<float>(config.grid_size);

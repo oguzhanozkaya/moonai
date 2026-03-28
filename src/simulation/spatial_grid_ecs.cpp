@@ -56,15 +56,6 @@ std::vector<Entity> SpatialGridECS::query_radius(Vec2 center,
   return result;
 }
 
-std::vector<Entity> SpatialGridECS::query_cell(Vec2 pos) const {
-  CellKey key = cell_key(pos);
-  auto it = cells_.find(key);
-  if (it != cells_.end()) {
-    return it->second;
-  }
-  return {};
-}
-
 SpatialGridECS::CellKey SpatialGridECS::cell_key(Vec2 pos) const {
   return cell_key(cell_x(pos.x), cell_y(pos.y));
 }

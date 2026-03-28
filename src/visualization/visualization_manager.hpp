@@ -97,8 +97,6 @@ private:
   UIOverlay overlay_;
   FrameSnapshot frame_;
   sf::Clock frame_clock_;
-  sf::Clock fps_clock_;
-  int frame_count_ = 0;
   int last_chart_step_ = -1;
 
   float current_fps_ = 60.0f;

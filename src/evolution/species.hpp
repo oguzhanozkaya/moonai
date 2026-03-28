@@ -25,7 +25,6 @@ public:
   void add_member(Entity entity, const Genome &genome);
   void clear_members();
   void refresh_summary();
-  void update_representative(const Genome &genome);
 
   const Genome &representative() const {
     return representative_;
@@ -45,14 +44,8 @@ public:
   int id() const {
     return id_;
   }
-  const std::deque<float> &fitness_history() const {
-    return fitness_history_;
-  }
 
   static int next_species_id();
-  static void set_next_species_id(int id) {
-    species_id_counter_ = id;
-  }
 
 private:
   int id_;
@@ -61,7 +54,6 @@ private:
   float average_fitness_ = 0.0f;
   float best_fitness_ever_ = 0.0f;
   float average_complexity_ = 0.0f;
-  std::deque<float> fitness_history_;
 
   static int species_id_counter_;
 };
