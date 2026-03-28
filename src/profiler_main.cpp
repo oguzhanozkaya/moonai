@@ -14,6 +14,11 @@
 #include <string>
 #include <vector>
 
+// CUDA includes for GPU profiling
+#ifdef MOONAI_ENABLE_CUDA
+#include <cuda_runtime.h>
+#endif
+
 std::string utc_timestamp() {
   const auto now = std::chrono::system_clock::now();
   const auto time = std::chrono::system_clock::to_time_t(now);
@@ -40,6 +45,16 @@ struct ScopeNode {
   ScopeNode *parent = nullptr;
 };
 
+#ifdef MOONAI_ENABLE_CUDA
+// GPU event tracking structure
+struct GpuEventPair {
+  const char *name;
+  cudaEvent_t start;
+  cudaEvent_t end;
+  cudaStream_t stream;
+};
+#endif
+
 class Profiler {
 public:
   static Profiler &instance() {
@@ -50,26 +65,87 @@ public:
   void start_run(const AppConfig &cfg);
   void begin_scope(const char *event_name);
   void end_scope(const char *event_name);
+
+#ifdef MOONAI_ENABLE_CUDA
+  // GPU event tracking
+  int record_gpu_event_start(const char *name, cudaStream_t stream);
+  void record_gpu_event_end(int event_index);
+  void merge_gpu_timings(); // Calculate GPU times and add as children
+#endif
+
   nlohmann::json finish_run(std::int64_t run_total_ns);
 
 private:
-  Profiler() = default;
+  Profiler();
+  ~Profiler();
 
   std::optional<AppConfig> cfg_;
   std::vector<std::unique_ptr<ScopeNode>> frame_trees_;
   std::vector<ScopeNode *> active_stack_;
   std::unique_ptr<ScopeNode> pending_root_;
 
+#ifdef MOONAI_ENABLE_CUDA
+  // GPU event storage
+  std::vector<GpuEventPair> pending_gpu_events_;
+  int next_gpu_event_index_;
+#endif
+
   nlohmann::json serialize_node(const ScopeNode *node) const;
 };
 
+// Profiler constructor/destructor
+Profiler::Profiler()
+#ifdef MOONAI_ENABLE_CUDA
+    : next_gpu_event_index_(0)
+#endif
+{
+}
+
+Profiler::~Profiler() {
+#ifdef MOONAI_ENABLE_CUDA
+  // Clean up any remaining GPU events
+  for (auto &event : pending_gpu_events_) {
+    if (event.start)
+      cudaEventDestroy(event.start);
+    if (event.end)
+      cudaEventDestroy(event.end);
+  }
+#endif
+}
+
 // ScopedTimer implementation (declared in profiler_macros.hpp)
-ScopedTimer::ScopedTimer(const char *event_name) : event_name_(event_name) {
-  Profiler::instance().begin_scope(event_name);
+ScopedTimer::ScopedTimer(const char *event_name, cudaStream_t stream)
+    : event_name_(event_name), stream_(stream), gpu_event_index_(-1),
+      has_cpu_scope_(stream == nullptr) // No CPU scope when stream provided
+{
+#ifdef MOONAI_ENABLE_CUDA
+  if (stream) {
+    gpu_event_index_ =
+        Profiler::instance().record_gpu_event_start(event_name, stream);
+  }
+#endif
+  if (has_cpu_scope_) {
+    Profiler::instance().begin_scope(event_name);
+  }
 }
 
 ScopedTimer::~ScopedTimer() {
-  Profiler::instance().end_scope(event_name_);
+  // Check if this is gpu_synchronize - merge GPU timings before ending scope
+  if (std::strcmp(event_name_, "gpu_synchronize") == 0) {
+#ifdef MOONAI_ENABLE_CUDA
+    Profiler::instance().merge_gpu_timings();
+#endif
+  }
+
+#ifdef MOONAI_ENABLE_CUDA
+  if (gpu_event_index_ >= 0) {
+    Profiler::instance().record_gpu_event_end(gpu_event_index_);
+  }
+#endif
+
+  if (has_cpu_scope_) {
+    Profiler::instance().end_scope(event_name_);
+  }
 }
 
 void Profiler::start_run(const AppConfig &cfg) {
@@ -77,6 +153,10 @@ void Profiler::start_run(const AppConfig &cfg) {
   frame_trees_.clear();
   active_stack_.clear();
   pending_root_.reset();
+#ifdef MOONAI_ENABLE_CUDA
+  pending_gpu_events_.clear();
+  next_gpu_event_index_ = 0;
+#endif
 }
 
 void Profiler::begin_scope(const char *event_name) {
@@ -132,6 +212,72 @@ void Profiler::end_scope(const char *event_name) {
   }
 }
 
+#ifdef MOONAI_ENABLE_CUDA
+int Profiler::record_gpu_event_start(const char *name, cudaStream_t stream) {
+  int index = next_gpu_event_index_++;
+
+  if (index >= static_cast<int>(pending_gpu_events_.size())) {
+    pending_gpu_events_.resize(index + 1);
+  }
+
+  GpuEventPair &pair = pending_gpu_events_[index];
+  pair.name = name;
+  pair.stream = stream;
+
+  cudaEventCreate(&pair.start);
+  cudaEventRecord(pair.start, stream);
+  pair.end = nullptr; // Will be created on end
+
+  return index;
+}
+
+void Profiler::record_gpu_event_end(int event_index) {
+  assert(event_index >= 0 &&
+         event_index < static_cast<int>(pending_gpu_events_.size()));
+
+  GpuEventPair &pair = pending_gpu_events_[event_index];
+  cudaEventCreate(&pair.end);
+  cudaEventRecord(pair.end, pair.stream);
+}
+
+void Profiler::merge_gpu_timings() {
+  if (pending_gpu_events_.empty()) {
+    return;
+  }
+
+  // All GPU events should be completed by now (synchronize was called)
+  for (const auto &pair : pending_gpu_events_) {
+    if (!pair.start || !pair.end) {
+      continue; // Incomplete event
+    }
+
+    float elapsed_ms = 0.0f;
+    cudaError_t err = cudaEventElapsedTime(&elapsed_ms, pair.start, pair.end);
+
+    if (err == cudaSuccess && elapsed_ms > 0.0f) {
+      // Create a child node for this GPU timing
+      auto gpu_node = std::make_unique<ScopeNode>();
+      gpu_node->name = std::string(pair.name) + "_gpu";
+      gpu_node->inclusive_ns =
+          static_cast<std::int64_t>(elapsed_ms * 1'000'000.0f);
+      gpu_node->exclusive_ns = gpu_node->inclusive_ns; // No children yet
+      gpu_node->parent = active_stack_.back();
+
+      // Add as child to current scope
+      active_stack_.back()->children.push_back(std::move(gpu_node));
+    }
+
+    // Clean up CUDA events
+    cudaEventDestroy(pair.start);
+    cudaEventDestroy(pair.end);
+  }
+
+  // Clear for next frame
+  pending_gpu_events_.clear();
+  next_gpu_event_index_ = 0;
+}
+#endif
+
 nlohmann::json Profiler::serialize_node(const ScopeNode *node) const {
   nlohmann::json j;
   j["name"] = node->name;
@@ -166,7 +312,7 @@ nlohmann::json Profiler::finish_run(std::int64_t run_total_ns) {
 namespace {
 
 struct Args {
-  int frames = 600;
+  int frames = 1000;
   std::vector<std::uint64_t> seeds = {61, 62, 63, 64, 65, 66};
   std::string output_dir = "output/profiles";
   std::string experiment_name = "profile";

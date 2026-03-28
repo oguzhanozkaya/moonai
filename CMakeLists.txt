@@ -89,6 +89,7 @@ if(MOONAI_ENABLE_CUDA)
 
     target_link_libraries(moonai_profiler PRIVATE moonai_gpu_profiler)
     target_compile_definitions(moonai_profiler PRIVATE MOONAI_ENABLE_CUDA)
+    target_include_directories(moonai_profiler PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 endif()
 
 # ── Copy runtime assets to build directory ───────────────────────────────────

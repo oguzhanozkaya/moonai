@@ -1,5 +1,6 @@
 #include "gpu/cuda_utils.cuh"
 #include "gpu/gpu_batch_ecs.hpp"
+#include "core/profiler_macros.hpp"
 
 #include <spdlog/spdlog.h>
 #include <cmath>
@@ -375,12 +376,14 @@ void GpuBatchECS::cleanup_cuda_resources() {
 }
 
 void GpuBatchECS::upload_async(std::size_t agent_count, std::size_t food_count) {
+  MOONAI_PROFILE_SCOPE("gpu_upload", static_cast<cudaStream_t>(stream_));
   buffer_.upload_async(agent_count, food_count, static_cast<cudaStream_t>(stream_));
   check_launch_error();
 }
 
 void GpuBatchECS::download_async(std::size_t agent_count,
                                  std::size_t food_count) {
+  MOONAI_PROFILE_SCOPE("gpu_download", static_cast<cudaStream_t>(stream_));
   buffer_.download_async(agent_count, food_count,
                          static_cast<cudaStream_t>(stream_));
   check_launch_error();
@@ -392,6 +395,8 @@ void GpuBatchECS::launch_build_sensors_async(const GpuStepParams &params,
   if (agent_count == 0 || had_error_) {
     return;
   }
+
+  MOONAI_PROFILE_SCOPE("gpu_sensing", static_cast<cudaStream_t>(stream_));
 
   const int blocks =
       (static_cast<int>(agent_count) + kThreadsPerBlock - 1) / kThreadsPerBlock;
@@ -415,6 +420,7 @@ void GpuBatchECS::launch_build_sensors_async(const GpuStepParams &params,
 void GpuBatchECS::launch_post_inference_async(const GpuStepParams &params,
                                               std::size_t agent_count,
                                               std::size_t food_count) {
+  MOONAI_PROFILE_SCOPE("gpu_step", static_cast<cudaStream_t>(stream_));
   launch_post_inference_kernel(
       buffer_.device_agent_positions_x(), buffer_.device_agent_positions_y(),
       buffer_.device_agent_velocities_x(), buffer_.device_agent_velocities_y(),

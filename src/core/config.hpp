@@ -25,7 +25,7 @@ struct SimulationConfig {
   float food_pickup_range = 6.0f;
 
   int food_count = 3000;
-  float food_respawn_rate = 0.006f;
+  float food_respawn_rate = 0.002f;
 
   float mutation_rate = 0.3f;
   float crossover_rate = 0.75f;

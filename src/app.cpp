@@ -96,7 +96,7 @@ App::App(const AppConfig &cfg)
 }
 
 void App::step() {
-  MOONAI_PROFILE_SCOPE("session_step");
+  MOONAI_PROFILE_SCOPE("step");
 
   SimulationManager::SimulationStepResult step_result;
   if (cfg_.enable_gpu && simulation_.gpu_enabled()) {

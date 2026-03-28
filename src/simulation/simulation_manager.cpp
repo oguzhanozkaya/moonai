@@ -502,8 +502,14 @@ void SimulationManager::collect_step_events(Registry &registry,
 }
 
 void SimulationManager::refresh_world_state_after_step(Registry &registry) {
-  food_store_.respawn_step(config_, current_step_, rng_.seed());
-  rebuild_food_grid();
+  {
+    MOONAI_PROFILE_SCOPE("food_respawn");
+    food_store_.respawn_step(config_, current_step_, rng_.seed());
+  }
+  {
+    MOONAI_PROFILE_SCOPE("rebuild_food_grid");
+    rebuild_food_grid();
+  }
   rebuild_spatial_grid_ecs(registry);
   count_alive_ecs(registry);
   ++current_step_;
@@ -674,17 +680,21 @@ SimulationManager::step_gpu_ecs(Registry &registry,
     return step_ecs(registry, evolution);
   }
 
-  PackedStepState state = pack_step_state(registry);
+  PackedStepState state;
+  {
+    MOONAI_PROFILE_SCOPE("gpu_pack_state");
+    state = pack_step_state(registry);
 
-  try {
-    gpu::prepare_step_state_for_gpu(state, gpu_batch_->agent_mapping(),
-                                    gpu_batch_->food_mapping(),
-                                    gpu_batch_->buffer());
-  } catch (const std::exception &ex) {
-    spdlog::error("GPU preparation failed: {}. Falling back to CPU step.",
-                  ex.what());
-    gpu_enabled_ = false;
-    return step_ecs(registry, evolution);
+    try {
+      gpu::prepare_step_state_for_gpu(state, gpu_batch_->agent_mapping(),
+                                      gpu_batch_->food_mapping(),
+                                      gpu_batch_->buffer());
+    } catch (const std::exception &ex) {
+      spdlog::error("GPU preparation failed: {}. Falling back to CPU step.",
+                    ex.what());
+      gpu_enabled_ = false;
+      return step_ecs(registry, evolution);
+    }
   }
 
   const std::size_t agent_count = state.agents.size();
@@ -707,29 +717,20 @@ SimulationManager::step_gpu_ecs(Registry &registry,
   params.energy_gain_from_kill =
       static_cast<float>(config_.energy_gain_from_kill);
 
-  {
-    MOONAI_PROFILE_SCOPE("gpu_upload");
-    gpu_batch_->upload_async(agent_count, food_count);
-  }
+  gpu_batch_->upload_async(agent_count, food_count);
 
-  {
-    MOONAI_PROFILE_SCOPE("gpu_sensing_kernel");
-    gpu_batch_->launch_build_sensors_async(params, agent_count, food_count);
-  }
+  gpu_batch_->launch_build_sensors_async(params, agent_count, food_count);
 
   evolution.launch_gpu_neural(*gpu_batch_, agent_count);
 
-  {
-    MOONAI_PROFILE_SCOPE("gpu_step_kernel");
-    gpu_batch_->launch_post_inference_async(params, agent_count, food_count);
-  }
+  gpu_batch_->launch_post_inference_async(params, agent_count, food_count);
+
+  gpu_batch_->download_async(agent_count, food_count);
 
   {
-    MOONAI_PROFILE_SCOPE("gpu_download");
-    gpu_batch_->download_async(agent_count, food_count);
+    MOONAI_PROFILE_SCOPE("gpu_synchronize");
+    gpu_batch_->synchronize();
   }
-
-  gpu_batch_->synchronize();
 
   if (!gpu_batch_->ok()) {
     spdlog::error("GPU step failed, disabling GPU path and retrying on CPU");
@@ -738,12 +739,30 @@ SimulationManager::step_gpu_ecs(Registry &registry,
     return step_ecs(registry, evolution);
   }
 
-  gpu::apply_gpu_results(gpu_batch_->buffer(), gpu_batch_->agent_mapping(),
-                         gpu_batch_->food_mapping(), state);
-  apply_step_state(registry, state);
-  collect_step_events(registry, state, result.events);
-  refresh_world_state_after_step(registry);
-  result.reproduction_pairs = find_reproduction_pairs(registry);
+  {
+    MOONAI_PROFILE_SCOPE("gpu_apply_results");
+    {
+      MOONAI_PROFILE_SCOPE("apply_gpu_results");
+      gpu::apply_gpu_results(gpu_batch_->buffer(), gpu_batch_->agent_mapping(),
+                             gpu_batch_->food_mapping(), state);
+    }
+    {
+      MOONAI_PROFILE_SCOPE("apply_step_state");
+      apply_step_state(registry, state);
+    }
+    {
+      MOONAI_PROFILE_SCOPE("collect_step_events");
+      collect_step_events(registry, state, result.events);
+    }
+  }
+  {
+    MOONAI_PROFILE_SCOPE("refresh_world_state");
+    refresh_world_state_after_step(registry);
+  }
+  {
+    MOONAI_PROFILE_SCOPE("find_reproduction_pairs");
+    result.reproduction_pairs = find_reproduction_pairs(registry);
+  }
   return result;
 }
 

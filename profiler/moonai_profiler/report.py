@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
+from shutil import copy2
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -58,8 +59,14 @@ def generate_report(input_dir: Path, output_dir: Path) -> None:
         output_dir / f"profile_report_{timestamp.strftime('%Y%m%d_%H%M%S')}.html"
     )
     report_path.write_text(report, encoding="utf-8")
+
+    # Also write a copy as profile.html for easy browser refresh
+    stable_path = output_dir / "profile.html"
+    copy2(report_path, stable_path)
+
     print(f"Analysed {len(suites)} profiler suites.")
     print(f"Wrote report to {report_path}")
+    print(f"Also available at {stable_path} (always latest)")
 
 
 def _build_summary_rows(suites: list[ProfileSuite]) -> list[dict]:
@@ -150,13 +157,10 @@ def _format_tree_events(tree: AveragedScopeNode | None) -> list[dict]:
             else 0.0
         )
 
-        # Create indented name with 4 spaces per depth level for styling
-        indent = "&nbsp;&nbsp;&nbsp;&nbsp;" * depth
-        display_name = f"{indent}{node.name}"
-
+        # Store raw name; indentation is applied via CSS padding in the template
         rows.append(
             {
-                "name": display_name,
+                "name": node.name,
                 "raw_name": node.name,
                 "depth": depth,
                 "percentage": f"{pct:.1f}",

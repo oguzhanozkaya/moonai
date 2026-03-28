@@ -386,7 +386,7 @@ void EvolutionManager::enable_gpu(bool use_gpu) {
 
 void EvolutionManager::launch_gpu_neural(gpu::GpuBatchECS &gpu_batch,
                                          std::size_t agent_count) {
-  MOONAI_PROFILE_SCOPE("gpu_neural_inference");
+  MOONAI_PROFILE_SCOPE("gpu_neural", gpu_batch.stream());
 
   if (!gpu_network_cache_) {
     spdlog::error("GPU neural cache not initialized");
