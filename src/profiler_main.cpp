@@ -312,8 +312,8 @@ nlohmann::json Profiler::finish_run(std::int64_t run_total_ns) {
 namespace {
 
 struct Args {
-  int frames = 300;
-  int speed_multiplier = 8;
+  int frames = 60;
+  int speed_multiplier = 64;
   std::vector<std::uint64_t> seeds = {61, 62, 63, 64, 65, 66};
   std::string output_dir = "output/profiles";
   std::string experiment_name = "profile";

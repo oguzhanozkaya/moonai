@@ -10,6 +10,7 @@ struct GpuSensorAgentEntry {
 };
 
 struct GpuSensorFoodEntry {
+  unsigned int id;
   float pos_x;
   float pos_y;
 };

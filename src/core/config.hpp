@@ -8,23 +8,23 @@
 namespace moonai {
 
 struct SimulationConfig {
-  int grid_size = 3000;
+  int grid_size = 6000;
 
-  int predator_count = 600;
-  int prey_count = 2400;
+  int predator_count = 480;
+  int prey_count = 1920;
 
-  float predator_speed = 0.072f;
-  float prey_speed = 0.06f;
-  float vision_range = 96.0f;
+  float predator_speed = 0.06f;
+  float prey_speed = 0.066f;
+  float vision_range = 120.0f;
   float attack_range = 12.0f;
   float initial_energy = 120.0f;
   float energy_drain_per_step = 0.006f;
-  float energy_gain_from_kill = 36.0f;
-  float energy_gain_from_food = 42.0f;
+  float energy_gain_from_kill = 90.0f;
+  float energy_gain_from_food = 120.0f;
   float food_pickup_range = 12.0f;
 
-  int food_count = 3000;
-  float food_respawn_rate = 0.0006f;
+  int food_count = 2400;
+  float food_respawn_rate = 0.00024f;
 
   float mutation_rate = 0.3f;
   float crossover_rate = 0.75f;
@@ -46,8 +46,8 @@ struct SimulationConfig {
   std::string output_dir = "output";
   int report_interval_steps = 10000;
 
-  float mate_range = 60.0f;
-  float reproduction_energy_threshold = 180.0f;
+  float mate_range = 240.0f;
+  float reproduction_energy_threshold = 240.0f;
   float reproduction_energy_cost = 60.0f;
   float offspring_initial_energy = 100.0f;
   int min_reproductive_age_steps = 120;
