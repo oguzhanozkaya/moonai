@@ -794,22 +794,37 @@ SimulationManager::step_gpu(Registry &registry, EvolutionManager &evolution) {
   params.energy_gain_from_kill =
       static_cast<float>(config_.energy_gain_from_kill);
 
-  gpu_batch_->upload_async(agent_count, food_count);
-
-  gpu_batch_->launch_build_sensors_async(params, agent_count, food_count);
-
-  if (!evolution.launch_gpu_neural(*gpu_batch_, agent_count)) {
-    MOONAI_PROFILE_SCOPE("cpu_fallback");
-    spdlog::error(
-        "GPU neural inference failed, disabling GPU path and retrying on CPU");
-    gpu_enabled_ = false;
-    gpu_batch_.reset();
-    return step(registry, evolution);
+  {
+    MOONAI_PROFILE_SCOPE("gpu_upload_enqueue");
+    gpu_batch_->upload_async(agent_count, food_count);
   }
 
-  gpu_batch_->launch_post_inference_async(params, agent_count, food_count);
+  {
+    MOONAI_PROFILE_SCOPE("gpu_launch_sensors");
+    gpu_batch_->launch_build_sensors_async(params, agent_count, food_count);
+  }
 
-  gpu_batch_->download_async(agent_count, food_count);
+  {
+    MOONAI_PROFILE_SCOPE("gpu_launch_neural");
+    if (!evolution.launch_gpu_neural(*gpu_batch_, agent_count)) {
+      MOONAI_PROFILE_SCOPE("cpu_fallback");
+      spdlog::error("GPU neural inference failed, disabling GPU path and "
+                    "retrying on CPU");
+      gpu_enabled_ = false;
+      gpu_batch_.reset();
+      return step(registry, evolution);
+    }
+  }
+
+  {
+    MOONAI_PROFILE_SCOPE("gpu_launch_step");
+    gpu_batch_->launch_post_inference_async(params, agent_count, food_count);
+  }
+
+  {
+    MOONAI_PROFILE_SCOPE("gpu_download_enqueue");
+    gpu_batch_->download_async(agent_count, food_count);
+  }
 
   {
     MOONAI_PROFILE_SCOPE("gpu_synchronize");
