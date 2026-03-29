@@ -1,8 +1,8 @@
 #pragma once
-#include "core/types.hpp"
+
 #include "simulation/components.hpp"
 #include "simulation/entity.hpp"
-#include "simulation/sparse_set.hpp"
+
 #include <cstdint>
 #include <vector>
 
@@ -10,21 +10,29 @@ namespace moonai {
 
 class Registry {
 public:
+  struct CompactionResult {
+    std::vector<std::pair<Entity, Entity>> moved;
+    std::vector<Entity> removed;
+  };
+
   Entity create();
-
   void destroy(Entity e);
-
   bool valid(Entity e) const;
 
   size_t index_of(Entity e) const {
-    return sparse_set_.get_index(e);
+    return e.index;
+  }
+
+  Entity entity_at(std::size_t index) const {
+    return Entity{static_cast<uint32_t>(index)};
   }
 
   size_t size() const {
-    return sparse_set_.size();
+    return positions_.size();
   }
+
   bool empty() const {
-    return sparse_set_.empty();
+    return size() == 0;
   }
 
   PositionSoA &positions() {
@@ -33,42 +41,36 @@ public:
   const PositionSoA &positions() const {
     return positions_;
   }
-
   MotionSoA &motion() {
     return motion_;
   }
   const MotionSoA &motion() const {
     return motion_;
   }
-
   VitalsSoA &vitals() {
     return vitals_;
   }
   const VitalsSoA &vitals() const {
     return vitals_;
   }
-
   IdentitySoA &identity() {
     return identity_;
   }
   const IdentitySoA &identity() const {
     return identity_;
   }
-
   SensorSoA &sensors() {
     return sensors_;
   }
   const SensorSoA &sensors() const {
     return sensors_;
   }
-
   StatsSoA &stats() {
     return stats_;
   }
   const StatsSoA &stats() const {
     return stats_;
   }
-
   BrainSoA &brain() {
     return brain_;
   }
@@ -87,15 +89,16 @@ public:
   }
 
   void clear();
-
-  const std::vector<Entity> &living_entities() const {
-    return sparse_set_.dense();
+  CompactionResult compact_dead();
+  Entity find_by_agent_id(uint32_t agent_id) const;
+  uint32_t next_agent_id() {
+    return next_agent_id_++;
   }
 
 private:
-  void ensure_capacity(size_t required_size);
-
-  SparseSet sparse_set_;
+  void resize(std::size_t size);
+  void swap_entities(std::size_t a, std::size_t b);
+  void pop_back();
 
   PositionSoA positions_;
   MotionSoA motion_;
@@ -104,9 +107,7 @@ private:
   SensorSoA sensors_;
   StatsSoA stats_;
   BrainSoA brain_;
-  uint32_t next_entity_index_ = 1;
-  std::vector<uint32_t> free_slots_;
-  std::vector<uint32_t> generations_;
+  uint32_t next_agent_id_ = 1;
 };
 
 } // namespace moonai

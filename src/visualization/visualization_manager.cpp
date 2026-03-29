@@ -124,13 +124,13 @@ void VisualizationManager::render(FrameSnapshot frame) {
     MOONAI_PROFILE_SCOPE("render_agents");
     renderer_.draw_all_agents(
         *window_, frame_.agents, frame_.overlay_stats.alive_predators,
-        frame_.overlay_stats.alive_prey, selected_entity_);
+        frame_.overlay_stats.alive_prey, selected_agent_id_);
   }
 
   // Draw vision/sensor lines for selected entity (automatically shown when
   // agent is clicked)
   if (frame_.has_selected_vision &&
-      frame_.selected_entity == selected_entity_) {
+      frame_.selected_agent_id == selected_agent_id_) {
     MOONAI_PROFILE_SCOPE("render_sensor_lines");
     Renderer::draw_vision_range(*window_, frame_.selected_position,
                                 frame_.selected_vision_range);
@@ -141,9 +141,8 @@ void VisualizationManager::render(FrameSnapshot frame) {
   update_fps(frame_clock_.restart().asSeconds());
   frame_.overlay_stats.fps = current_fps_;
 
-  if (selected_entity_ != INVALID_ENTITY) {
-    frame_.overlay_stats.selected_agent =
-        static_cast<int>(selected_entity_.index);
+  if (selected_agent_id_ != 0) {
+    frame_.overlay_stats.selected_agent = static_cast<int>(selected_agent_id_);
   }
 
   if (frame_.overlay_stats.step != last_chart_step_) {
@@ -379,7 +378,7 @@ void VisualizationManager::handle_events() {
 void VisualizationManager::handle_mouse_click(float world_x, float world_y) {
   // Find closest entity to click position
   float best_dist = 20.0f * zoom_level_; // click threshold in world units
-  Entity best_entity = INVALID_ENTITY;
+  uint32_t best_agent_id = 0;
 
   for (const auto &agent : frame_.agents) {
     float dx = agent.position.x - world_x;
@@ -387,11 +386,11 @@ void VisualizationManager::handle_mouse_click(float world_x, float world_y) {
     float dist = std::sqrt(dx * dx + dy * dy);
     if (dist < best_dist) {
       best_dist = dist;
-      best_entity = agent.entity;
+      best_agent_id = agent.agent_id;
     }
   }
 
-  selected_entity_ = best_entity;
+  selected_agent_id_ = best_agent_id;
 }
 
 void VisualizationManager::update_camera() {

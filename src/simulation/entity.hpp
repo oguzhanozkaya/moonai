@@ -1,31 +1,39 @@
 #pragma once
+
 #include <cstdint>
 #include <functional>
 
 namespace moonai {
 
 struct Entity {
-  uint32_t index;
-  uint32_t generation;
+  uint32_t index = 0;
+
+  constexpr Entity() = default;
+  constexpr Entity(uint32_t value) : index(value) {}
+  constexpr Entity(uint32_t value, uint32_t) : index(value) {}
 
   bool operator==(const Entity &other) const {
-    return index == other.index && generation == other.generation;
+    return index == other.index;
   }
+
   bool operator!=(const Entity &other) const {
-    return !(*this == other);
+    return index != other.index;
   }
+
+  bool operator<(const Entity &other) const {
+    return index < other.index;
+  }
+
   bool valid() const {
-    return generation != 0;
+    return index != UINT32_MAX;
   }
 };
 
-constexpr Entity INVALID_ENTITY = {0, 0};
+constexpr Entity INVALID_ENTITY{UINT32_MAX};
 
-// Hash function for unordered_map
 struct EntityHash {
   size_t operator()(const Entity &e) const {
-    return std::hash<uint64_t>{}((static_cast<uint64_t>(e.index) << 32) |
-                                 e.generation);
+    return std::hash<uint32_t>{}(e.index);
   }
 };
 

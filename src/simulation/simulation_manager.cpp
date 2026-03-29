@@ -2,13 +2,13 @@
 
 #include "core/profiler_macros.hpp"
 #include "evolution/evolution_manager.hpp"
-#include "gpu/ecs_gpu_packing.hpp"
 #include "gpu/gpu_batch.hpp"
 #include "simulation/registry.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstring>
 #include <limits>
 #include <spdlog/spdlog.h>
 #include <unordered_set>
@@ -29,13 +29,20 @@ Vec2 wrap_diff(Vec2 diff, float world_width, float world_height) {
   return diff;
 }
 
-void build_sensors(PackedStepState &state, const SimulationConfig &config) {
+void build_sensors(Registry &registry, const FoodStore &food_store,
+                   const SimulationConfig &config) {
   const float world_size = static_cast<float>(config.grid_size);
   const float vision = config.vision_range;
   const float vision_sq = vision * vision;
+  const auto agent_count = registry.size();
+  const auto &positions = registry.positions();
+  const auto &motion = registry.motion();
+  const auto &vitals = registry.vitals();
+  const auto &identity = registry.identity();
+  auto &sensors = registry.sensors();
 
-  for (std::size_t i = 0; i < state.agents.size(); ++i) {
-    float *sensor_ptr = state.agents.sensor_ptr(i);
+  for (std::size_t i = 0; i < agent_count; ++i) {
+    float *sensor_ptr = sensors.input_ptr(i);
     sensor_ptr[0] = kMissingTargetSentinel;
     sensor_ptr[1] = kMissingTargetSentinel;
     sensor_ptr[2] = kMissingTargetSentinel;
@@ -49,11 +56,11 @@ void build_sensors(PackedStepState &state, const SimulationConfig &config) {
     sensor_ptr[10] = 0.0f;
     sensor_ptr[11] = 0.0f;
 
-    if (!state.agents.alive[i]) {
+    if (!vitals.alive[i]) {
       continue;
     }
 
-    const Vec2 pos{state.agents.pos_x[i], state.agents.pos_y[i]};
+    const Vec2 pos{positions.x[i], positions.y[i]};
     float nearest_pred_dist_sq = std::numeric_limits<float>::max();
     float nearest_prey_dist_sq = std::numeric_limits<float>::max();
     float nearest_food_dist_sq = std::numeric_limits<float>::max();
@@ -64,20 +71,20 @@ void build_sensors(PackedStepState &state, const SimulationConfig &config) {
     int local_prey = 0;
     int local_food = 0;
 
-    for (std::size_t other = 0; other < state.agents.size(); ++other) {
-      if (other == i || !state.agents.alive[other]) {
+    for (std::size_t other = 0; other < agent_count; ++other) {
+      if (other == i || !vitals.alive[other]) {
         continue;
       }
 
-      Vec2 diff = wrap_diff({state.agents.pos_x[other] - pos.x,
-                             state.agents.pos_y[other] - pos.y},
-                            world_size, world_size);
+      Vec2 diff =
+          wrap_diff({positions.x[other] - pos.x, positions.y[other] - pos.y},
+                    world_size, world_size);
       const float dist_sq = diff.x * diff.x + diff.y * diff.y;
       if (dist_sq > vision_sq || dist_sq <= 0.0f) {
         continue;
       }
 
-      if (state.agents.type[other] == IdentitySoA::TYPE_PREDATOR) {
+      if (identity.type[other] == IdentitySoA::TYPE_PREDATOR) {
         ++local_predators;
         if (dist_sq < nearest_pred_dist_sq) {
           nearest_pred_dist_sq = dist_sq;
@@ -92,13 +99,13 @@ void build_sensors(PackedStepState &state, const SimulationConfig &config) {
       }
     }
 
-    for (std::size_t food_idx = 0; food_idx < state.foods.size(); ++food_idx) {
-      if (!state.foods.active[food_idx]) {
+    for (std::size_t food_idx = 0; food_idx < food_store.size(); ++food_idx) {
+      if (!food_store.active()[food_idx]) {
         continue;
       }
 
-      Vec2 diff = wrap_diff({state.foods.pos_x[food_idx] - pos.x,
-                             state.foods.pos_y[food_idx] - pos.y},
+      Vec2 diff = wrap_diff({food_store.pos_x()[food_idx] - pos.x,
+                             food_store.pos_y()[food_idx] - pos.y},
                             world_size, world_size);
       const float dist_sq = diff.x * diff.x + diff.y * diff.y;
       if (dist_sq > vision_sq) {
@@ -125,15 +132,14 @@ void build_sensors(PackedStepState &state, const SimulationConfig &config) {
       sensor_ptr[5] = std::clamp(nearest_food_dir.y / vision, -1.0f, 1.0f);
     }
 
-    sensor_ptr[6] =
-        std::clamp(state.agents.energy[i] /
-                       (static_cast<float>(config.initial_energy) * 2.0f),
-                   0.0f, 1.0f);
-    if (state.agents.speed[i] > 0.0f) {
-      sensor_ptr[7] = std::clamp(state.agents.vel_x[i] / state.agents.speed[i],
-                                 -1.0f, 1.0f);
-      sensor_ptr[8] = std::clamp(state.agents.vel_y[i] / state.agents.speed[i],
-                                 -1.0f, 1.0f);
+    sensor_ptr[6] = std::clamp(
+        vitals.energy[i] / (static_cast<float>(config.initial_energy) * 2.0f),
+        0.0f, 1.0f);
+    if (motion.speed[i] > 0.0f) {
+      sensor_ptr[7] =
+          std::clamp(motion.vel_x[i] / motion.speed[i], -1.0f, 1.0f);
+      sensor_ptr[8] =
+          std::clamp(motion.vel_y[i] / motion.speed[i], -1.0f, 1.0f);
     }
     sensor_ptr[9] = std::clamp(
         static_cast<float>(local_predators) / kMaxDensity, 0.0f, 1.0f);
@@ -144,51 +150,57 @@ void build_sensors(PackedStepState &state, const SimulationConfig &config) {
   }
 }
 
-void update_vitals(PackedStepState &state, const SimulationConfig &config) {
-  for (std::size_t i = 0; i < state.agents.size(); ++i) {
-    if (!state.agents.alive[i]) {
+void update_vitals(Registry &registry, const SimulationConfig &config) {
+  auto &vitals = registry.vitals();
+
+  for (std::size_t i = 0; i < registry.size(); ++i) {
+    if (!vitals.alive[i]) {
       continue;
     }
 
-    state.agents.age[i] += 1;
-    if (state.agents.reproduction_cooldown[i] > 0) {
-      state.agents.reproduction_cooldown[i] -= 1;
+    vitals.age[i] += 1;
+    if (vitals.reproduction_cooldown[i] > 0) {
+      vitals.reproduction_cooldown[i] -= 1;
     }
 
-    state.agents.energy[i] -= config.energy_drain_per_step;
-    const bool died_of_starvation = state.agents.energy[i] <= 0.0f;
+    vitals.energy[i] -= config.energy_drain_per_step;
+    const bool died_of_starvation = vitals.energy[i] <= 0.0f;
     const bool died_of_age =
-        config.max_steps > 0 && state.agents.age[i] >= config.max_steps;
+        config.max_steps > 0 && vitals.age[i] >= config.max_steps;
     if (died_of_starvation || died_of_age) {
-      state.agents.energy[i] = 0.0f;
-      state.agents.alive[i] = 0;
+      vitals.energy[i] = 0.0f;
+      vitals.alive[i] = 0;
     }
   }
 }
 
-void process_food(PackedStepState &state, const SimulationConfig &config) {
-  std::fill(state.foods.consumed_by.begin(), state.foods.consumed_by.end(), -1);
+void process_food(Registry &registry, FoodStore &food_store,
+                  const SimulationConfig &config,
+                  std::vector<int> &food_consumed_by) {
+  std::fill(food_consumed_by.begin(), food_consumed_by.end(), -1);
   const float world_size = static_cast<float>(config.grid_size);
   const float range_sq = config.food_pickup_range * config.food_pickup_range;
+  const auto &positions = registry.positions();
+  auto &vitals = registry.vitals();
+  const auto &identity = registry.identity();
 
-  for (std::size_t prey_idx = 0; prey_idx < state.agents.size(); ++prey_idx) {
-    if (!state.agents.alive[prey_idx] ||
-        state.agents.type[prey_idx] != IdentitySoA::TYPE_PREY) {
+  for (std::size_t prey_idx = 0; prey_idx < registry.size(); ++prey_idx) {
+    if (!vitals.alive[prey_idx] ||
+        identity.type[prey_idx] != IdentitySoA::TYPE_PREY) {
       continue;
     }
 
     int best_food = -1;
     float best_dist_sq = range_sq;
-    const Vec2 prey_pos{state.agents.pos_x[prey_idx],
-                        state.agents.pos_y[prey_idx]};
+    const Vec2 prey_pos{positions.x[prey_idx], positions.y[prey_idx]};
 
-    for (std::size_t food_idx = 0; food_idx < state.foods.size(); ++food_idx) {
-      if (!state.foods.active[food_idx]) {
+    for (std::size_t food_idx = 0; food_idx < food_store.size(); ++food_idx) {
+      if (!food_store.active()[food_idx]) {
         continue;
       }
 
-      Vec2 diff = wrap_diff({state.foods.pos_x[food_idx] - prey_pos.x,
-                             state.foods.pos_y[food_idx] - prey_pos.y},
+      Vec2 diff = wrap_diff({food_store.pos_x()[food_idx] - prey_pos.x,
+                             food_store.pos_y()[food_idx] - prey_pos.y},
                             world_size, world_size);
       const float dist_sq = diff.x * diff.x + diff.y * diff.y;
       if (dist_sq <= best_dist_sq) {
@@ -198,54 +210,57 @@ void process_food(PackedStepState &state, const SimulationConfig &config) {
     }
 
     if (best_food >= 0) {
-      int &owner = state.foods.consumed_by[static_cast<std::size_t>(best_food)];
+      int &owner = food_consumed_by[static_cast<std::size_t>(best_food)];
       if (owner < 0 || static_cast<int>(prey_idx) < owner) {
         owner = static_cast<int>(prey_idx);
       }
     }
   }
 
-  for (std::size_t food_idx = 0; food_idx < state.foods.size(); ++food_idx) {
-    const int prey_idx = state.foods.consumed_by[food_idx];
-    if (!state.foods.active[food_idx] || prey_idx < 0 ||
-        !state.agents.alive[static_cast<std::size_t>(prey_idx)]) {
+  for (std::size_t food_idx = 0; food_idx < food_store.size(); ++food_idx) {
+    const int prey_idx = food_consumed_by[food_idx];
+    if (!food_store.active()[food_idx] || prey_idx < 0 ||
+        !vitals.alive[static_cast<std::size_t>(prey_idx)]) {
       continue;
     }
 
-    state.foods.active[food_idx] = 0;
-    state.agents.energy[static_cast<std::size_t>(prey_idx)] +=
-        config.energy_gain_from_food;
+    food_store.active()[food_idx] = 0;
+    vitals.energy[static_cast<std::size_t>(prey_idx)] +=
+        static_cast<float>(config.energy_gain_from_food);
   }
 }
 
-void process_combat(PackedStepState &state, const SimulationConfig &config) {
-  std::fill(state.agents.killed_by.begin(), state.agents.killed_by.end(), -1);
-  std::fill(state.agents.kill_counts.begin(), state.agents.kill_counts.end(),
-            0U);
-
+void process_combat(Registry &registry, const SimulationConfig &config,
+                    std::vector<int> &killed_by,
+                    std::vector<uint32_t> &kill_counts) {
+  std::fill(killed_by.begin(), killed_by.end(), -1);
+  std::fill(kill_counts.begin(), kill_counts.end(), 0U);
   const float world_size = static_cast<float>(config.grid_size);
   const float range_sq = config.attack_range * config.attack_range;
+  const auto &positions = registry.positions();
+  auto &vitals = registry.vitals();
+  const auto &identity = registry.identity();
 
-  for (std::size_t predator_idx = 0; predator_idx < state.agents.size();
+  for (std::size_t predator_idx = 0; predator_idx < registry.size();
        ++predator_idx) {
-    if (!state.agents.alive[predator_idx] ||
-        state.agents.type[predator_idx] != IdentitySoA::TYPE_PREDATOR) {
+    if (!vitals.alive[predator_idx] ||
+        identity.type[predator_idx] != IdentitySoA::TYPE_PREDATOR) {
       continue;
     }
 
     int best_prey = -1;
     float best_dist_sq = range_sq;
-    const Vec2 predator_pos{state.agents.pos_x[predator_idx],
-                            state.agents.pos_y[predator_idx]};
+    const Vec2 predator_pos{positions.x[predator_idx],
+                            positions.y[predator_idx]};
 
-    for (std::size_t prey_idx = 0; prey_idx < state.agents.size(); ++prey_idx) {
-      if (!state.agents.alive[prey_idx] ||
-          state.agents.type[prey_idx] != IdentitySoA::TYPE_PREY) {
+    for (std::size_t prey_idx = 0; prey_idx < registry.size(); ++prey_idx) {
+      if (!vitals.alive[prey_idx] ||
+          identity.type[prey_idx] != IdentitySoA::TYPE_PREY) {
         continue;
       }
 
-      Vec2 diff = wrap_diff({state.agents.pos_x[prey_idx] - predator_pos.x,
-                             state.agents.pos_y[prey_idx] - predator_pos.y},
+      Vec2 diff = wrap_diff({positions.x[prey_idx] - predator_pos.x,
+                             positions.y[prey_idx] - predator_pos.y},
                             world_size, world_size);
       const float dist_sq = diff.x * diff.x + diff.y * diff.y;
       if (dist_sq <= best_dist_sq) {
@@ -255,39 +270,43 @@ void process_combat(PackedStepState &state, const SimulationConfig &config) {
     }
 
     if (best_prey >= 0) {
-      int &killer = state.agents.killed_by[static_cast<std::size_t>(best_prey)];
+      int &killer = killed_by[static_cast<std::size_t>(best_prey)];
       if (killer < 0 || static_cast<int>(predator_idx) < killer) {
         killer = static_cast<int>(predator_idx);
       }
     }
   }
 
-  for (std::size_t prey_idx = 0; prey_idx < state.agents.size(); ++prey_idx) {
-    const int killer_idx = state.agents.killed_by[prey_idx];
-    if (!state.agents.alive[prey_idx] ||
-        state.agents.type[prey_idx] != IdentitySoA::TYPE_PREY ||
-        killer_idx < 0 ||
-        !state.agents.alive[static_cast<std::size_t>(killer_idx)]) {
+  for (std::size_t prey_idx = 0; prey_idx < registry.size(); ++prey_idx) {
+    const int killer_idx = killed_by[prey_idx];
+    if (!vitals.alive[prey_idx] ||
+        identity.type[prey_idx] != IdentitySoA::TYPE_PREY || killer_idx < 0 ||
+        !vitals.alive[static_cast<std::size_t>(killer_idx)]) {
       continue;
     }
 
-    state.agents.alive[prey_idx] = 0;
-    state.agents.energy[static_cast<std::size_t>(killer_idx)] +=
-        config.energy_gain_from_kill;
-    state.agents.kill_counts[static_cast<std::size_t>(killer_idx)] += 1;
+    vitals.alive[prey_idx] = 0;
+    vitals.energy[static_cast<std::size_t>(killer_idx)] +=
+        static_cast<float>(config.energy_gain_from_kill);
+    kill_counts[static_cast<std::size_t>(killer_idx)] += 1;
   }
 }
 
-void apply_movement(PackedStepState &state, const SimulationConfig &config) {
+void apply_movement(Registry &registry, const SimulationConfig &config) {
   const float world_size = static_cast<float>(config.grid_size);
+  auto &positions = registry.positions();
+  auto &motion = registry.motion();
+  const auto &vitals = registry.vitals();
+  auto &stats = registry.stats();
+  const auto &brain = registry.brain();
 
-  for (std::size_t i = 0; i < state.agents.size(); ++i) {
-    if (!state.agents.alive[i]) {
+  for (std::size_t i = 0; i < registry.size(); ++i) {
+    if (!vitals.alive[i]) {
       continue;
     }
 
-    float dx = state.agents.brain_ptr(i)[0];
-    float dy = state.agents.brain_ptr(i)[1];
+    float dx = brain.decision_x[i];
+    float dy = brain.decision_y[i];
     const float len = std::sqrt(dx * dx + dy * dy);
     if (len > 1e-6f) {
       dx /= len;
@@ -297,29 +316,75 @@ void apply_movement(PackedStepState &state, const SimulationConfig &config) {
       dy = 0.0f;
     }
 
-    state.agents.vel_x[i] = dx * state.agents.speed[i];
-    state.agents.vel_y[i] = dy * state.agents.speed[i];
+    motion.vel_x[i] = dx * motion.speed[i];
+    motion.vel_y[i] = dy * motion.speed[i];
 
-    const float old_x = state.agents.pos_x[i];
-    const float old_y = state.agents.pos_y[i];
+    const float old_x = positions.x[i];
+    const float old_y = positions.y[i];
 
-    state.agents.pos_x[i] += state.agents.vel_x[i];
-    state.agents.pos_y[i] += state.agents.vel_y[i];
+    positions.x[i] += motion.vel_x[i];
+    positions.y[i] += motion.vel_y[i];
 
-    while (state.agents.pos_x[i] < 0.0f)
-      state.agents.pos_x[i] += world_size;
-    while (state.agents.pos_x[i] >= world_size)
-      state.agents.pos_x[i] -= world_size;
-    while (state.agents.pos_y[i] < 0.0f)
-      state.agents.pos_y[i] += world_size;
-    while (state.agents.pos_y[i] >= world_size)
-      state.agents.pos_y[i] -= world_size;
+    while (positions.x[i] < 0.0f)
+      positions.x[i] += world_size;
+    while (positions.x[i] >= world_size)
+      positions.x[i] -= world_size;
+    while (positions.y[i] < 0.0f)
+      positions.y[i] += world_size;
+    while (positions.y[i] >= world_size)
+      positions.y[i] -= world_size;
 
-    Vec2 move = wrap_diff(
-        {state.agents.pos_x[i] - old_x, state.agents.pos_y[i] - old_y},
-        world_size, world_size);
-    state.agents.distance_traveled[i] +=
-        std::sqrt(move.x * move.x + move.y * move.y);
+    Vec2 move = wrap_diff({positions.x[i] - old_x, positions.y[i] - old_y},
+                          world_size, world_size);
+    stats.distance_traveled[i] += std::sqrt(move.x * move.x + move.y * move.y);
+  }
+}
+
+void collect_cpu_step_events(Registry &registry, const FoodStore &food_store,
+                             const std::vector<uint8_t> &was_alive,
+                             const std::vector<uint8_t> &was_food_active,
+                             const std::vector<int> &food_consumed_by,
+                             const std::vector<int> &killed_by,
+                             const std::vector<uint32_t> &kill_counts,
+                             std::vector<SimEvent> &events) {
+  auto &stats = registry.stats();
+  const auto &positions = registry.positions();
+  const auto &vitals = registry.vitals();
+
+  for (std::size_t food_idx = 0; food_idx < food_store.size(); ++food_idx) {
+    const int prey_idx = food_consumed_by[food_idx];
+    if (!was_food_active[food_idx] || food_store.active()[food_idx] ||
+        prey_idx < 0 || static_cast<std::size_t>(prey_idx) >= registry.size()) {
+      continue;
+    }
+
+    stats.food_eaten[static_cast<std::size_t>(prey_idx)] += 1;
+    events.push_back(SimEvent{
+        SimEvent::Food, Entity{static_cast<uint32_t>(prey_idx)}, INVALID_ENTITY,
+        Vec2{positions.x[static_cast<std::size_t>(prey_idx)],
+             positions.y[static_cast<std::size_t>(prey_idx)]}});
+  }
+
+  for (std::size_t agent_idx = 0; agent_idx < registry.size(); ++agent_idx) {
+    if (kill_counts[agent_idx] > 0) {
+      stats.kills[agent_idx] += static_cast<int>(kill_counts[agent_idx]);
+    }
+
+    if (killed_by[agent_idx] >= 0 &&
+        static_cast<std::size_t>(killed_by[agent_idx]) < registry.size()) {
+      events.push_back(SimEvent{
+          SimEvent::Kill, Entity{static_cast<uint32_t>(killed_by[agent_idx])},
+          Entity{static_cast<uint32_t>(agent_idx)},
+          Vec2{positions.x[agent_idx], positions.y[agent_idx]}});
+      continue;
+    }
+
+    if (was_alive[agent_idx] && !vitals.alive[agent_idx]) {
+      const Entity entity{static_cast<uint32_t>(agent_idx)};
+      events.push_back(
+          SimEvent{SimEvent::Death, entity, entity,
+                   Vec2{positions.x[agent_idx], positions.y[agent_idx]}});
+    }
   }
 }
 } // namespace
@@ -332,9 +397,7 @@ SimulationManager::SimulationManager(const SimulationConfig &config)
                                                 .time_since_epoch()
                                                 .count())),
       grid_(config.grid_size, config.grid_size,
-            std::max(config.mate_range, 1.0f)),
-      food_grid_(config.grid_size, config.grid_size,
-                 std::max(config.vision_range, 1.0f)) {}
+            std::max(config.mate_range, 1.0f)) {}
 
 void SimulationManager::initialize() {
   initialize(true);
@@ -343,7 +406,6 @@ void SimulationManager::initialize() {
 void SimulationManager::initialize(bool log_initialization) {
   current_step_ = 0;
   food_store_.initialize(config_, rng_);
-  rebuild_food_grid();
 
   if (log_initialization) {
     spdlog::info("Simulation initialized: {} food pellets (seed: {})",
@@ -351,164 +413,61 @@ void SimulationManager::initialize(bool log_initialization) {
   }
 }
 
-PackedStepState
-SimulationManager::pack_step_state(const Registry &registry) const {
-  PackedStepState state;
-  const auto &living = registry.living_entities();
-  state.foods.resize(food_store_.size());
-
+void SimulationManager::collect_gpu_step_events(
+    Registry &registry, const std::vector<uint8_t> &was_alive,
+    const std::vector<uint8_t> &was_food_active,
+    std::vector<SimEvent> &events) {
+  auto &stats = registry.stats();
   const auto &positions = registry.positions();
-  const auto &motion = registry.motion();
-  const auto &vitals = registry.vitals();
-  const auto &identity = registry.identity();
-  const auto &stats = registry.stats();
-  const auto &sensors = registry.sensors();
-  const auto &brain = registry.brain();
-
-  std::size_t alive_count = 0;
-  for (Entity entity : living) {
-    const std::size_t idx = registry.index_of(entity);
-    if (vitals.alive[idx]) {
-      ++alive_count;
-    }
-  }
-
-  state.agents.resize(alive_count);
-
-  std::size_t agent_idx = 0;
-  for (Entity entity : living) {
-    const std::size_t idx = registry.index_of(entity);
-    if (!vitals.alive[idx]) {
-      continue;
-    }
-
-    state.agents.entities[agent_idx] = entity;
-    state.agents.pos_x[agent_idx] = positions.x[idx];
-    state.agents.pos_y[agent_idx] = positions.y[idx];
-    state.agents.vel_x[agent_idx] = motion.vel_x[idx];
-    state.agents.vel_y[agent_idx] = motion.vel_y[idx];
-    state.agents.speed[agent_idx] = motion.speed[idx];
-    state.agents.energy[agent_idx] = vitals.energy[idx];
-    state.agents.age[agent_idx] = vitals.age[idx];
-    state.agents.alive[agent_idx] = vitals.alive[idx];
-    state.agents.was_alive[agent_idx] = vitals.alive[idx];
-    state.agents.type[agent_idx] = identity.type[idx];
-    state.agents.reproduction_cooldown[agent_idx] =
-        vitals.reproduction_cooldown[idx];
-    state.agents.distance_traveled[agent_idx] = stats.distance_traveled[idx];
-    state.agents.kill_counts[agent_idx] = 0;
-    state.agents.killed_by[agent_idx] = -1;
-    std::copy_n(sensors.input_ptr(idx), SensorSoA::INPUT_COUNT,
-                state.agents.sensor_ptr(agent_idx));
-    state.agents.brain_ptr(agent_idx)[0] = brain.decision_x[idx];
-    state.agents.brain_ptr(agent_idx)[1] = brain.decision_y[idx];
-    ++agent_idx;
-  }
 
   for (std::size_t food_idx = 0; food_idx < food_store_.size(); ++food_idx) {
-    state.foods.pos_x[food_idx] = food_store_.pos_x()[food_idx];
-    state.foods.pos_y[food_idx] = food_store_.pos_y()[food_idx];
-    state.foods.active[food_idx] = food_store_.active()[food_idx];
-    state.foods.was_active[food_idx] = food_store_.active()[food_idx];
-    state.foods.slot_index[food_idx] = food_store_.slot_index()[food_idx];
-    state.foods.consumed_by[food_idx] = -1;
-  }
-
-  return state;
-}
-
-void SimulationManager::apply_step_state(Registry &registry,
-                                         const PackedStepState &state) {
-  auto &positions = registry.positions();
-  auto &motion = registry.motion();
-  auto &vitals = registry.vitals();
-  auto &stats = registry.stats();
-  auto &sensors = registry.sensors();
-  auto &brain = registry.brain();
-
-  for (std::size_t i = 0; i < state.agents.size(); ++i) {
-    const std::size_t idx = registry.index_of(state.agents.entities[i]);
-    positions.x[idx] = state.agents.pos_x[i];
-    positions.y[idx] = state.agents.pos_y[i];
-    motion.vel_x[idx] = state.agents.vel_x[i];
-    motion.vel_y[idx] = state.agents.vel_y[i];
-    vitals.energy[idx] = state.agents.energy[i];
-    vitals.age[idx] = state.agents.age[i];
-    vitals.alive[idx] = state.agents.alive[i];
-    vitals.reproduction_cooldown[idx] = state.agents.reproduction_cooldown[i];
-    stats.distance_traveled[idx] = state.agents.distance_traveled[i];
-    std::copy_n(state.agents.sensor_ptr(i), SensorSoA::INPUT_COUNT,
-                sensors.input_ptr(idx));
-    brain.decision_x[idx] = state.agents.brain_ptr(i)[0];
-    brain.decision_y[idx] = state.agents.brain_ptr(i)[1];
-  }
-
-  for (std::size_t i = 0; i < state.foods.size(); ++i) {
-    food_store_.pos_x()[i] = state.foods.pos_x[i];
-    food_store_.pos_y()[i] = state.foods.pos_y[i];
-    food_store_.active()[i] = state.foods.active[i];
-  }
-}
-
-void SimulationManager::run_cpu_backend(PackedStepState &state,
-                                        EvolutionManager &evolution) {
-  state.clear_transients();
-  build_sensors(state, config_);
-  evolution.compute_actions_batch(state.agents.entities,
-                                  state.agents.sensor_inputs,
-                                  state.agents.brain_outputs);
-  update_vitals(state, config_);
-  process_food(state, config_);
-  process_combat(state, config_);
-  apply_movement(state, config_);
-}
-
-void SimulationManager::collect_step_events(Registry &registry,
-                                            const PackedStepState &state,
-                                            std::vector<SimEvent> &events) {
-  auto &stats = registry.stats();
-  const auto &positions = registry.positions();
-
-  for (std::size_t food_idx = 0; food_idx < state.foods.size(); ++food_idx) {
-    const int prey_idx = state.foods.consumed_by[food_idx];
-    if (!state.foods.was_active[food_idx] || state.foods.active[food_idx] ||
-        prey_idx < 0 ||
-        static_cast<std::size_t>(prey_idx) >= state.agents.size()) {
+    const int prey_idx = gpu_batch_->buffer().host_food_consumed_by()[food_idx];
+    if (!was_food_active[food_idx] || food_store_.active()[food_idx] ||
+        prey_idx < 0 || static_cast<std::size_t>(prey_idx) >= registry.size()) {
       continue;
     }
 
-    const Entity prey =
-        state.agents.entities[static_cast<std::size_t>(prey_idx)];
-    const std::size_t ecs_idx = registry.index_of(prey);
-    stats.food_eaten[ecs_idx] += 1;
-    Vec2 pos{positions.x[ecs_idx], positions.y[ecs_idx]};
-    events.push_back(SimEvent{SimEvent::Food, prey, INVALID_ENTITY, pos});
+    const Entity prey{static_cast<uint32_t>(prey_idx)};
+    stats.food_eaten[prey_idx] += 1;
+    events.push_back(
+        SimEvent{SimEvent::Food, prey, INVALID_ENTITY,
+                 Vec2{positions.x[prey_idx], positions.y[prey_idx]}});
   }
 
-  for (std::size_t agent_idx = 0; agent_idx < state.agents.size();
-       ++agent_idx) {
-    const Entity entity = state.agents.entities[agent_idx];
-    const std::size_t ecs_idx = registry.index_of(entity);
-
-    if (state.agents.kill_counts[agent_idx] > 0) {
-      stats.kills[ecs_idx] +=
-          static_cast<int>(state.agents.kill_counts[agent_idx]);
+  for (std::size_t agent_idx = 0; agent_idx < registry.size(); ++agent_idx) {
+    if (gpu_batch_->buffer().host_agent_kill_counts()[agent_idx] > 0) {
+      stats.kills[agent_idx] += static_cast<int>(
+          gpu_batch_->buffer().host_agent_kill_counts()[agent_idx]);
     }
 
-    if (state.agents.killed_by[agent_idx] >= 0 &&
-        static_cast<std::size_t>(state.agents.killed_by[agent_idx]) <
-            state.agents.size()) {
-      const Entity killer = state.agents.entities[static_cast<std::size_t>(
-          state.agents.killed_by[agent_idx])];
-      Vec2 pos{positions.x[ecs_idx], positions.y[ecs_idx]};
-      events.push_back(SimEvent{SimEvent::Kill, killer, entity, pos});
+    const int killer_idx =
+        gpu_batch_->buffer().host_agent_killed_by()[agent_idx];
+    if (killer_idx >= 0 &&
+        static_cast<std::size_t>(killer_idx) < registry.size()) {
+      events.push_back(
+          SimEvent{SimEvent::Kill, Entity{static_cast<uint32_t>(killer_idx)},
+                   Entity{static_cast<uint32_t>(agent_idx)},
+                   Vec2{positions.x[agent_idx], positions.y[agent_idx]}});
       continue;
     }
 
-    if (state.agents.was_alive[agent_idx] && !state.agents.alive[agent_idx]) {
-      Vec2 pos{positions.x[ecs_idx], positions.y[ecs_idx]};
-      events.push_back(SimEvent{SimEvent::Death, entity, entity, pos});
+    if (was_alive[agent_idx] && registry.vitals().alive[agent_idx] == 0) {
+      const Entity entity{static_cast<uint32_t>(agent_idx)};
+      events.push_back(
+          SimEvent{SimEvent::Death, entity, entity,
+                   Vec2{positions.x[agent_idx], positions.y[agent_idx]}});
     }
+  }
+}
+
+void SimulationManager::compact_registry(Registry &registry,
+                                         EvolutionManager &evolution) {
+  const auto result = registry.compact_dead();
+  for (const auto &[from, to] : result.moved) {
+    evolution.on_entity_moved(from, to);
+  }
+  for (Entity removed : result.removed) {
+    evolution.on_entity_destroyed(removed);
   }
 }
 
@@ -517,24 +476,9 @@ void SimulationManager::refresh_world_state_after_step(Registry &registry) {
     MOONAI_PROFILE_SCOPE("food_respawn");
     food_store_.respawn_step(config_, current_step_, rng_.seed());
   }
-  {
-    MOONAI_PROFILE_SCOPE("rebuild_food_grid");
-    rebuild_food_grid();
-  }
   rebuild_spatial_grid(registry);
   count_alive(registry);
   ++current_step_;
-}
-
-void SimulationManager::rebuild_food_grid() {
-  food_grid_.clear();
-  for (std::size_t i = 0; i < food_store_.size(); ++i) {
-    if (!food_store_.active()[i]) {
-      continue;
-    }
-    food_grid_.insert(Entity{static_cast<uint32_t>(i + 1), 1},
-                      Vec2{food_store_.pos_x()[i], food_store_.pos_y()[i]});
-  }
 }
 
 SimulationManager::SimulationStepResult
@@ -542,10 +486,23 @@ SimulationManager::step(Registry &registry, EvolutionManager &evolution) {
   MOONAI_PROFILE_SCOPE("simulation_step_cpu");
   SimulationStepResult result;
 
-  PackedStepState state = pack_step_state(registry);
-  run_cpu_backend(state, evolution);
-  apply_step_state(registry, state);
-  collect_step_events(registry, state, result.events);
+  const std::vector<uint8_t> was_alive = registry.vitals().alive;
+  const std::vector<uint8_t> was_food_active = food_store_.active();
+  std::vector<int> food_consumed_by(food_store_.size(), -1);
+  std::vector<int> killed_by(registry.size(), -1);
+  std::vector<uint32_t> kill_counts(registry.size(), 0U);
+
+  build_sensors(registry, food_store_, config_);
+  evolution.compute_actions(registry);
+  update_vitals(registry, config_);
+  process_food(registry, food_store_, config_, food_consumed_by);
+  process_combat(registry, config_, killed_by, kill_counts);
+  apply_movement(registry, config_);
+
+  collect_cpu_step_events(registry, food_store_, was_alive, was_food_active,
+                          food_consumed_by, killed_by, kill_counts,
+                          result.events);
+  compact_registry(registry, evolution);
   refresh_world_state_after_step(registry);
   result.reproduction_pairs = find_reproduction_pairs(registry);
   return result;
@@ -559,15 +516,10 @@ void SimulationManager::rebuild_spatial_grid(const Registry &registry) {
   MOONAI_PROFILE_SCOPE("rebuild_spatial_grid");
   grid_.clear();
 
-  const auto &living = registry.living_entities();
   const auto &positions = registry.positions();
-  const auto &vitals = registry.vitals();
 
-  for (Entity entity : living) {
-    const std::size_t idx = registry.index_of(entity);
-    if (!vitals.alive[idx]) {
-      continue;
-    }
+  for (std::size_t idx = 0; idx < registry.size(); ++idx) {
+    const Entity entity{static_cast<uint32_t>(idx)};
     grid_.insert(entity, Vec2{positions.x[idx], positions.y[idx]});
   }
 }
@@ -577,15 +529,13 @@ SimulationManager::find_reproduction_pairs(const Registry &registry) const {
   std::vector<ReproductionPair> pairs;
   std::unordered_set<Entity, EntityHash> used;
 
-  const auto &living = registry.living_entities();
   const auto &positions = registry.positions();
   const auto &vitals = registry.vitals();
   const auto &identity = registry.identity();
 
-  for (Entity entity : living) {
-    const std::size_t idx = registry.index_of(entity);
-    if (!vitals.alive[idx] ||
-        vitals.energy[idx] < config_.reproduction_energy_threshold ||
+  for (std::size_t idx = 0; idx < registry.size(); ++idx) {
+    const Entity entity{static_cast<uint32_t>(idx)};
+    if (vitals.energy[idx] < config_.reproduction_energy_threshold ||
         vitals.age[idx] < config_.min_reproductive_age_steps ||
         vitals.reproduction_cooldown[idx] > 0 ||
         used.find(entity) != used.end()) {
@@ -604,8 +554,7 @@ SimulationManager::find_reproduction_pairs(const Registry &registry) const {
       }
 
       const std::size_t mate_idx = registry.index_of(mate_id);
-      if (!vitals.alive[mate_idx] ||
-          identity.type[mate_idx] != identity.type[idx] ||
+      if (identity.type[mate_idx] != identity.type[idx] ||
           vitals.energy[mate_idx] < config_.reproduction_energy_threshold ||
           vitals.age[mate_idx] < config_.min_reproductive_age_steps ||
           vitals.reproduction_cooldown[mate_idx] > 0) {
@@ -639,14 +588,8 @@ void SimulationManager::count_alive(const Registry &registry) {
   alive_predators_ = 0;
   alive_prey_ = 0;
 
-  const auto &living = registry.living_entities();
-  const auto &vitals = registry.vitals();
   const auto &identity = registry.identity();
-  for (Entity entity : living) {
-    const std::size_t idx = registry.index_of(entity);
-    if (!vitals.alive[idx]) {
-      continue;
-    }
+  for (std::size_t idx = 0; idx < registry.size(); ++idx) {
     if (identity.type[idx] == IdentitySoA::TYPE_PREDATOR) {
       ++alive_predators_;
     } else {
@@ -657,7 +600,6 @@ void SimulationManager::count_alive(const Registry &registry) {
 
 void SimulationManager::refresh_state(Registry &registry) {
   rebuild_spatial_grid(registry);
-  rebuild_food_grid();
   count_alive(registry);
 }
 
@@ -718,33 +660,58 @@ SimulationManager::step_gpu(Registry &registry, EvolutionManager &evolution) {
     return step(registry, evolution);
   }
 
-  PackedStepState state;
-  {
-    MOONAI_PROFILE_SCOPE("gpu_pack_state");
-    state = pack_step_state(registry);
-
-    const std::size_t agent_count = state.agents.size();
-    const std::size_t food_count = state.foods.size();
-    if (agent_count == 0) {
-      return result;
-    }
-
-    ensure_gpu_capacity(agent_count, food_count);
-
-    try {
-      gpu::prepare_step_state_for_gpu(state, gpu_batch_->agent_mapping(),
-                                      gpu_batch_->food_mapping(),
-                                      gpu_batch_->buffer());
-    } catch (const std::exception &ex) {
-      spdlog::error("GPU preparation failed: {}. Falling back to CPU step.",
-                    ex.what());
-      gpu_enabled_ = false;
-      return step(registry, evolution);
-    }
+  const std::size_t agent_count = registry.size();
+  const std::size_t food_count = food_store_.size();
+  if (agent_count == 0) {
+    return result;
   }
 
-  const std::size_t agent_count = state.agents.size();
-  const std::size_t food_count = state.foods.size();
+  std::vector<uint8_t> was_alive;
+  std::vector<uint8_t> was_food_active;
+  {
+    MOONAI_PROFILE_SCOPE("gpu_ensure_capacity");
+    ensure_gpu_capacity(agent_count, food_count);
+  }
+  {
+    MOONAI_PROFILE_SCOPE("gpu_pack_state");
+    was_alive = registry.vitals().alive;
+    was_food_active = food_store_.active();
+
+    auto &buffer = gpu_batch_->buffer();
+    std::memcpy(buffer.host_agent_positions_x(), registry.positions().x.data(),
+                agent_count * sizeof(float));
+    std::memcpy(buffer.host_agent_positions_y(), registry.positions().y.data(),
+                agent_count * sizeof(float));
+    std::memcpy(buffer.host_agent_velocities_x(),
+                registry.motion().vel_x.data(), agent_count * sizeof(float));
+    std::memcpy(buffer.host_agent_velocities_y(),
+                registry.motion().vel_y.data(), agent_count * sizeof(float));
+    std::memcpy(buffer.host_agent_speed(), registry.motion().speed.data(),
+                agent_count * sizeof(float));
+    std::memcpy(buffer.host_agent_energy(), registry.vitals().energy.data(),
+                agent_count * sizeof(float));
+    std::memcpy(buffer.host_agent_age(), registry.vitals().age.data(),
+                agent_count * sizeof(int));
+    for (std::size_t i = 0; i < agent_count; ++i) {
+      buffer.host_agent_alive()[i] = registry.vitals().alive[i];
+      buffer.host_agent_types()[i] = registry.identity().type[i];
+    }
+    std::memcpy(buffer.host_agent_reproduction_cooldown(),
+                registry.vitals().reproduction_cooldown.data(),
+                agent_count * sizeof(int));
+    std::memcpy(buffer.host_agent_distance_traveled(),
+                registry.stats().distance_traveled.data(),
+                agent_count * sizeof(float));
+
+    std::memcpy(buffer.host_food_positions_x(), food_store_.pos_x().data(),
+                food_count * sizeof(float));
+    std::memcpy(buffer.host_food_positions_y(), food_store_.pos_y().data(),
+                food_count * sizeof(float));
+    for (std::size_t i = 0; i < food_count; ++i) {
+      buffer.host_food_active()[i] = food_store_.active()[i];
+      buffer.host_food_consumed_by()[i] = -1;
+    }
+  }
 
   gpu::GpuStepParams params;
   params.world_width = static_cast<float>(config_.grid_size);
@@ -765,6 +732,7 @@ SimulationManager::step_gpu(Registry &registry, EvolutionManager &evolution) {
   gpu_batch_->launch_build_sensors_async(params, agent_count, food_count);
 
   if (!evolution.launch_gpu_neural(*gpu_batch_, agent_count)) {
+    MOONAI_PROFILE_SCOPE("cpu_fallback");
     spdlog::error(
         "GPU neural inference failed, disabling GPU path and retrying on CPU");
     gpu_enabled_ = false;
@@ -782,6 +750,7 @@ SimulationManager::step_gpu(Registry &registry, EvolutionManager &evolution) {
   }
 
   if (!gpu_batch_->ok()) {
+    MOONAI_PROFILE_SCOPE("cpu_fallback");
     spdlog::error("GPU step failed, disabling GPU path and retrying on CPU");
     gpu_enabled_ = false;
     gpu_batch_.reset();
@@ -791,18 +760,55 @@ SimulationManager::step_gpu(Registry &registry, EvolutionManager &evolution) {
   {
     MOONAI_PROFILE_SCOPE("gpu_apply_results");
     {
-      MOONAI_PROFILE_SCOPE("apply_gpu_results");
-      gpu::apply_gpu_results(gpu_batch_->buffer(), gpu_batch_->agent_mapping(),
-                             gpu_batch_->food_mapping(), state);
-    }
-    {
       MOONAI_PROFILE_SCOPE("apply_step_state");
-      apply_step_state(registry, state);
+      auto &buffer = gpu_batch_->buffer();
+      std::memcpy(registry.positions().x.data(),
+                  buffer.host_agent_positions_x(), agent_count * sizeof(float));
+      std::memcpy(registry.positions().y.data(),
+                  buffer.host_agent_positions_y(), agent_count * sizeof(float));
+      std::memcpy(registry.motion().vel_x.data(),
+                  buffer.host_agent_velocities_x(),
+                  agent_count * sizeof(float));
+      std::memcpy(registry.motion().vel_y.data(),
+                  buffer.host_agent_velocities_y(),
+                  agent_count * sizeof(float));
+      std::memcpy(registry.vitals().energy.data(), buffer.host_agent_energy(),
+                  agent_count * sizeof(float));
+      std::memcpy(registry.vitals().age.data(), buffer.host_agent_age(),
+                  agent_count * sizeof(int));
+      std::memcpy(registry.vitals().reproduction_cooldown.data(),
+                  buffer.host_agent_reproduction_cooldown(),
+                  agent_count * sizeof(int));
+      std::memcpy(registry.stats().distance_traveled.data(),
+                  buffer.host_agent_distance_traveled(),
+                  agent_count * sizeof(float));
+      std::memcpy(registry.sensors().inputs.data(),
+                  buffer.host_agent_sensor_inputs(),
+                  agent_count * SensorSoA::INPUT_COUNT * sizeof(float));
+      for (std::size_t i = 0; i < agent_count; ++i) {
+        registry.vitals().alive[i] =
+            static_cast<uint8_t>(buffer.host_agent_alive()[i]);
+        registry.brain().decision_x[i] =
+            buffer.host_agent_brain_outputs()[i * SensorSoA::OUTPUT_COUNT];
+        registry.brain().decision_y[i] =
+            buffer.host_agent_brain_outputs()[i * SensorSoA::OUTPUT_COUNT + 1];
+      }
+      for (std::size_t i = 0; i < food_count; ++i) {
+        food_store_.pos_x()[i] = buffer.host_food_positions_x()[i];
+        food_store_.pos_y()[i] = buffer.host_food_positions_y()[i];
+        food_store_.active()[i] =
+            static_cast<uint8_t>(buffer.host_food_active()[i]);
+      }
     }
     {
       MOONAI_PROFILE_SCOPE("collect_step_events");
-      collect_step_events(registry, state, result.events);
+      collect_gpu_step_events(registry, was_alive, was_food_active,
+                              result.events);
     }
+  }
+  {
+    MOONAI_PROFILE_SCOPE("compact_registry");
+    compact_registry(registry, evolution);
   }
   {
     MOONAI_PROFILE_SCOPE("refresh_world_state");

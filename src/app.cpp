@@ -136,7 +136,8 @@ StepMetrics App::record_and_log() {
 
   const Genome *best_genome = nullptr;
   int best_complexity = -1;
-  for (Entity e : registry_.living_entities()) {
+  for (std::size_t idx = 0; idx < registry_.size(); ++idx) {
+    const Entity e{static_cast<uint32_t>(idx)};
     const auto *genome = evolution_.genome_for(e);
     if (genome && genome->complexity() > best_complexity) {
       best_complexity = genome->complexity();
@@ -160,14 +161,15 @@ void App::update_selected_visualization() {
     return;
   }
 
-  Entity selected = visualization_->selected_entity();
+  Entity selected =
+      registry_.find_by_agent_id(visualization_->selected_agent_id());
   if (selected == INVALID_ENTITY || !registry_.valid(selected)) {
     return;
   }
 
   size_t idx = registry_.index_of(selected);
   const auto *genome = evolution_.genome_for(selected);
-  if (!genome || !registry_.vitals().alive[idx]) {
+  if (!genome) {
     return;
   }
 
@@ -202,7 +204,6 @@ FrameSnapshot App::build_frame_snapshot() const {
   int alive_predators = 0;
   int alive_prey = 0;
 
-  const auto &living = registry_.living_entities();
   const auto &positions = registry_.positions();
   const auto &motion = registry_.motion();
   const auto &identity = registry_.identity();
@@ -219,13 +220,11 @@ FrameSnapshot App::build_frame_snapshot() const {
                         simulation_.food_store().pos_y()[i]}});
   }
 
-  for (Entity entity : living) {
-    size_t idx = registry_.index_of(entity);
-    if (!vitals.alive[idx]) {
-      continue;
-    }
+  for (std::size_t idx = 0; idx < registry_.size(); ++idx) {
+    const Entity entity{static_cast<uint32_t>(idx)};
 
-    float energy_ratio = vitals.energy[idx] / cfg_.sim_config.initial_energy;
+    float energy_ratio =
+        registry_.vitals().energy[idx] / cfg_.sim_config.initial_energy;
     energy_ratio = std::clamp(energy_ratio, 0.0f, 1.0f);
     int bucket = std::min(static_cast<int>(energy_ratio * 5.0f), 4);
 
@@ -237,9 +236,13 @@ FrameSnapshot App::build_frame_snapshot() const {
       prey_dist[bucket] += 1.0f;
     }
 
-    frame.agents.push_back(RenderAgent{
-        entity, Vec2{positions.x[idx], positions.y[idx]},
-        Vec2{motion.vel_x[idx], motion.vel_y[idx]}, identity.type[idx]});
+    RenderAgent agent;
+    agent.entity = entity;
+    agent.agent_id = identity.entity_id[idx];
+    agent.position = Vec2{positions.x[idx], positions.y[idx]};
+    agent.velocity = Vec2{motion.vel_x[idx], motion.vel_y[idx]};
+    agent.type = identity.type[idx];
+    frame.agents.push_back(agent);
   }
 
   if (alive_predators > 0) {
@@ -273,32 +276,31 @@ FrameSnapshot App::build_frame_snapshot() const {
     frame.overlay_stats.prey_energy_dist[i] = prey_dist[i];
   }
 
-  Entity selected = visualization_->selected_entity();
+  Entity selected =
+      registry_.find_by_agent_id(visualization_->selected_agent_id());
   if (selected != INVALID_ENTITY && registry_.valid(selected)) {
     size_t idx = registry_.index_of(selected);
     const Genome *genome = evolution_.genome_for(selected);
-    if (genome && registry_.vitals().alive[idx]) {
-      frame.overlay_stats.selected_agent = static_cast<int>(selected.index);
+    if (genome) {
+      frame.overlay_stats.selected_agent =
+          static_cast<int>(identity.entity_id[idx]);
       frame.overlay_stats.selected_energy = vitals.energy[idx];
       frame.overlay_stats.selected_age = vitals.age[idx];
       frame.overlay_stats.selected_kills = stats.kills[idx];
       frame.overlay_stats.selected_food_eaten = stats.food_eaten[idx];
       frame.overlay_stats.selected_genome_complexity = genome->complexity();
       frame.selected_genome = genome;
-      frame.selected_entity = selected;
+      frame.selected_agent_id = identity.entity_id[idx];
       frame.has_selected_vision = true;
       frame.selected_position = Vec2{positions.x[idx], positions.y[idx]};
       frame.selected_vision_range = cfg_.sim_config.vision_range;
       frame.selected_node_activations = selected_node_activations_;
 
       const Vec2 selected_pos{positions.x[idx], positions.y[idx]};
-      for (Entity other : living) {
+      for (std::size_t other_idx = 0; other_idx < registry_.size();
+           ++other_idx) {
+        const Entity other{static_cast<uint32_t>(other_idx)};
         if (other == selected) {
-          continue;
-        }
-
-        size_t other_idx = registry_.index_of(other);
-        if (!vitals.alive[other_idx]) {
           continue;
         }
 

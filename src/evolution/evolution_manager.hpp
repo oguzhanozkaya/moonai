@@ -12,7 +12,6 @@
 
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace moonai {
@@ -42,11 +41,12 @@ public:
   void refresh_species(Registry &registry);
 
   void compute_actions(Registry &registry);
-  void compute_actions_batch(const std::vector<Entity> &entities,
+  void compute_actions_batch(std::size_t entity_count,
                              const std::vector<float> &all_inputs,
                              std::vector<float> &all_outputs);
 
   void on_entity_destroyed(Entity e);
+  void on_entity_moved(Entity from, Entity to);
 
   NetworkCache &network_cache() {
     return network_cache_;
@@ -85,7 +85,7 @@ private:
   int num_outputs_ = 0;
   bool use_gpu_ = false;
 
-  std::unordered_map<Entity, Genome, EntityHash> entity_genomes_;
+  std::vector<Genome> entity_genomes_;
 
   // Entity -> NeuralNetwork mapping (variable topology, separate cache)
   NetworkCache network_cache_;

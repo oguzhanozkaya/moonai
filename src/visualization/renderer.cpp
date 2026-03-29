@@ -166,7 +166,7 @@ void Renderer::write_circle(sf::Vertex *vertices, Vec2 position, float radius,
 void Renderer::draw_all_agents(sf::RenderTarget &target,
                                const std::vector<RenderAgent> &agents,
                                int alive_predators, int alive_prey,
-                               Entity selected_entity) {
+                               uint32_t selected_agent_id) {
   bool has_selected = false;
   RenderAgent selected_agent;
 
@@ -183,7 +183,7 @@ void Renderer::draw_all_agents(sf::RenderTarget &target,
                              chart_colors::PREY_B);
 
   for (const auto &agent : agents) {
-    if (agent.entity == selected_entity) {
+    if (selected_agent_id != 0 && agent.agent_id == selected_agent_id) {
       has_selected = true;
       selected_agent = agent;
     }

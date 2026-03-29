@@ -64,7 +64,10 @@ void EvolutionManager::seed_initial_population(Registry &registry) {
     size_t idx = registry.index_of(e);
 
     Genome genome = create_initial_genome();
-    entity_genomes_[e] = genome;
+    if (idx >= entity_genomes_.size()) {
+      entity_genomes_.resize(idx + 1);
+    }
+    entity_genomes_[idx] = genome;
     network_cache_.assign(e, genome);
 
     registry.positions().x[idx] = rng_.next_float(0.0f, grid_size_f);
@@ -81,13 +84,10 @@ void EvolutionManager::seed_initial_population(Registry &registry) {
 
     registry.identity().type[idx] = IdentitySoA::TYPE_PREDATOR;
     registry.identity().species_id[idx] = 0;
-    registry.identity().entity_id[idx] = e.index;
+    registry.identity().entity_id[idx] = registry.next_agent_id();
 
     std::fill(registry.sensors().input_ptr(idx),
               registry.sensors().input_ptr(idx) + SensorSoA::INPUT_COUNT, 0.0f);
-    std::fill(registry.sensors().output_ptr(idx),
-              registry.sensors().output_ptr(idx) + SensorSoA::OUTPUT_COUNT,
-              0.0f);
 
     registry.stats().kills[idx] = 0;
     registry.stats().food_eaten[idx] = 0;
@@ -103,7 +103,10 @@ void EvolutionManager::seed_initial_population(Registry &registry) {
     size_t idx = registry.index_of(e);
 
     Genome genome = create_initial_genome();
-    entity_genomes_[e] = genome;
+    if (idx >= entity_genomes_.size()) {
+      entity_genomes_.resize(idx + 1);
+    }
+    entity_genomes_[idx] = genome;
     network_cache_.assign(e, genome);
 
     registry.positions().x[idx] = rng_.next_float(0.0f, grid_size_f);
@@ -120,13 +123,10 @@ void EvolutionManager::seed_initial_population(Registry &registry) {
 
     registry.identity().type[idx] = IdentitySoA::TYPE_PREY;
     registry.identity().species_id[idx] = 0;
-    registry.identity().entity_id[idx] = e.index;
+    registry.identity().entity_id[idx] = registry.next_agent_id();
 
     std::fill(registry.sensors().input_ptr(idx),
               registry.sensors().input_ptr(idx) + SensorSoA::INPUT_COUNT, 0.0f);
-    std::fill(registry.sensors().output_ptr(idx),
-              registry.sensors().output_ptr(idx) + SensorSoA::OUTPUT_COUNT,
-              0.0f);
 
     registry.stats().kills[idx] = 0;
     registry.stats().food_eaten[idx] = 0;
@@ -146,14 +146,13 @@ Entity EvolutionManager::create_offspring(Registry &registry, Entity parent_a,
     return INVALID_ENTITY;
   }
 
-  auto it_a = entity_genomes_.find(parent_a);
-  auto it_b = entity_genomes_.find(parent_b);
-  if (it_a == entity_genomes_.end() || it_b == entity_genomes_.end()) {
+  if (parent_a.index >= entity_genomes_.size() ||
+      parent_b.index >= entity_genomes_.size()) {
     return INVALID_ENTITY;
   }
 
-  const Genome &genome_a = it_a->second;
-  const Genome &genome_b = it_b->second;
+  const Genome &genome_a = entity_genomes_[parent_a.index];
+  const Genome &genome_b = entity_genomes_[parent_b.index];
 
   Genome child_genome = create_child_genome(genome_a, genome_b);
 
@@ -174,12 +173,10 @@ Entity EvolutionManager::create_offspring(Registry &registry, Entity parent_a,
   registry.identity().type[idx] = registry.identity().type[parent_idx];
   registry.identity().species_id[idx] =
       registry.identity().species_id[parent_idx];
-  registry.identity().entity_id[idx] = child.index;
+  registry.identity().entity_id[idx] = registry.next_agent_id();
 
   std::fill(registry.sensors().input_ptr(idx),
             registry.sensors().input_ptr(idx) + SensorSoA::INPUT_COUNT, 0.0f);
-  std::fill(registry.sensors().output_ptr(idx),
-            registry.sensors().output_ptr(idx) + SensorSoA::OUTPUT_COUNT, 0.0f);
 
   registry.stats().kills[idx] = 0;
   registry.stats().food_eaten[idx] = 0;
@@ -189,9 +186,12 @@ Entity EvolutionManager::create_offspring(Registry &registry, Entity parent_a,
   registry.brain().decision_x[idx] = 0.0f;
   registry.brain().decision_y[idx] = 0.0f;
 
-  entity_genomes_[child] = std::move(child_genome);
+  if (idx >= entity_genomes_.size()) {
+    entity_genomes_.resize(idx + 1);
+  }
+  entity_genomes_[idx] = std::move(child_genome);
 
-  network_cache_.assign(child, entity_genomes_[child]);
+  network_cache_.assign(child, entity_genomes_[idx]);
 
   registry.vitals().energy[registry.index_of(parent_a)] -=
       config_.reproduction_energy_cost;
@@ -210,12 +210,13 @@ void EvolutionManager::refresh_species(Registry &registry) {
   }
   species_.clear();
 
-  for (Entity e : registry.living_entities()) {
-    auto it = entity_genomes_.find(e);
-    if (it == entity_genomes_.end())
+  for (std::size_t idx = 0; idx < registry.size(); ++idx) {
+    const Entity e{static_cast<uint32_t>(idx)};
+    if (idx >= entity_genomes_.size()) {
       continue;
+    }
 
-    Genome &genome = it->second;
+    Genome &genome = entity_genomes_[idx];
     bool assigned = false;
 
     for (auto &species : species_) {
@@ -233,8 +234,6 @@ void EvolutionManager::refresh_species(Registry &registry) {
       new_species.add_member(e, genome);
       species_.push_back(std::move(new_species));
     }
-
-    size_t idx = registry.index_of(e);
     registry.identity().species_id[idx] =
         assigned ? species_.back().id() : species_.size() - 1;
   }
@@ -246,54 +245,70 @@ void EvolutionManager::refresh_species(Registry &registry) {
 
 void EvolutionManager::compute_actions(Registry &registry) {
   MOONAI_PROFILE_SCOPE("evolution_compute_actions");
-  const auto &living = registry.living_entities();
+  const std::size_t entity_count = registry.size();
 
   std::vector<float> all_inputs;
-  all_inputs.reserve(living.size() * SensorSoA::INPUT_COUNT);
+  all_inputs.reserve(entity_count * SensorSoA::INPUT_COUNT);
 
-  for (Entity e : living) {
-    size_t idx = registry.index_of(e);
+  for (std::size_t idx = 0; idx < entity_count; ++idx) {
     const float *input_ptr = registry.sensors().input_ptr(idx);
     all_inputs.insert(all_inputs.end(), input_ptr,
                       input_ptr + SensorSoA::INPUT_COUNT);
   }
 
   std::vector<float> all_outputs;
-  compute_actions_batch(living, all_inputs, all_outputs);
+  compute_actions_batch(entity_count, all_inputs, all_outputs);
 
-  for (size_t i = 0; i < living.size(); ++i) {
+  for (size_t i = 0; i < entity_count; ++i) {
     Vec2 action{all_outputs[i * 2], all_outputs[i * 2 + 1]};
-    size_t idx = registry.index_of(living[i]);
-    registry.brain().decision_x[idx] = action.x;
-    registry.brain().decision_y[idx] = action.y;
+    registry.brain().decision_x[i] = action.x;
+    registry.brain().decision_y[i] = action.y;
   }
 }
 
 void EvolutionManager::compute_actions_batch(
-    const std::vector<Entity> &entities, const std::vector<float> &all_inputs,
+    std::size_t entity_count, const std::vector<float> &all_inputs,
     std::vector<float> &all_outputs) {
-  network_cache_.activate_batch(entities, all_inputs, all_outputs,
+  network_cache_.activate_batch(entity_count, all_inputs, all_outputs,
                                 SensorSoA::INPUT_COUNT,
                                 SensorSoA::OUTPUT_COUNT);
 }
 
 void EvolutionManager::on_entity_destroyed(Entity e) {
-  entity_genomes_.erase(e);
+  if (e != INVALID_ENTITY && e.index + 1 == entity_genomes_.size()) {
+    entity_genomes_.pop_back();
+  }
   network_cache_.remove(e);
 }
 
+void EvolutionManager::on_entity_moved(Entity from, Entity to) {
+  if (from == to) {
+    return;
+  }
+
+  if (from.index < entity_genomes_.size()) {
+    if (to.index >= entity_genomes_.size()) {
+      entity_genomes_.resize(to.index + 1);
+    }
+    entity_genomes_[to.index] = std::move(entity_genomes_[from.index]);
+  }
+
+  network_cache_.move_entity(from, to);
+  if (gpu_network_cache_) {
+    gpu_network_cache_->invalidate();
+  }
+}
+
 Genome *EvolutionManager::genome_for(Entity e) {
-  auto it = entity_genomes_.find(e);
-  if (it != entity_genomes_.end()) {
-    return &it->second;
+  if (e != INVALID_ENTITY && e.index < entity_genomes_.size()) {
+    return &entity_genomes_[e.index];
   }
   return nullptr;
 }
 
 const Genome *EvolutionManager::genome_for(Entity e) const {
-  auto it = entity_genomes_.find(e);
-  if (it != entity_genomes_.end()) {
-    return &it->second;
+  if (e != INVALID_ENTITY && e.index < entity_genomes_.size()) {
+    return &entity_genomes_[e.index];
   }
   return nullptr;
 }
@@ -322,18 +337,22 @@ bool EvolutionManager::launch_gpu_neural(gpu::GpuBatch &gpu_batch,
   // Get entities from GPU mapping (in GPU buffer order) and filter to only
   // those with networks. Also collect their GPU buffer indices.
   std::vector<std::pair<Entity, int>> network_entities_with_indices;
-  network_entities_with_indices.reserve(agent_count);
+  {
+    MOONAI_PROFILE_SCOPE("gpu_entity_mapping");
+    network_entities_with_indices.reserve(agent_count);
 
-  for (uint32_t gpu_idx = 0; gpu_idx < agent_count; ++gpu_idx) {
-    Entity e = gpu_batch.agent_mapping().entity_at(gpu_idx);
-    if (e != INVALID_ENTITY && network_cache_.has(e)) {
-      network_entities_with_indices.emplace_back(e, static_cast<int>(gpu_idx));
+    for (std::size_t gpu_idx = 0; gpu_idx < agent_count; ++gpu_idx) {
+      Entity e{static_cast<uint32_t>(gpu_idx)};
+      if (e != INVALID_ENTITY && network_cache_.has(e)) {
+        network_entities_with_indices.emplace_back(e,
+                                                   static_cast<int>(gpu_idx));
+      }
     }
-  }
 
-  if (network_entities_with_indices.empty()) {
-    spdlog::warn("No entities with neural networks found in GPU batch");
-    return true;
+    if (network_entities_with_indices.empty()) {
+      spdlog::warn("No entities with neural networks found in GPU batch");
+      return true;
+    }
   }
 
   // Rebuild GPU cache if networks changed
@@ -348,6 +367,7 @@ bool EvolutionManager::launch_gpu_neural(gpu::GpuBatch &gpu_batch,
           [](Entity entity, const std::pair<Entity, int> &entity_with_index) {
             return entity == entity_with_index.first;
           })) {
+    MOONAI_PROFILE_SCOPE("gpu_cache_build");
     spdlog::debug("Rebuilding GPU network cache for {} network entities",
                   network_entities_with_indices.size());
     gpu_network_cache_->build_from(network_cache_,

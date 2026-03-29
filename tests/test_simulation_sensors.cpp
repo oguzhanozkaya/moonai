@@ -57,8 +57,8 @@ TEST(SimulationSensorsTest, EncodesDxDySentinelsAndFoodDensity) {
 
   Entity predator = INVALID_ENTITY;
   Entity prey = INVALID_ENTITY;
-  for (Entity entity : registry.living_entities()) {
-    const std::size_t idx = registry.index_of(entity);
+  for (std::size_t idx = 0; idx < registry.size(); ++idx) {
+    const Entity entity{static_cast<uint32_t>(idx)};
     if (registry.identity().type[idx] == IdentitySoA::TYPE_PREDATOR) {
       predator = entity;
     } else if (registry.identity().type[idx] == IdentitySoA::TYPE_PREY) {

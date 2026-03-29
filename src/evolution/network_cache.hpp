@@ -3,7 +3,6 @@
 #include "evolution/neural_network.hpp"
 #include "simulation/entity.hpp"
 #include <memory>
-#include <unordered_map>
 #include <vector>
 
 namespace moonai {
@@ -19,12 +18,13 @@ public:
   }
 
   void remove(Entity e);
+  void move_entity(Entity from, Entity to);
 
   bool has(Entity e) const;
 
   std::vector<float> activate(Entity e, const std::vector<float> &inputs) const;
 
-  void activate_batch(const std::vector<Entity> &entities,
+  void activate_batch(std::size_t entity_count,
                       const std::vector<float> &all_inputs,
                       std::vector<float> &all_outputs, int inputs_per_network,
                       int outputs_per_network);
@@ -39,8 +39,7 @@ public:
   }
 
 private:
-  std::unordered_map<Entity, std::unique_ptr<NeuralNetwork>, EntityHash>
-      networks_;
+  std::vector<std::unique_ptr<NeuralNetwork>> networks_;
 };
 
 } // namespace moonai

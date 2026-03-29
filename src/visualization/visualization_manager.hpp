@@ -24,7 +24,7 @@ struct FrameSnapshot {
   std::vector<RenderFood> foods;
   std::vector<RenderAgent> agents;
   bool has_selected_vision = false;
-  Entity selected_entity = INVALID_ENTITY;
+  uint32_t selected_agent_id = 0;
   Vec2 selected_position;
   float selected_vision_range = 0.0f;
   std::vector<RenderLine> sensor_lines;
@@ -61,8 +61,8 @@ public:
   void clear_step() {
     step_requested_ = false;
   }
-  Entity selected_entity() const {
-    return selected_entity_;
+  uint32_t selected_agent_id() const {
+    return selected_agent_id_;
   }
 
   static constexpr float ui_side_margin() {
@@ -112,7 +112,7 @@ private:
   bool reset_requested_ = false;
   bool step_requested_ = false;
   int speed_multiplier_ = 1;
-  Entity selected_entity_ = INVALID_ENTITY;
+  uint32_t selected_agent_id_ = 0;
 
   bool dragging_ = false;
   sf::Vector2f drag_start_;

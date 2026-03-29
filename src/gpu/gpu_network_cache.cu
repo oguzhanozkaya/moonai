@@ -216,7 +216,7 @@ void GpuNetworkCache::build_from(
   for (const auto &[e, gpu_idx] : entities_with_indices) {
     const NeuralNetwork *network = cpu_cache.get_network(e);
     if (!network) {
-      spdlog::warn("No network found for entity {}.{}", e.index, e.generation);
+      spdlog::warn("No network found for entity {}", e.index);
       continue;
     }
 

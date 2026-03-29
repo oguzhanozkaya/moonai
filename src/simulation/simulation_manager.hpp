@@ -5,7 +5,6 @@
 #include "simulation/entity.hpp"
 #include "simulation/food_store.hpp"
 #include "simulation/spatial_grid.hpp"
-#include "simulation/step_state.hpp"
 
 #include <cstddef>
 #include <memory>
@@ -85,22 +84,20 @@ private:
   void initialize(bool log_initialization);
   void ensure_gpu_capacity(std::size_t agent_count, std::size_t food_count);
 
-  PackedStepState pack_step_state(const Registry &registry) const;
-  void apply_step_state(Registry &registry, const PackedStepState &state);
-  void run_cpu_backend(PackedStepState &state, EvolutionManager &evolution);
-  void collect_step_events(Registry &registry, const PackedStepState &state,
-                           std::vector<SimEvent> &events);
+  void compact_registry(Registry &registry, EvolutionManager &evolution);
+  void collect_gpu_step_events(Registry &registry,
+                               const std::vector<uint8_t> &was_alive,
+                               const std::vector<uint8_t> &was_food_active,
+                               std::vector<SimEvent> &events);
   std::vector<ReproductionPair>
   find_reproduction_pairs(const Registry &registry) const;
   void refresh_world_state_after_step(Registry &registry);
-  void rebuild_food_grid();
   void rebuild_spatial_grid(const Registry &registry);
   void count_alive(const Registry &registry);
 
   SimulationConfig config_;
   Random rng_;
   SpatialGrid grid_;
-  SpatialGrid food_grid_;
   FoodStore food_store_;
   int current_step_ = 0;
   int alive_predators_ = 0;

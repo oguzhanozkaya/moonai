@@ -517,8 +517,6 @@ __global__ void kernel_apply_movement(
 GpuBatch::GpuBatch(std::size_t max_agents, std::size_t max_food)
     : buffer_(max_agents, max_food) {
   init_cuda_resources();
-  agent_mapping_.resize(max_agents);
-  food_mapping_.resize(max_food);
 }
 
 GpuBatch::~GpuBatch() {

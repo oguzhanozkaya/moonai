@@ -1,27 +1,47 @@
 #include "evolution/network_cache.hpp"
-#include <algorithm>
-#include <unordered_set>
-
 namespace moonai {
 
 void NetworkCache::assign(Entity e, const Genome &genome) {
-  networks_[e] = std::make_unique<NeuralNetwork>(genome);
+  if (e.index >= networks_.size()) {
+    networks_.resize(static_cast<std::size_t>(e.index) + 1);
+  }
+  networks_[e.index] = std::make_unique<NeuralNetwork>(genome);
 }
 
 NeuralNetwork *NetworkCache::get(Entity e) const {
-  auto it = networks_.find(e);
-  if (it != networks_.end()) {
-    return it->second.get();
+  if (e == INVALID_ENTITY || e.index >= networks_.size()) {
+    return nullptr;
   }
-  return nullptr;
+  return networks_[e.index].get();
 }
 
 void NetworkCache::remove(Entity e) {
-  networks_.erase(e);
+  if (e == INVALID_ENTITY || e.index >= networks_.size()) {
+    return;
+  }
+  if (e.index + 1 == networks_.size()) {
+    networks_.pop_back();
+    return;
+  }
+  networks_[e.index].reset();
+}
+
+void NetworkCache::move_entity(Entity from, Entity to) {
+  if (from == to) {
+    return;
+  }
+  if (from == INVALID_ENTITY || from.index >= networks_.size() ||
+      !networks_[from.index]) {
+    return;
+  }
+  if (to.index >= networks_.size()) {
+    networks_.resize(static_cast<std::size_t>(to.index) + 1);
+  }
+  networks_[to.index] = std::move(networks_[from.index]);
 }
 
 bool NetworkCache::has(Entity e) const {
-  return networks_.find(e) != networks_.end();
+  return get(e) != nullptr;
 }
 
 std::vector<float>
@@ -33,15 +53,15 @@ NetworkCache::activate(Entity e, const std::vector<float> &inputs) const {
   return {};
 }
 
-void NetworkCache::activate_batch(const std::vector<Entity> &entities,
+void NetworkCache::activate_batch(std::size_t entity_count,
                                   const std::vector<float> &all_inputs,
                                   std::vector<float> &all_outputs,
                                   int inputs_per_network,
                                   int outputs_per_network) {
-  all_outputs.resize(entities.size() * outputs_per_network);
+  all_outputs.resize(entity_count * outputs_per_network);
 
-  for (size_t i = 0; i < entities.size(); ++i) {
-    Entity e = entities[i];
+  for (size_t i = 0; i < entity_count; ++i) {
+    Entity e{static_cast<uint32_t>(i)};
     const float *input_ptr = &all_inputs[i * inputs_per_network];
     float *output_ptr = &all_outputs[i * outputs_per_network];
 

@@ -72,24 +72,16 @@ struct SensorSoA {
   static constexpr int OUTPUT_COUNT = 2;
 
   std::vector<float> inputs;
-  std::vector<float> outputs;
 
   void resize(size_t n) {
     inputs.resize(n * INPUT_COUNT);
-    outputs.resize(n * OUTPUT_COUNT);
   }
 
   float *input_ptr(size_t entity) {
     return &inputs[entity * INPUT_COUNT];
   }
-  float *output_ptr(size_t entity) {
-    return &outputs[entity * OUTPUT_COUNT];
-  }
   const float *input_ptr(size_t entity) const {
     return &inputs[entity * INPUT_COUNT];
-  }
-  const float *output_ptr(size_t entity) const {
-    return &outputs[entity * OUTPUT_COUNT];
   }
 };
 

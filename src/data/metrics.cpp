@@ -35,16 +35,10 @@ StepMetrics MetricsCollector::collect(int step, const Registry &registry,
   int predator_energy_count = 0;
   int prey_energy_count = 0;
 
-  const auto &living = registry.living_entities();
   const auto &vitals = registry.vitals();
   const auto &identity = registry.identity();
 
-  for (Entity entity : living) {
-    size_t idx = registry.index_of(entity);
-    if (!vitals.alive[idx]) {
-      continue;
-    }
-
+  for (std::size_t idx = 0; idx < registry.size(); ++idx) {
     if (identity.type[idx] == IdentitySoA::TYPE_PREDATOR) {
       ++metrics.predator_count;
       predator_energy_sum += vitals.energy[idx];
@@ -68,12 +62,8 @@ StepMetrics MetricsCollector::collect(int step, const Registry &registry,
   float complexity_sum = 0.0f;
   int genome_count = 0;
 
-  for (Entity entity : living) {
-    size_t idx = registry.index_of(entity);
-    if (!vitals.alive[idx]) {
-      continue;
-    }
-
+  for (std::size_t idx = 0; idx < registry.size(); ++idx) {
+    const Entity entity{static_cast<uint32_t>(idx)};
     const Genome *genome = evolution.genome_for(entity);
     if (genome) {
       complexity_sum += static_cast<float>(genome->complexity());

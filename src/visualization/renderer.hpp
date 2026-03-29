@@ -20,6 +20,7 @@ struct RenderFood {
 
 struct RenderAgent {
   Entity entity = INVALID_ENTITY;
+  uint32_t agent_id = 0;
   Vec2 position;
   Vec2 velocity;
   uint8_t type = 0;
@@ -44,7 +45,7 @@ public:
   void draw_all_agents(sf::RenderTarget &target,
                        const std::vector<RenderAgent> &agents,
                        int alive_predators, int alive_prey,
-                       Entity selected_entity = INVALID_ENTITY);
+                       uint32_t selected_agent_id = 0);
   static void draw_vision_range(sf::RenderTarget &target, Vec2 position,
                                 float vision_range);
   static void draw_sensor_lines(sf::RenderTarget &target,

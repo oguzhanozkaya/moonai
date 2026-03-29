@@ -1,6 +1,5 @@
 #pragma once
 #include "gpu/gpu_data_buffer.hpp"
-#include "gpu/gpu_entity_mapping.hpp"
 #include "gpu/gpu_types.hpp"
 #include <cstddef>
 #include <cstdint>
@@ -43,20 +42,6 @@ public:
     return buffer_;
   }
 
-  [[nodiscard]] GpuEntityMapping &agent_mapping() {
-    return agent_mapping_;
-  }
-  [[nodiscard]] const GpuEntityMapping &agent_mapping() const {
-    return agent_mapping_;
-  }
-
-  [[nodiscard]] GpuEntityMapping &food_mapping() {
-    return food_mapping_;
-  }
-  [[nodiscard]] const GpuEntityMapping &food_mapping() const {
-    return food_mapping_;
-  }
-
   void launch_build_sensors_async(const GpuStepParams &params,
                                   std::size_t agent_count,
                                   std::size_t food_count);
@@ -90,8 +75,6 @@ public:
 
 private:
   GpuDataBuffer buffer_;
-  GpuEntityMapping agent_mapping_;
-  GpuEntityMapping food_mapping_;
 
   int *d_agent_cell_counts_ = nullptr;
   int *d_agent_cell_offsets_ = nullptr;
