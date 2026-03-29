@@ -43,12 +43,11 @@ SimulationConfig table_to_config(const sol::table &tbl) {
   lua_get(tbl, "predator_speed", config.predator_speed);
   lua_get(tbl, "prey_speed", config.prey_speed);
   lua_get(tbl, "vision_range", config.vision_range);
-  lua_get(tbl, "attack_range", config.attack_range);
+  lua_get(tbl, "interaction_range", config.interaction_range);
   lua_get(tbl, "initial_energy", config.initial_energy);
   lua_get(tbl, "energy_drain_per_step", config.energy_drain_per_step);
   lua_get(tbl, "energy_gain_from_kill", config.energy_gain_from_kill);
   lua_get(tbl, "energy_gain_from_food", config.energy_gain_from_food);
-  lua_get(tbl, "food_pickup_range", config.food_pickup_range);
   lua_get(tbl, "food_count", config.food_count);
   lua_get(tbl, "food_respawn_rate", config.food_respawn_rate);
   lua_get(tbl, "mutation_rate", config.mutation_rate);
@@ -73,9 +72,6 @@ SimulationConfig table_to_config(const sol::table &tbl) {
           config.reproduction_energy_threshold);
   lua_get(tbl, "reproduction_energy_cost", config.reproduction_energy_cost);
   lua_get(tbl, "offspring_initial_energy", config.offspring_initial_energy);
-  lua_get(tbl, "min_reproductive_age_steps", config.min_reproductive_age_steps);
-  lua_get(tbl, "reproduction_cooldown_steps",
-          config.reproduction_cooldown_steps);
   lua_get(tbl, "birth_spawn_radius", config.birth_spawn_radius);
   return config;
 }
@@ -89,12 +85,11 @@ void inject_defaults(sol::state &lua) {
   t["predator_speed"] = d.predator_speed;
   t["prey_speed"] = d.prey_speed;
   t["vision_range"] = d.vision_range;
-  t["attack_range"] = d.attack_range;
+  t["interaction_range"] = d.interaction_range;
   t["initial_energy"] = d.initial_energy;
   t["energy_drain_per_step"] = d.energy_drain_per_step;
   t["energy_gain_from_kill"] = d.energy_gain_from_kill;
   t["energy_gain_from_food"] = d.energy_gain_from_food;
-  t["food_pickup_range"] = d.food_pickup_range;
   t["food_count"] = d.food_count;
   t["food_respawn_rate"] = d.food_respawn_rate;
   t["mutation_rate"] = d.mutation_rate;
@@ -117,8 +112,6 @@ void inject_defaults(sol::state &lua) {
   t["reproduction_energy_threshold"] = d.reproduction_energy_threshold;
   t["reproduction_energy_cost"] = d.reproduction_energy_cost;
   t["offspring_initial_energy"] = d.offspring_initial_energy;
-  t["min_reproductive_age_steps"] = d.min_reproductive_age_steps;
-  t["reproduction_cooldown_steps"] = d.reproduction_cooldown_steps;
   t["birth_spawn_radius"] = d.birth_spawn_radius;
   lua["moonai_defaults"] = t;
 }

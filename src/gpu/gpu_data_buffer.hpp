@@ -54,9 +54,6 @@ public:
   [[nodiscard]] uint8_t *host_agent_types() const noexcept {
     return h_agent_types_;
   }
-  [[nodiscard]] int *host_agent_reproduction_cooldown() const noexcept {
-    return h_agent_reproduction_cooldown_;
-  }
   [[nodiscard]] float *host_agent_distance_traveled() const noexcept {
     return h_agent_distance_traveled_;
   }
@@ -114,9 +111,6 @@ public:
   [[nodiscard]] uint8_t *device_agent_types() const noexcept {
     return d_agent_types_;
   }
-  [[nodiscard]] int *device_agent_reproduction_cooldown() const noexcept {
-    return d_agent_reproduction_cooldown_;
-  }
   [[nodiscard]] float *device_agent_distance_traveled() const noexcept {
     return d_agent_distance_traveled_;
   }
@@ -172,7 +166,6 @@ private:
   int *h_agent_age_ = nullptr;
   uint32_t *h_agent_alive_ = nullptr;
   uint8_t *h_agent_types_ = nullptr;
-  int *h_agent_reproduction_cooldown_ = nullptr;
   float *h_agent_distance_traveled_ = nullptr;
   uint32_t *h_agent_kill_counts_ = nullptr;
   int *h_agent_killed_by_ = nullptr;
@@ -193,7 +186,6 @@ private:
   int *d_agent_age_ = nullptr;
   uint32_t *d_agent_alive_ = nullptr;
   uint8_t *d_agent_types_ = nullptr;
-  int *d_agent_reproduction_cooldown_ = nullptr;
   float *d_agent_distance_traveled_ = nullptr;
   uint32_t *d_agent_kill_counts_ = nullptr;
   int *d_agent_killed_by_ = nullptr;

@@ -16,6 +16,4 @@
     }                                                                          \
   } while (0)
 
-namespace moonai::gpu {
-
-} // namespace moonai::gpu
+namespace moonai::gpu {} // namespace moonai::gpu

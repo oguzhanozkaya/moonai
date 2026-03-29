@@ -22,7 +22,7 @@ int run_experiment(const std::string &name, moonai::SimulationConfig config,
   app_cfg.run_name_override =
       args.run_name.empty() ? std::nullopt : std::optional(args.run_name);
   app_cfg.interactive = true;
-  app_cfg.speed_multiplier = 1;
+  app_cfg.speed_multiplier = 64;
 
   if (args.max_steps_override != 0) {
     app_cfg.sim_config.max_steps = args.max_steps_override;

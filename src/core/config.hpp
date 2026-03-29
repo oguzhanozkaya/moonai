@@ -12,19 +12,23 @@ struct SimulationConfig {
 
   int predator_count = 480;
   int prey_count = 1920;
-
-  float predator_speed = 0.06f;
-  float prey_speed = 0.066f;
-  float vision_range = 120.0f;
-  float attack_range = 12.0f;
-  float initial_energy = 120.0f;
-  float energy_drain_per_step = 0.006f;
-  float energy_gain_from_kill = 90.0f;
-  float energy_gain_from_food = 120.0f;
-  float food_pickup_range = 12.0f;
-
   int food_count = 2400;
-  float food_respawn_rate = 0.00024f;
+
+  float predator_speed = 0.6f;
+  float prey_speed = 0.66f;
+  float vision_range = 360.0f;
+  float interaction_range = 1.2f;
+  float mate_range = 300.0f;
+
+  float food_respawn_rate = 0.0006f;
+  float energy_drain_per_step = 0.0072f;
+  float energy_gain_from_kill = 96.0f;
+  float energy_gain_from_food = 120.0f;
+  float initial_energy = 120.0f;
+  float reproduction_energy_threshold = 240.0f;
+  float reproduction_energy_cost = 60.0f;
+  float offspring_initial_energy = 100.0f;
+  float birth_spawn_radius = 30.0f;
 
   float mutation_rate = 0.3f;
   float crossover_rate = 0.75f;
@@ -44,15 +48,7 @@ struct SimulationConfig {
   std::uint64_t seed = 0;
 
   std::string output_dir = "output";
-  int report_interval_steps = 10000;
-
-  float mate_range = 240.0f;
-  float reproduction_energy_threshold = 240.0f;
-  float reproduction_energy_cost = 60.0f;
-  float offspring_initial_energy = 100.0f;
-  int min_reproductive_age_steps = 120;
-  int reproduction_cooldown_steps = 300;
-  float birth_spawn_radius = 30.0f;
+  int report_interval_steps = 1000000;
 };
 
 struct ConfigError {

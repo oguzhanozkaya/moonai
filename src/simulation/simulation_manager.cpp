@@ -29,6 +29,109 @@ Vec2 wrap_diff(Vec2 diff, float world_width, float world_height) {
   return diff;
 }
 
+float wrap_coord(float value, float limit) {
+  while (value < 0.0f) {
+    value += limit;
+  }
+  while (value >= limit) {
+    value -= limit;
+  }
+  return value;
+}
+
+class DenseReproductionGrid {
+public:
+  DenseReproductionGrid(float world_width, float world_height, float cell_size,
+                        std::size_t entity_count)
+      : cell_size_(std::max(cell_size, 1.0f)),
+        cols_(
+            std::max(1, static_cast<int>(std::ceil(world_width / cell_size_)))),
+        rows_(std::max(1,
+                       static_cast<int>(std::ceil(world_height / cell_size_)))),
+        counts_(static_cast<std::size_t>(cols_ * rows_), 0),
+        offsets_(static_cast<std::size_t>(cols_ * rows_) + 1, 0),
+        write_offsets_(static_cast<std::size_t>(cols_ * rows_), 0),
+        entries_(entity_count, INVALID_ENTITY) {}
+
+  void build(const PositionSoA &positions, std::size_t entity_count) {
+    std::fill(counts_.begin(), counts_.end(), 0);
+    std::fill(offsets_.begin(), offsets_.end(), 0);
+
+    for (std::size_t idx = 0; idx < entity_count; ++idx) {
+      const int cell = cell_index(positions.x[idx], positions.y[idx]);
+      counts_[static_cast<std::size_t>(cell)] += 1;
+    }
+
+    for (std::size_t cell = 0; cell < counts_.size(); ++cell) {
+      offsets_[cell + 1] = offsets_[cell] + counts_[cell];
+    }
+
+    std::copy(offsets_.begin(), offsets_.end() - 1, write_offsets_.begin());
+    for (std::size_t idx = 0; idx < entity_count; ++idx) {
+      const int cell = cell_index(positions.x[idx], positions.y[idx]);
+      const std::size_t slot = static_cast<std::size_t>(
+          write_offsets_[static_cast<std::size_t>(cell)]++);
+      entries_[slot] = Entity{static_cast<uint32_t>(idx)};
+    }
+  }
+
+  template <typename Callback>
+  void for_each_candidate(Vec2 center, float radius,
+                          Callback &&callback) const {
+    const int cells_to_check =
+        std::max(1, static_cast<int>(std::ceil(radius / cell_size_)));
+    const int base_x = cell_coord(center.x, cols_);
+    const int base_y = cell_coord(center.y, rows_);
+
+    for (int dy = -cells_to_check; dy <= cells_to_check; ++dy) {
+      for (int dx = -cells_to_check; dx <= cells_to_check; ++dx) {
+        const int cell = flat_index(wrap_cell(base_x + dx, cols_),
+                                    wrap_cell(base_y + dy, rows_));
+        for (int slot = offsets_[static_cast<std::size_t>(cell)];
+             slot < offsets_[static_cast<std::size_t>(cell) + 1]; ++slot) {
+          callback(entries_[static_cast<std::size_t>(slot)]);
+        }
+      }
+    }
+  }
+
+private:
+  int cell_coord(float value, int limit) const {
+    int coord = static_cast<int>(value / cell_size_);
+    if (coord < 0) {
+      return 0;
+    }
+    if (coord >= limit) {
+      return limit - 1;
+    }
+    return coord;
+  }
+
+  int wrap_cell(int coord, int limit) const {
+    coord %= limit;
+    if (coord < 0) {
+      coord += limit;
+    }
+    return coord;
+  }
+
+  int flat_index(int x, int y) const {
+    return y * cols_ + x;
+  }
+
+  int cell_index(float x, float y) const {
+    return flat_index(cell_coord(x, cols_), cell_coord(y, rows_));
+  }
+
+  float cell_size_;
+  int cols_;
+  int rows_;
+  std::vector<int> counts_;
+  std::vector<int> offsets_;
+  std::vector<int> write_offsets_;
+  std::vector<Entity> entries_;
+};
+
 void build_sensors(Registry &registry, const FoodStore &food_store,
                    const SimulationConfig &config) {
   const float world_size = static_cast<float>(config.grid_size);
@@ -159,9 +262,6 @@ void update_vitals(Registry &registry, const SimulationConfig &config) {
     }
 
     vitals.age[i] += 1;
-    if (vitals.reproduction_cooldown[i] > 0) {
-      vitals.reproduction_cooldown[i] -= 1;
-    }
 
     vitals.energy[i] -= config.energy_drain_per_step;
     const bool died_of_starvation = vitals.energy[i] <= 0.0f;
@@ -179,7 +279,7 @@ void process_food(Registry &registry, FoodStore &food_store,
                   std::vector<int> &food_consumed_by) {
   std::fill(food_consumed_by.begin(), food_consumed_by.end(), -1);
   const float world_size = static_cast<float>(config.grid_size);
-  const float range_sq = config.food_pickup_range * config.food_pickup_range;
+  const float range_sq = config.interaction_range * config.interaction_range;
   const auto &positions = registry.positions();
   auto &vitals = registry.vitals();
   const auto &identity = registry.identity();
@@ -236,7 +336,7 @@ void process_combat(Registry &registry, const SimulationConfig &config,
   std::fill(killed_by.begin(), killed_by.end(), -1);
   std::fill(kill_counts.begin(), kill_counts.end(), 0U);
   const float world_size = static_cast<float>(config.grid_size);
-  const float range_sq = config.attack_range * config.attack_range;
+  const float range_sq = config.interaction_range * config.interaction_range;
   const auto &positions = registry.positions();
   auto &vitals = registry.vitals();
   const auto &identity = registry.identity();
@@ -395,9 +495,7 @@ SimulationManager::SimulationManager(const SimulationConfig &config)
                ? config.seed
                : static_cast<std::uint64_t>(std::chrono::steady_clock::now()
                                                 .time_since_epoch()
-                                                .count())),
-      grid_(config.grid_size, config.grid_size,
-            std::max(config.mate_range, 1.0f)) {}
+                                                .count())) {}
 
 void SimulationManager::initialize() {
   initialize(true);
@@ -471,13 +569,11 @@ void SimulationManager::compact_registry(Registry &registry,
   }
 }
 
-void SimulationManager::refresh_world_state_after_step(Registry &registry) {
+void SimulationManager::refresh_world_state_after_step() {
   {
     MOONAI_PROFILE_SCOPE("food_respawn");
     food_store_.respawn_step(config_, current_step_, rng_.seed());
   }
-  rebuild_spatial_grid(registry);
-  count_alive(registry);
   ++current_step_;
 }
 
@@ -503,7 +599,7 @@ SimulationManager::step(Registry &registry, EvolutionManager &evolution) {
                           food_consumed_by, killed_by, kill_counts,
                           result.events);
   compact_registry(registry, evolution);
-  refresh_world_state_after_step(registry);
+  refresh_world_state_after_step();
   result.reproduction_pairs = find_reproduction_pairs(registry);
   return result;
 }
@@ -512,95 +608,70 @@ void SimulationManager::reset() {
   initialize(false);
 }
 
-void SimulationManager::rebuild_spatial_grid(const Registry &registry) {
-  MOONAI_PROFILE_SCOPE("rebuild_spatial_grid");
-  grid_.clear();
-
-  const auto &positions = registry.positions();
-
-  for (std::size_t idx = 0; idx < registry.size(); ++idx) {
-    const Entity entity{static_cast<uint32_t>(idx)};
-    grid_.insert(entity, Vec2{positions.x[idx], positions.y[idx]});
-  }
-}
-
 std::vector<SimulationManager::ReproductionPair>
 SimulationManager::find_reproduction_pairs(const Registry &registry) const {
+  MOONAI_PROFILE_SCOPE("find_reproduction_pairs");
   std::vector<ReproductionPair> pairs;
-  std::unordered_set<Entity, EntityHash> used;
+  std::vector<uint8_t> used(registry.size(), 0);
 
   const auto &positions = registry.positions();
   const auto &vitals = registry.vitals();
   const auto &identity = registry.identity();
+  DenseReproductionGrid grid(static_cast<float>(config_.grid_size),
+                             static_cast<float>(config_.grid_size),
+                             config_.mate_range, registry.size());
+  grid.build(positions, registry.size());
+  const float world_size = static_cast<float>(config_.grid_size);
 
   for (std::size_t idx = 0; idx < registry.size(); ++idx) {
     const Entity entity{static_cast<uint32_t>(idx)};
     if (vitals.energy[idx] < config_.reproduction_energy_threshold ||
-        vitals.age[idx] < config_.min_reproductive_age_steps ||
-        vitals.reproduction_cooldown[idx] > 0 ||
-        used.find(entity) != used.end()) {
+        used[idx] != 0) {
       continue;
     }
 
     Vec2 pos{positions.x[idx], positions.y[idx]};
-    std::vector<Entity> nearby = grid_.query_radius(pos, config_.mate_range);
 
     Entity best_mate = INVALID_ENTITY;
     float best_dist_sq = config_.mate_range * config_.mate_range;
 
-    for (Entity mate_id : nearby) {
-      if (mate_id == entity || used.find(mate_id) != used.end()) {
-        continue;
+    grid.for_each_candidate(pos, config_.mate_range, [&](Entity mate_id) {
+      if (mate_id == entity || used[mate_id.index] != 0) {
+        return;
       }
 
       const std::size_t mate_idx = registry.index_of(mate_id);
       if (identity.type[mate_idx] != identity.type[idx] ||
-          vitals.energy[mate_idx] < config_.reproduction_energy_threshold ||
-          vitals.age[mate_idx] < config_.min_reproductive_age_steps ||
-          vitals.reproduction_cooldown[mate_idx] > 0) {
-        continue;
+          vitals.energy[mate_idx] < config_.reproduction_energy_threshold) {
+        return;
       }
 
       Vec2 mate_pos{positions.x[mate_idx], positions.y[mate_idx]};
-      Vec2 diff = mate_pos - pos;
-      float dist_sq = diff.x * diff.x + diff.y * diff.y;
+      Vec2 diff = wrap_diff(mate_pos - pos, world_size, world_size);
+      const float dist_sq = diff.x * diff.x + diff.y * diff.y;
       if (dist_sq < best_dist_sq) {
         best_dist_sq = dist_sq;
         best_mate = mate_id;
       }
-    }
+    });
 
     if (best_mate != INVALID_ENTITY) {
       const std::size_t mate_idx = registry.index_of(best_mate);
       Vec2 mate_pos{positions.x[mate_idx], positions.y[mate_idx]};
-      Vec2 spawn_pos{(pos.x + mate_pos.x) * 0.5f, (pos.y + mate_pos.y) * 0.5f};
-      pairs.push_back({entity, best_mate, spawn_pos});
-      used.insert(entity);
-      used.insert(best_mate);
+      Vec2 diff = wrap_diff(mate_pos - pos, world_size, world_size);
+      Vec2 spawn_pos{wrap_coord(pos.x + diff.x * 0.5f, world_size),
+                     wrap_coord(pos.y + diff.y * 0.5f, world_size)};
+      ReproductionPair pair;
+      pair.parent_a = entity;
+      pair.parent_b = best_mate;
+      pair.spawn_position = spawn_pos;
+      pairs.push_back(pair);
+      used[idx] = 1;
+      used[mate_idx] = 1;
     }
   }
 
   return pairs;
-}
-
-void SimulationManager::count_alive(const Registry &registry) {
-  MOONAI_PROFILE_SCOPE("count_alive");
-  alive_predators_ = 0;
-  alive_prey_ = 0;
-
-  const auto &identity = registry.identity();
-  for (std::size_t idx = 0; idx < registry.size(); ++idx) {
-    if (identity.type[idx] == IdentitySoA::TYPE_PREDATOR) {
-      ++alive_predators_;
-    } else {
-      ++alive_prey_;
-    }
-  }
-}
-
-void SimulationManager::refresh_state(Registry &registry) {
-  rebuild_spatial_grid(registry);
-  count_alive(registry);
 }
 
 SimulationManager::~SimulationManager() = default;
@@ -696,9 +767,6 @@ SimulationManager::step_gpu(Registry &registry, EvolutionManager &evolution) {
       buffer.host_agent_alive()[i] = registry.vitals().alive[i];
       buffer.host_agent_types()[i] = registry.identity().type[i];
     }
-    std::memcpy(buffer.host_agent_reproduction_cooldown(),
-                registry.vitals().reproduction_cooldown.data(),
-                agent_count * sizeof(int));
     std::memcpy(buffer.host_agent_distance_traveled(),
                 registry.stats().distance_traveled.data(),
                 agent_count * sizeof(float));
@@ -720,8 +788,7 @@ SimulationManager::step_gpu(Registry &registry, EvolutionManager &evolution) {
   params.vision_range = config_.vision_range;
   params.max_energy = static_cast<float>(config_.initial_energy);
   params.max_age = config_.max_steps;
-  params.food_pickup_range = config_.food_pickup_range;
-  params.attack_range = config_.attack_range;
+  params.interaction_range = config_.interaction_range;
   params.energy_gain_from_food =
       static_cast<float>(config_.energy_gain_from_food);
   params.energy_gain_from_kill =
@@ -760,7 +827,7 @@ SimulationManager::step_gpu(Registry &registry, EvolutionManager &evolution) {
   {
     MOONAI_PROFILE_SCOPE("gpu_apply_results");
     {
-      MOONAI_PROFILE_SCOPE("apply_step_state");
+      MOONAI_PROFILE_SCOPE("apply_dense_results");
       auto &buffer = gpu_batch_->buffer();
       std::memcpy(registry.positions().x.data(),
                   buffer.host_agent_positions_x(), agent_count * sizeof(float));
@@ -775,9 +842,6 @@ SimulationManager::step_gpu(Registry &registry, EvolutionManager &evolution) {
       std::memcpy(registry.vitals().energy.data(), buffer.host_agent_energy(),
                   agent_count * sizeof(float));
       std::memcpy(registry.vitals().age.data(), buffer.host_agent_age(),
-                  agent_count * sizeof(int));
-      std::memcpy(registry.vitals().reproduction_cooldown.data(),
-                  buffer.host_agent_reproduction_cooldown(),
                   agent_count * sizeof(int));
       std::memcpy(registry.stats().distance_traveled.data(),
                   buffer.host_agent_distance_traveled(),
@@ -812,7 +876,7 @@ SimulationManager::step_gpu(Registry &registry, EvolutionManager &evolution) {
   }
   {
     MOONAI_PROFILE_SCOPE("refresh_world_state");
-    refresh_world_state_after_step(registry);
+    refresh_world_state_after_step();
   }
   {
     MOONAI_PROFILE_SCOPE("find_reproduction_pairs");

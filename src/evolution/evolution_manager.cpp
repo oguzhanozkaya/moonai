@@ -80,7 +80,6 @@ void EvolutionManager::seed_initial_population(Registry &registry) {
     registry.vitals().energy[idx] = config_.initial_energy;
     registry.vitals().age[idx] = 0;
     registry.vitals().alive[idx] = 1;
-    registry.vitals().reproduction_cooldown[idx] = 0;
 
     registry.identity().type[idx] = IdentitySoA::TYPE_PREDATOR;
     registry.identity().species_id[idx] = 0;
@@ -119,7 +118,6 @@ void EvolutionManager::seed_initial_population(Registry &registry) {
     registry.vitals().energy[idx] = config_.initial_energy;
     registry.vitals().age[idx] = 0;
     registry.vitals().alive[idx] = 1;
-    registry.vitals().reproduction_cooldown[idx] = 0;
 
     registry.identity().type[idx] = IdentitySoA::TYPE_PREY;
     registry.identity().species_id[idx] = 0;
@@ -169,7 +167,6 @@ Entity EvolutionManager::create_offspring(Registry &registry, Entity parent_a,
   registry.vitals().energy[idx] = config_.offspring_initial_energy;
   registry.vitals().age[idx] = 0;
   registry.vitals().alive[idx] = 1;
-  registry.vitals().reproduction_cooldown[idx] = 0;
   registry.identity().type[idx] = registry.identity().type[parent_idx];
   registry.identity().species_id[idx] =
       registry.identity().species_id[parent_idx];
@@ -334,11 +331,10 @@ bool EvolutionManager::launch_gpu_neural(gpu::GpuBatch &gpu_batch,
     return false;
   }
 
-  // Get entities from GPU mapping (in GPU buffer order) and filter to only
-  // those with networks. Also collect their GPU buffer indices.
+  // Scan dense agent indices and collect their GPU buffer indices.
   std::vector<std::pair<Entity, int>> network_entities_with_indices;
   {
-    MOONAI_PROFILE_SCOPE("gpu_entity_mapping");
+    MOONAI_PROFILE_SCOPE("gpu_network_scan");
     network_entities_with_indices.reserve(agent_count);
 
     for (std::size_t gpu_idx = 0; gpu_idx < agent_count; ++gpu_idx) {

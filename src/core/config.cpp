@@ -30,12 +30,11 @@ nlohmann::json config_to_json(const SimulationConfig &config) {
   j["predator_speed"] = config.predator_speed;
   j["prey_speed"] = config.prey_speed;
   j["vision_range"] = config.vision_range;
-  j["attack_range"] = config.attack_range;
+  j["interaction_range"] = config.interaction_range;
   j["initial_energy"] = config.initial_energy;
   j["energy_drain_per_step"] = config.energy_drain_per_step;
   j["energy_gain_from_kill"] = config.energy_gain_from_kill;
   j["energy_gain_from_food"] = config.energy_gain_from_food;
-  j["food_pickup_range"] = config.food_pickup_range;
   j["food_count"] = config.food_count;
   j["food_respawn_rate"] = config.food_respawn_rate;
   j["mutation_rate"] = config.mutation_rate;
@@ -58,8 +57,6 @@ nlohmann::json config_to_json(const SimulationConfig &config) {
   j["reproduction_energy_threshold"] = config.reproduction_energy_threshold;
   j["reproduction_energy_cost"] = config.reproduction_energy_cost;
   j["offspring_initial_energy"] = config.offspring_initial_energy;
-  j["min_reproductive_age_steps"] = config.min_reproductive_age_steps;
-  j["reproduction_cooldown_steps"] = config.reproduction_cooldown_steps;
   j["birth_spawn_radius"] = config.birth_spawn_radius;
   return j;
 }
@@ -104,8 +101,8 @@ std::vector<ConfigError> validate_config(const SimulationConfig &config) {
   check(config.predator_speed > 0.0f, "predator_speed", "must be > 0");
   check(config.prey_speed > 0.0f, "prey_speed", "must be > 0");
   check(config.vision_range > 0.0f, "vision_range", "must be > 0");
-  check(config.attack_range > 0.0f, "attack_range", "must be > 0");
-  check(config.attack_range < config.vision_range, "attack_range",
+  check(config.interaction_range > 0.0f, "interaction_range", "must be > 0");
+  check(config.interaction_range < config.vision_range, "interaction_range",
         "must be less than vision_range");
   check(config.initial_energy > 0.0f, "initial_energy", "must be > 0");
   check(config.energy_drain_per_step >= 0.0f, "energy_drain_per_step",
@@ -149,10 +146,6 @@ std::vector<ConfigError> validate_config(const SimulationConfig &config) {
         "must be > 0");
   check(config.offspring_initial_energy > 0.0f, "offspring_initial_energy",
         "must be > 0");
-  check(config.min_reproductive_age_steps >= 0, "min_reproductive_age_steps",
-        "must be >= 0");
-  check(config.reproduction_cooldown_steps >= 0, "reproduction_cooldown_steps",
-        "must be >= 0");
   check(config.birth_spawn_radius >= 0.0f, "birth_spawn_radius",
         "must be >= 0");
 
@@ -185,10 +178,6 @@ std::vector<ConfigError> apply_overrides(
         config.species_update_interval_steps = std::stoi(val);
       else if (key == "report_interval_steps")
         config.report_interval_steps = std::stoi(val);
-      else if (key == "min_reproductive_age_steps")
-        config.min_reproductive_age_steps = std::stoi(val);
-      else if (key == "reproduction_cooldown_steps")
-        config.reproduction_cooldown_steps = std::stoi(val);
       // uint64 fields
       else if (key == "seed")
         config.seed = std::stoull(val);
@@ -199,8 +188,8 @@ std::vector<ConfigError> apply_overrides(
         config.prey_speed = std::stof(val);
       else if (key == "vision_range")
         config.vision_range = std::stof(val);
-      else if (key == "attack_range")
-        config.attack_range = std::stof(val);
+      else if (key == "interaction_range")
+        config.interaction_range = std::stof(val);
       else if (key == "initial_energy")
         config.initial_energy = std::stof(val);
       else if (key == "energy_drain_per_step")
@@ -209,8 +198,6 @@ std::vector<ConfigError> apply_overrides(
         config.energy_gain_from_kill = std::stof(val);
       else if (key == "energy_gain_from_food")
         config.energy_gain_from_food = std::stof(val);
-      else if (key == "food_pickup_range")
-        config.food_pickup_range = std::stof(val);
       else if (key == "food_respawn_rate")
         config.food_respawn_rate = std::stof(val);
       else if (key == "mutation_rate")

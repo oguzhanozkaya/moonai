@@ -19,8 +19,7 @@ struct GpuStepParams {
   float vision_range = 120.0f;
   float max_energy = 150.0f;
   int max_age = 0;
-  float food_pickup_range = 12.0f;
-  float attack_range = 20.0f;
+  float interaction_range = 12.0f;
   float energy_gain_from_food = 40.0f;
   float energy_gain_from_kill = 60.0f;
 };
@@ -101,21 +100,18 @@ private:
 
 void launch_build_sensors_kernel(
     const float *d_pos_x, const float *d_pos_y, const float *d_vel_x,
-    const float *d_vel_y, const float *d_speed, const uint8_t *d_agent_types,
-    const uint32_t *d_agent_alive, const float *d_energy,
-    const float *d_food_pos_x, const float *d_food_pos_y,
-    const uint32_t *d_food_active, const int *d_agent_cell_offsets,
+    const float *d_vel_y, const float *d_speed, const uint32_t *d_agent_alive,
+    const float *d_energy, const int *d_agent_cell_offsets,
     const GpuSensorAgentEntry *d_agent_entries, const int *d_food_cell_offsets,
     const GpuSensorFoodEntry *d_food_entries, float *d_sensor_inputs,
-    std::size_t agent_count, std::size_t food_count, int grid_cols,
-    int grid_rows, float grid_cell_size, float world_width, float world_height,
-    float vision_range, float max_energy, cudaStream_t stream);
+    std::size_t agent_count, int grid_cols, int grid_rows, float grid_cell_size,
+    float world_width, float world_height, float vision_range, float max_energy,
+    cudaStream_t stream);
 
 void launch_post_inference_kernel(
     float *d_agent_pos_x, float *d_agent_pos_y, float *d_agent_vel_x,
     float *d_agent_vel_y, const float *d_agent_speed, float *d_agent_energy,
-    int *d_agent_age, int *d_agent_reproduction_cooldown,
-    uint32_t *d_agent_alive, const uint8_t *d_agent_types,
+    int *d_agent_age, uint32_t *d_agent_alive, const uint8_t *d_agent_types,
     float *d_agent_distance_traveled, uint32_t *d_agent_kill_counts,
     int *d_agent_killed_by, const float *d_agent_brain_outputs,
     float *d_food_pos_x, float *d_food_pos_y, uint32_t *d_food_active,
@@ -124,7 +120,7 @@ void launch_post_inference_kernel(
     const GpuSensorFoodEntry *d_food_entries, int grid_cols, int grid_rows,
     float grid_cell_size, std::size_t agent_count, std::size_t food_count,
     float world_width, float world_height, float energy_drain, int max_age,
-    float food_pickup_range, float attack_range, float energy_gain_from_food,
+    float interaction_range, float energy_gain_from_food,
     float energy_gain_from_kill, cudaStream_t stream);
 
 } // namespace gpu

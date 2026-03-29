@@ -75,14 +75,14 @@ TEST(ConfigValidation, InvalidMutationRate) {
   EXPECT_FALSE(errors.empty());
 }
 
-TEST(ConfigValidation, AttackRangeExceedsVision) {
+TEST(ConfigValidation, InteractionRangeExceedsVision) {
   SimulationConfig config;
-  config.attack_range = 200.0f;
+  config.interaction_range = 200.0f;
   config.vision_range = 100.0f;
   auto errors = validate_config(config);
   bool found = false;
   for (const auto &e : errors) {
-    if (e.field == "attack_range")
+    if (e.field == "interaction_range")
       found = true;
   }
   EXPECT_TRUE(found);

@@ -119,8 +119,8 @@ local conditions = {
     slow_agents_5k   = extend(moonai_defaults, base_5k, { predator_speed = 2.5, prey_speed = 3.0 }),
     wide_vision_5k   = extend(moonai_defaults, base_5k, { vision_range = 300.0 }),
     narrow_vision_5k = extend(moonai_defaults, base_5k, { vision_range = 80.0 }),
-    long_attack_5k   = extend(moonai_defaults, base_5k, { attack_range = 40.0 }),
-    short_attack_5k  = extend(moonai_defaults, base_5k, { attack_range = 10.0 }),
+    long_interaction_5k   = extend(moonai_defaults, base_5k, { interaction_range = 40.0 }),
+    short_interaction_5k  = extend(moonai_defaults, base_5k, { interaction_range = 10.0 }),
 
     -- ── Group I: Topology complexity ─────────────────────────────────────
     high_complexity_5k  = extend(moonai_defaults, base_5k, { add_node_rate = 0.1, add_connection_rate = 0.15 }),

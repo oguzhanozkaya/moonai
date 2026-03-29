@@ -73,7 +73,6 @@ App::App(const AppConfig &cfg)
   simulation_.initialize();
   evolution_.initialize(SensorSoA::INPUT_COUNT, 2);
   evolution_.seed_initial_population(registry_);
-  simulation_.refresh_state(registry_);
 
   logger_.initialize(cfg_.sim_config);
 

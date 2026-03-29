@@ -2,9 +2,9 @@
 
 #include "core/config.hpp"
 #include "core/random.hpp"
+#include "core/types.hpp"
 #include "simulation/entity.hpp"
 #include "simulation/food_store.hpp"
-#include "simulation/spatial_grid.hpp"
 
 #include <cstddef>
 #include <memory>
@@ -53,32 +53,9 @@ public:
     return gpu_enabled_;
   }
 
-  int current_step() const {
-    return current_step_;
-  }
-  void increment_step() {
-    ++current_step_;
-  }
-
-  SpatialGrid &spatial_grid() {
-    return grid_;
-  }
-  const SpatialGrid &spatial_grid() const {
-    return grid_;
-  }
-
   const FoodStore &food_store() const {
     return food_store_;
   }
-
-  int alive_predators() const {
-    return alive_predators_;
-  }
-  int alive_prey() const {
-    return alive_prey_;
-  }
-
-  void refresh_state(Registry &registry);
 
 private:
   void initialize(bool log_initialization);
@@ -91,17 +68,12 @@ private:
                                std::vector<SimEvent> &events);
   std::vector<ReproductionPair>
   find_reproduction_pairs(const Registry &registry) const;
-  void refresh_world_state_after_step(Registry &registry);
-  void rebuild_spatial_grid(const Registry &registry);
-  void count_alive(const Registry &registry);
+  void refresh_world_state_after_step();
 
   SimulationConfig config_;
   Random rng_;
-  SpatialGrid grid_;
   FoodStore food_store_;
   int current_step_ = 0;
-  int alive_predators_ = 0;
-  int alive_prey_ = 0;
 
   // GPU support
   bool gpu_enabled_ = false;

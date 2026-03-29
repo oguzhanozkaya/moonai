@@ -165,10 +165,11 @@ def _format_tree_events(tree: AveragedScopeNode | None, frame_count: int) -> lis
             node.total_inclusive_ms / total_frames if total_frames > 0 else 0.0
         )
 
-        # Store raw name; indentation is applied via CSS padding in the template
+        # Add non-breaking space indentation (copy-paste friendly, consistent visual width)
+        indented_name = "&nbsp;&nbsp;&nbsp;&nbsp;" * depth + node.name
         rows.append(
             {
-                "name": node.name,
+                "name": indented_name,
                 "raw_name": node.name,
                 "depth": depth,
                 "percentage": f"{pct:.1f}",
@@ -188,20 +189,6 @@ def _format_tree_events(tree: AveragedScopeNode | None, frame_count: int) -> lis
     # Root node uses its own total as the baseline (shows 100%)
     traverse_node(tree, 0, tree.total_inclusive_ms)
     return rows
-
-
-def _top_event(suite: ProfileSuite) -> tuple[str, float]:
-    """Find the top non-frame event by average exclusive time."""
-    best_name = "frame_total"
-    best_value = 0.0
-    for name, values in suite.events.items():
-        if name == "frame_total":
-            continue
-        avg = values.get("avg_exclusive_ms", 0.0)
-        if avg > best_value:
-            best_name = name
-            best_value = avg
-    return best_name, best_value
 
 
 # Chart generation

@@ -52,13 +52,10 @@ class ProfileSuite:
     members: list[SuiteMember]
     kept: list[SuiteMember]
     dropped: list[SuiteMember]
-    # Event statistics: name -> {inclusive_ms, exclusive_ms, avg_inclusive_ms, avg_exclusive_ms}
-    events: dict[str, dict[str, float]]
     # Averaged tree structure for hierarchical display
     tree: AveragedScopeNode | None
     # Metadata from the profiler run
     metadata: dict[str, Any]
-    raw: dict
 
 
 def _parse_scope_node(data: dict) -> ScopeNode:
@@ -336,17 +333,6 @@ def _parse_suite(path: Path, data: dict) -> ProfileSuite:
         members=members,
         kept=kept,
         dropped=dropped,
-        events=_flatten_stats(analysis.get("events", {})),
         tree=analysis.get("tree"),
         metadata=metadata,
-        raw=data,
     )
-
-
-def _flatten_stats(stats: dict) -> dict[str, dict[str, float]]:
-    """Convert nested JSON stats to flat float dict."""
-    return {
-        name: {k: float(v) for k, v in values.items() if isinstance(v, (int, float))}
-        for name, values in stats.items()
-        if isinstance(values, dict)
-    }

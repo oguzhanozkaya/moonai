@@ -37,8 +37,6 @@ void GpuDataBuffer::allocate_buffers() {
     CUDA_CHECK(cudaMallocHost(&h_agent_age_, agent_int_bytes));
     CUDA_CHECK(cudaMallocHost(&h_agent_alive_, agent_u32_bytes));
     CUDA_CHECK(cudaMallocHost(&h_agent_types_, agent_type_bytes));
-    CUDA_CHECK(
-        cudaMallocHost(&h_agent_reproduction_cooldown_, agent_int_bytes));
     CUDA_CHECK(cudaMallocHost(&h_agent_distance_traveled_, agent_float_bytes));
     CUDA_CHECK(cudaMallocHost(&h_agent_kill_counts_, agent_u32_bytes));
     CUDA_CHECK(cudaMallocHost(&h_agent_killed_by_, agent_int_bytes));
@@ -54,7 +52,6 @@ void GpuDataBuffer::allocate_buffers() {
     CUDA_CHECK(cudaMalloc(&d_agent_age_, agent_int_bytes));
     CUDA_CHECK(cudaMalloc(&d_agent_alive_, agent_u32_bytes));
     CUDA_CHECK(cudaMalloc(&d_agent_types_, agent_type_bytes));
-    CUDA_CHECK(cudaMalloc(&d_agent_reproduction_cooldown_, agent_int_bytes));
     CUDA_CHECK(cudaMalloc(&d_agent_distance_traveled_, agent_float_bytes));
     CUDA_CHECK(cudaMalloc(&d_agent_kill_counts_, agent_u32_bytes));
     CUDA_CHECK(cudaMalloc(&d_agent_killed_by_, agent_int_bytes));
@@ -94,8 +91,6 @@ void GpuDataBuffer::free_buffers() {
     cudaFreeHost(h_agent_alive_);
   if (h_agent_types_)
     cudaFreeHost(h_agent_types_);
-  if (h_agent_reproduction_cooldown_)
-    cudaFreeHost(h_agent_reproduction_cooldown_);
   if (h_agent_distance_traveled_)
     cudaFreeHost(h_agent_distance_traveled_);
   if (h_agent_kill_counts_)
@@ -134,8 +129,6 @@ void GpuDataBuffer::free_buffers() {
     cudaFree(d_agent_alive_);
   if (d_agent_types_)
     cudaFree(d_agent_types_);
-  if (d_agent_reproduction_cooldown_)
-    cudaFree(d_agent_reproduction_cooldown_);
   if (d_agent_distance_traveled_)
     cudaFree(d_agent_distance_traveled_);
   if (d_agent_kill_counts_)
@@ -157,8 +150,8 @@ void GpuDataBuffer::free_buffers() {
     cudaFree(d_food_consumed_by_);
 }
 
-void GpuDataBuffer::upload_async(std::size_t agent_count, std::size_t food_count,
-                                 cudaStream_t stream) {
+void GpuDataBuffer::upload_async(std::size_t agent_count,
+                                 std::size_t food_count, cudaStream_t stream) {
   if (agent_count > agent_capacity_ || food_count > food_capacity_) {
     return;
   }
@@ -169,16 +162,21 @@ void GpuDataBuffer::upload_async(std::size_t agent_count, std::size_t food_count
     const std::size_t agent_u32_bytes = agent_count * sizeof(uint32_t);
     const std::size_t agent_type_bytes = agent_count * sizeof(uint8_t);
 
-    CUDA_CHECK(cudaMemcpyAsync(d_agent_pos_x_, h_agent_pos_x_, agent_float_bytes,
-                               cudaMemcpyHostToDevice, stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_agent_pos_y_, h_agent_pos_y_, agent_float_bytes,
-                               cudaMemcpyHostToDevice, stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_agent_vel_x_, h_agent_vel_x_, agent_float_bytes,
-                               cudaMemcpyHostToDevice, stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_agent_vel_y_, h_agent_vel_y_, agent_float_bytes,
-                               cudaMemcpyHostToDevice, stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_agent_speed_, h_agent_speed_, agent_float_bytes,
-                               cudaMemcpyHostToDevice, stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_agent_pos_x_, h_agent_pos_x_,
+                               agent_float_bytes, cudaMemcpyHostToDevice,
+                               stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_agent_pos_y_, h_agent_pos_y_,
+                               agent_float_bytes, cudaMemcpyHostToDevice,
+                               stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_agent_vel_x_, h_agent_vel_x_,
+                               agent_float_bytes, cudaMemcpyHostToDevice,
+                               stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_agent_vel_y_, h_agent_vel_y_,
+                               agent_float_bytes, cudaMemcpyHostToDevice,
+                               stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_agent_speed_, h_agent_speed_,
+                               agent_float_bytes, cudaMemcpyHostToDevice,
+                               stream));
     CUDA_CHECK(cudaMemcpyAsync(d_agent_energy_, h_agent_energy_,
                                agent_float_bytes, cudaMemcpyHostToDevice,
                                stream));
@@ -187,9 +185,6 @@ void GpuDataBuffer::upload_async(std::size_t agent_count, std::size_t food_count
     CUDA_CHECK(cudaMemcpyAsync(d_agent_alive_, h_agent_alive_, agent_u32_bytes,
                                cudaMemcpyHostToDevice, stream));
     CUDA_CHECK(cudaMemcpyAsync(d_agent_types_, h_agent_types_, agent_type_bytes,
-                               cudaMemcpyHostToDevice, stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_agent_reproduction_cooldown_,
-                               h_agent_reproduction_cooldown_, agent_int_bytes,
                                cudaMemcpyHostToDevice, stream));
     CUDA_CHECK(cudaMemcpyAsync(d_agent_distance_traveled_,
                                h_agent_distance_traveled_, agent_float_bytes,
@@ -228,23 +223,24 @@ void GpuDataBuffer::download_async(std::size_t agent_count,
     const std::size_t brain_bytes =
         agent_count * kBrainOutputsPerEntity * sizeof(float);
 
-    CUDA_CHECK(cudaMemcpyAsync(h_agent_pos_x_, d_agent_pos_x_, agent_float_bytes,
-                               cudaMemcpyDeviceToHost, stream));
-    CUDA_CHECK(cudaMemcpyAsync(h_agent_pos_y_, d_agent_pos_y_, agent_float_bytes,
-                               cudaMemcpyDeviceToHost, stream));
-    CUDA_CHECK(cudaMemcpyAsync(h_agent_vel_x_, d_agent_vel_x_, agent_float_bytes,
-                               cudaMemcpyDeviceToHost, stream));
-    CUDA_CHECK(cudaMemcpyAsync(h_agent_vel_y_, d_agent_vel_y_, agent_float_bytes,
-                               cudaMemcpyDeviceToHost, stream));
+    CUDA_CHECK(cudaMemcpyAsync(h_agent_pos_x_, d_agent_pos_x_,
+                               agent_float_bytes, cudaMemcpyDeviceToHost,
+                               stream));
+    CUDA_CHECK(cudaMemcpyAsync(h_agent_pos_y_, d_agent_pos_y_,
+                               agent_float_bytes, cudaMemcpyDeviceToHost,
+                               stream));
+    CUDA_CHECK(cudaMemcpyAsync(h_agent_vel_x_, d_agent_vel_x_,
+                               agent_float_bytes, cudaMemcpyDeviceToHost,
+                               stream));
+    CUDA_CHECK(cudaMemcpyAsync(h_agent_vel_y_, d_agent_vel_y_,
+                               agent_float_bytes, cudaMemcpyDeviceToHost,
+                               stream));
     CUDA_CHECK(cudaMemcpyAsync(h_agent_energy_, d_agent_energy_,
                                agent_float_bytes, cudaMemcpyDeviceToHost,
                                stream));
     CUDA_CHECK(cudaMemcpyAsync(h_agent_age_, d_agent_age_, agent_int_bytes,
                                cudaMemcpyDeviceToHost, stream));
     CUDA_CHECK(cudaMemcpyAsync(h_agent_alive_, d_agent_alive_, agent_u32_bytes,
-                               cudaMemcpyDeviceToHost, stream));
-    CUDA_CHECK(cudaMemcpyAsync(h_agent_reproduction_cooldown_,
-                               d_agent_reproduction_cooldown_, agent_int_bytes,
                                cudaMemcpyDeviceToHost, stream));
     CUDA_CHECK(cudaMemcpyAsync(h_agent_distance_traveled_,
                                d_agent_distance_traveled_, agent_float_bytes,
@@ -253,7 +249,8 @@ void GpuDataBuffer::download_async(std::size_t agent_count,
                                agent_u32_bytes, cudaMemcpyDeviceToHost,
                                stream));
     CUDA_CHECK(cudaMemcpyAsync(h_agent_killed_by_, d_agent_killed_by_,
-                               agent_int_bytes, cudaMemcpyDeviceToHost, stream));
+                               agent_int_bytes, cudaMemcpyDeviceToHost,
+                               stream));
     CUDA_CHECK(cudaMemcpyAsync(h_agent_sensor_inputs_, d_agent_sensor_inputs_,
                                sensor_bytes, cudaMemcpyDeviceToHost, stream));
     CUDA_CHECK(cudaMemcpyAsync(h_agent_brain_outputs_, d_agent_brain_outputs_,

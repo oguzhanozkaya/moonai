@@ -24,9 +24,10 @@
       --depth-5: #e0f2f1;
     }
 
-    /* Depth-based indentation for event names (4 spaces ≈ 32px per level) */
+    /* Preserve indentation via non-breaking spaces (copy-paste friendly) */
     .events-table td:first-child {
-      padding-left: calc(10px + var(--depth, 0) * 32px);
+      padding-left: 10px;
+      white-space: pre;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -531,7 +532,7 @@
           <tbody>
             {% for row in run.events %}
             <tr class="depth-{{ row.depth }}">
-              <td style="--depth: {{ row.depth }}">{{ row.name }}</td>
+              <td>{{ row.name }}</td>
               <td>{{ row.percentage }}</td>
               <td>{{ row.avg_ms }}</td>
               <td>{{ row.count }}</td>

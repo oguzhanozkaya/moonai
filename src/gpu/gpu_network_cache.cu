@@ -1,10 +1,10 @@
-#include "gpu/gpu_network_cache.hpp"
 #include "evolution/network_cache.hpp"
 #include "evolution/neural_network.hpp"
+#include "gpu/gpu_network_cache.hpp"
+#include <cmath>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <spdlog/spdlog.h>
-#include <cmath>
 
 namespace moonai {
 namespace gpu {
@@ -30,7 +30,8 @@ __device__ __forceinline__ float activate(float x) {
 
 // Neural inference kernel
 // One thread per network (not per GPU buffer entity)
-// Uses network_to_gpu mapping to access correct sensor inputs and write to correct outputs
+// Uses network_to_gpu mapping to access correct sensor inputs and write to
+// correct outputs
 __global__ void kernel_neural_inference(
     const GpuNetDescriptor *__restrict__ descriptors,
     float *__restrict__ node_values, const int *__restrict__ eval_order,
@@ -95,7 +96,9 @@ __global__ void kernel_neural_inference(
 
 GpuNetworkCache::GpuNetworkCache() = default;
 
-GpuNetworkCache::~GpuNetworkCache() { free_device_memory(); }
+GpuNetworkCache::~GpuNetworkCache() {
+  free_device_memory();
+}
 
 void GpuNetworkCache::allocate_device_memory(std::size_t node_capacity,
                                              std::size_t eval_capacity,
@@ -107,18 +110,14 @@ void GpuNetworkCache::allocate_device_memory(std::size_t node_capacity,
   const std::size_t output_capacity = entity_capacity * 2;
 
   CUDA_CHECK(cudaMalloc(&d_node_values_, node_capacity * sizeof(float)));
-  CUDA_CHECK(
-      cudaMalloc(&d_eval_order_, eval_capacity * sizeof(int)));
-  CUDA_CHECK(
-      cudaMalloc(&d_conn_from_, conn_capacity * sizeof(int)));
+  CUDA_CHECK(cudaMalloc(&d_eval_order_, eval_capacity * sizeof(int)));
+  CUDA_CHECK(cudaMalloc(&d_conn_from_, conn_capacity * sizeof(int)));
   CUDA_CHECK(cudaMalloc(&d_conn_weights_, conn_capacity * sizeof(float)));
   CUDA_CHECK(cudaMalloc(&d_conn_ptr_, ptr_capacity * sizeof(int)));
+  CUDA_CHECK(cudaMalloc(&d_out_indices_, output_capacity * sizeof(int)));
   CUDA_CHECK(
-      cudaMalloc(&d_out_indices_, output_capacity * sizeof(int)));
-  CUDA_CHECK(cudaMalloc(&d_descriptors_,
-                        entity_capacity * sizeof(GpuNetDescriptor)));
-  CUDA_CHECK(
-      cudaMalloc(&d_network_to_gpu_, entity_capacity * sizeof(int)));
+      cudaMalloc(&d_descriptors_, entity_capacity * sizeof(GpuNetDescriptor)));
+  CUDA_CHECK(cudaMalloc(&d_network_to_gpu_, entity_capacity * sizeof(int)));
 
   entity_capacity_ = entity_capacity;
   node_capacity_ = node_capacity;
@@ -227,7 +226,8 @@ void GpuNetworkCache::build_from(
     desc.num_inputs = network->num_input_nodes();
     desc.num_outputs = network->num_output_nodes();
     desc.num_nodes = network->num_nodes();
-    desc.num_eval = desc.num_nodes - desc.num_inputs - 1; // Exclude inputs and bias
+    desc.num_eval =
+        desc.num_nodes - desc.num_inputs - 1; // Exclude inputs and bias
 
     // Offsets
     desc.node_off = current_node_off;
@@ -258,7 +258,7 @@ void GpuNetworkCache::build_from(
     int ptr = 0;
     for (int node_idx : eval_order) {
       h_conn_ptr_.push_back(ptr);
-      
+
       auto incoming = network->get_incoming_connections(node_idx);
       for (const auto &conn : incoming) {
         h_conn_from_.push_back(conn.from_node);
@@ -339,8 +339,9 @@ void GpuNetworkCache::build_from(
   }
 
   dirty_ = false;
-  spdlog::debug("GPU network cache built: {} entities, {} nodes, {} connections",
-                h_descriptors_.size(), current_node_off, current_conn_off);
+  spdlog::debug(
+      "GPU network cache built: {} entities, {} nodes, {} connections",
+      h_descriptors_.size(), current_node_off, current_conn_off);
 }
 
 bool GpuNetworkCache::launch_inference_async(const float *d_sensor_inputs,
@@ -358,11 +359,13 @@ bool GpuNetworkCache::launch_inference_async(const float *d_sensor_inputs,
 
   // Zero node values for this step
   int total_nodes = h_node_values_.size();
-  CUDA_CHECK(cudaMemsetAsync(d_node_values_, 0, total_nodes * sizeof(float), stream));
+  CUDA_CHECK(
+      cudaMemsetAsync(d_node_values_, 0, total_nodes * sizeof(float), stream));
 
   // Launch kernel
   const int block_size = 256;
-  const int num_blocks = (static_cast<int>(count) + block_size - 1) / block_size;
+  const int num_blocks =
+      (static_cast<int>(count) + block_size - 1) / block_size;
 
   kernel_neural_inference<<<num_blocks, block_size, 0, stream>>>(
       d_descriptors_, d_node_values_, d_eval_order_, d_conn_from_,
@@ -372,7 +375,8 @@ bool GpuNetworkCache::launch_inference_async(const float *d_sensor_inputs,
   // Check for launch errors
   cudaError_t err = cudaGetLastError();
   if (err != cudaSuccess) {
-    spdlog::error("Neural inference kernel launch failed: {}", cudaGetErrorString(err));
+    spdlog::error("Neural inference kernel launch failed: {}",
+                  cudaGetErrorString(err));
     return false;
   }
   return true;

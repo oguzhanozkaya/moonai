@@ -40,8 +40,7 @@ TEST(SimulationSensorsTest, EncodesDxDySentinelsAndFoodDensity) {
   config.predator_speed = 0.0f;
   config.prey_speed = 0.0f;
   config.energy_drain_per_step = 0.0f;
-  config.attack_range = 0.0f;
-  config.food_pickup_range = 0.0f;
+  config.interaction_range = 0.0f;
 
   SimulationManager simulation(config);
   simulation.initialize();
@@ -76,7 +75,6 @@ TEST(SimulationSensorsTest, EncodesDxDySentinelsAndFoodDensity) {
   registry.positions().x[prey_idx] = 22.0f;
   registry.positions().y[prey_idx] = 16.0f;
 
-  simulation.refresh_state(registry);
   simulation.step(registry, evolution);
 
   const auto &food_store = simulation.food_store();

@@ -82,7 +82,6 @@ void Registry::swap_entities(std::size_t a, std::size_t b) {
   swap(vitals_.energy[a], vitals_.energy[b]);
   swap(vitals_.age[a], vitals_.age[b]);
   swap(vitals_.alive[a], vitals_.alive[b]);
-  swap(vitals_.reproduction_cooldown[a], vitals_.reproduction_cooldown[b]);
   swap(identity_.type[a], identity_.type[b]);
   swap(identity_.species_id[a], identity_.species_id[b]);
   swap(identity_.entity_id[a], identity_.entity_id[b]);
@@ -108,7 +107,6 @@ void Registry::pop_back() {
   vitals_.energy.pop_back();
   vitals_.age.pop_back();
   vitals_.alive.pop_back();
-  vitals_.reproduction_cooldown.pop_back();
   identity_.type.pop_back();
   identity_.species_id.pop_back();
   identity_.entity_id.pop_back();

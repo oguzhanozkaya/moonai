@@ -36,13 +36,11 @@ struct VitalsSoA {
   std::vector<float> energy;
   std::vector<int> age;
   std::vector<uint8_t> alive;
-  std::vector<int> reproduction_cooldown;
 
   void resize(size_t n) {
     energy.resize(n);
     age.resize(n);
     alive.resize(n);
-    reproduction_cooldown.resize(n);
   }
   size_t size() const {
     return energy.size();
