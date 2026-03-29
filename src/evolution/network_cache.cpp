@@ -4,9 +4,8 @@
 
 namespace moonai {
 
-void NetworkCache::assign(Entity e, const Genome &genome,
-                          const std::string &activation_func) {
-  networks_[e] = std::make_unique<NeuralNetwork>(genome, activation_func);
+void NetworkCache::assign(Entity e, const Genome &genome) {
+  networks_[e] = std::make_unique<NeuralNetwork>(genome);
 }
 
 NeuralNetwork *NetworkCache::get(Entity e) const {

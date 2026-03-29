@@ -8,15 +8,8 @@
 
 namespace moonai {
 
-NeuralNetwork::NeuralNetwork(const Genome &genome,
-                             const std::string &activation_fn)
+NeuralNetwork::NeuralNetwork(const Genome &genome)
     : num_inputs_(genome.num_inputs()), num_outputs_(genome.num_outputs()) {
-  if (activation_fn == "tanh")
-    activation_fn_ = ActivationFn::Tanh;
-  else if (activation_fn == "relu")
-    activation_fn_ = ActivationFn::ReLU;
-  else
-    activation_fn_ = ActivationFn::Sigmoid;
   for (const auto &ng : genome.nodes()) {
     node_index_[ng.id] = static_cast<int>(nodes_.size());
     nodes_.push_back({ng.id, ng.type});
@@ -51,7 +44,7 @@ std::vector<float> NeuralNetwork::activate(const std::vector<float> &inputs) {
     for (const auto &[from_idx, w] : incoming_[ni]) {
       sum += values_[from_idx] * w;
     }
-    values_[ni] = apply_activation(sum, activation_fn_);
+    values_[ni] = apply_activation(sum);
   }
 
   std::vector<float> outputs;
@@ -83,7 +76,7 @@ void NeuralNetwork::activate_into(const float *inputs, int n_in, float *outputs,
     for (const auto &[from_idx, w] : incoming_[ni]) {
       sum += values_[from_idx] * w;
     }
-    values_[ni] = apply_activation(sum, activation_fn_);
+    values_[ni] = apply_activation(sum);
   }
 
   int out_idx = 0;
@@ -162,26 +155,8 @@ void NeuralNetwork::build_evaluation_order() {
   }
 }
 
-float NeuralNetwork::apply_activation(float x, ActivationFn fn) {
-  switch (fn) {
-    case ActivationFn::Tanh:
-      return std::tanh(x);
-    case ActivationFn::ReLU:
-      return std::max(0.0f, x);
-    default:
-      return 1.0f / (1.0f + std::exp(-4.9f * x));
-  }
-}
-
-std::string NeuralNetwork::activation_function() const {
-  switch (activation_fn_) {
-    case ActivationFn::Tanh:
-      return "tanh";
-    case ActivationFn::ReLU:
-      return "relu";
-    default:
-      return "sigmoid";
-  }
+float NeuralNetwork::apply_activation(float x) {
+  return std::tanh(x);
 }
 
 int NeuralNetwork::num_input_nodes() const {

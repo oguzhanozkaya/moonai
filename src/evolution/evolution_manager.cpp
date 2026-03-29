@@ -65,7 +65,7 @@ void EvolutionManager::seed_initial_population(Registry &registry) {
 
     Genome genome = create_initial_genome();
     entity_genomes_[e] = genome;
-    network_cache_.assign(e, genome, config_.activation_function);
+    network_cache_.assign(e, genome);
 
     registry.positions().x[idx] = rng_.next_float(0.0f, grid_size_f);
     registry.positions().y[idx] = rng_.next_float(0.0f, grid_size_f);
@@ -104,7 +104,7 @@ void EvolutionManager::seed_initial_population(Registry &registry) {
 
     Genome genome = create_initial_genome();
     entity_genomes_[e] = genome;
-    network_cache_.assign(e, genome, config_.activation_function);
+    network_cache_.assign(e, genome);
 
     registry.positions().x[idx] = rng_.next_float(0.0f, grid_size_f);
     registry.positions().y[idx] = rng_.next_float(0.0f, grid_size_f);
@@ -191,8 +191,7 @@ Entity EvolutionManager::create_offspring(Registry &registry, Entity parent_a,
 
   entity_genomes_[child] = std::move(child_genome);
 
-  network_cache_.assign(child, entity_genomes_[child],
-                        config_.activation_function);
+  network_cache_.assign(child, entity_genomes_[child]);
 
   registry.vitals().energy[registry.index_of(parent_a)] -=
       config_.reproduction_energy_cost;

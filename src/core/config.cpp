@@ -61,8 +61,6 @@ nlohmann::json config_to_json(const SimulationConfig &config) {
   j["min_reproductive_age_steps"] = config.min_reproductive_age_steps;
   j["reproduction_cooldown_steps"] = config.reproduction_cooldown_steps;
   j["birth_spawn_radius"] = config.birth_spawn_radius;
-  j["activation_function"] = config.activation_function;
-
   return j;
 }
 
@@ -248,8 +246,6 @@ std::vector<ConfigError> apply_overrides(
       // String fields
       else if (key == "output_dir")
         config.output_dir = val;
-      else if (key == "activation_function")
-        config.activation_function = val;
       // Unknown key
       else {
         errors.push_back({key, "unknown config key"});

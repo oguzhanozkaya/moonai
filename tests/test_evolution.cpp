@@ -8,6 +8,8 @@
 #include "simulation/entity.hpp"
 #include <gtest/gtest.h>
 
+#include <cmath>
+
 using namespace moonai;
 
 // ── Innovation Tracker Tests ────────────────────────────────────────────
@@ -112,7 +114,7 @@ TEST(MutationTest, MutatedGenomeProducesValidNetwork) {
   auto outputs = nn.activate({1.0f, 0.5f, -1.0f});
   EXPECT_EQ(outputs.size(), 2u);
   for (float o : outputs) {
-    EXPECT_GE(o, 0.0f);
+    EXPECT_GE(o, -1.0f);
     EXPECT_LE(o, 1.0f);
   }
 }
@@ -500,7 +502,7 @@ TEST(NeuralNetworkTest, OutputsAreBounded) {
   NeuralNetwork nn(g);
   auto outputs = nn.activate({1.0f, 0.0f});
 
-  EXPECT_GE(outputs[0], 0.0f);
+  EXPECT_GE(outputs[0], -1.0f);
   EXPECT_LE(outputs[0], 1.0f);
 }
 
@@ -512,7 +514,7 @@ TEST(NeuralNetworkTest, DisabledConnectionsIgnored) {
   NeuralNetwork nn(g);
   auto outputs = nn.activate({1.0f});
 
-  EXPECT_NEAR(outputs[0], 0.5f, 0.01f);
+  EXPECT_NEAR(outputs[0], 0.0f, 0.01f);
 }
 
 TEST(NeuralNetworkTest, HiddenNodeTopologicalSort) {
@@ -525,7 +527,7 @@ TEST(NeuralNetworkTest, HiddenNodeTopologicalSort) {
   NeuralNetwork nn(g);
   auto outputs = nn.activate({1.0f});
 
-  EXPECT_GT(outputs[0], 0.9f);
+  EXPECT_NEAR(outputs[0], std::tanh(std::tanh(1.0f)), 0.01f);
   EXPECT_LE(outputs[0], 1.0f);
 }
 
@@ -541,7 +543,7 @@ TEST(NeuralNetworkTest, MultipleHiddenLayers) {
   NeuralNetwork nn(g);
   auto outputs = nn.activate({1.0f});
 
-  EXPECT_GE(outputs[0], 0.0f);
+  EXPECT_GE(outputs[0], -1.0f);
   EXPECT_LE(outputs[0], 1.0f);
 }
 

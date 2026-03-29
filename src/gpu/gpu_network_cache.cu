@@ -12,14 +12,8 @@ namespace gpu {
 namespace {
 
 // Device-side activation functions
-__device__ __forceinline__ float activate(float x, int fn) {
-  if (fn == 0) {        // Sigmoid (steep)
-    return 1.0f / (1.0f + expf(-4.9f * x));
-  } else if (fn == 1) { // Tanh
-    return tanhf(x);
-  } else {              // ReLU
-    return fmaxf(0.0f, x);
-  }
+__device__ __forceinline__ float activate(float x) {
+  return tanhf(x);
 }
 
 // CUDA error checking macro (logs error but doesn't throw for GPU cache)
@@ -89,7 +83,7 @@ __global__ void kernel_neural_inference(
       sum += my_nodes[from_node] * weight;
     }
 
-    my_nodes[node_idx] = activate(sum, desc.activation_fn);
+    my_nodes[node_idx] = activate(sum);
   }
 
   // 4. Extract outputs (write to GPU buffer index)
@@ -235,22 +229,13 @@ void GpuNetworkCache::build_from(
     desc.num_nodes = network->num_nodes();
     desc.num_eval = desc.num_nodes - desc.num_inputs - 1; // Exclude inputs and bias
 
-    // Activation function
-    std::string act_fn = network->activation_function();
-    if (act_fn == "tanh") {
-      desc.activation_fn = 1;
-    } else if (act_fn == "relu") {
-      desc.activation_fn = 2;
-    } else {
-      desc.activation_fn = 0; // Sigmoid default
-    }
-
     // Offsets
     desc.node_off = current_node_off;
     desc.eval_off = current_eval_off;
     desc.conn_off = current_conn_off;
     desc.ptr_off = current_ptr_off;
     desc.out_off = current_out_off;
+    desc.padding0 = 0;
     desc.padding = 0;
 
     // Build evaluation order and connections

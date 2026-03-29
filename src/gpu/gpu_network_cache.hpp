@@ -21,17 +21,17 @@ namespace gpu {
 // Per-agent network descriptor for CSR-packed flat GPU layout
 // Matches GpuNetDesc in gpu_types.hpp
 struct alignas(16) GpuNetDescriptor {
-  int num_nodes;     // Total nodes (input + bias + hidden + output)
-  int num_eval;      // Hidden + output nodes to evaluate
-  int num_inputs;    // Input count (excluding bias)
-  int num_outputs;   // Output count
-  int node_off;      // Offset into d_node_values
-  int eval_off;      // Offset into d_eval_order
-  int conn_off;      // Offset into d_conn_from/weights
-  int ptr_off;       // Offset into d_conn_ptr
-  int out_off;       // Offset into d_out_indices
-  int activation_fn; // 0=sigmoid, 1=tanh, 2=relu
-  int padding;       // Pad to 48 bytes for alignment
+  int num_nodes;   // Total nodes (input + bias + hidden + output)
+  int num_eval;    // Hidden + output nodes to evaluate
+  int num_inputs;  // Input count (excluding bias)
+  int num_outputs; // Output count
+  int node_off;    // Offset into d_node_values
+  int eval_off;    // Offset into d_eval_order
+  int conn_off;    // Offset into d_conn_from/weights
+  int ptr_off;     // Offset into d_conn_ptr
+  int out_off;     // Offset into d_out_indices
+  int padding0;
+  int padding; // Pad to 48 bytes for alignment
 };
 
 // GPU Network Cache for variable-topology NEAT networks

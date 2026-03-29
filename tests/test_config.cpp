@@ -168,7 +168,6 @@ TEST(ApplyOverrides, ValidOverrides) {
   std::vector<std::pair<std::string, std::string>> overrides = {
       {"mutation_rate", "0.1"},
       {"prey_count", "75"},
-      {"activation_function", "tanh"},
       {"seed", "42"},
   };
 
@@ -176,7 +175,6 @@ TEST(ApplyOverrides, ValidOverrides) {
   EXPECT_TRUE(errors.empty());
   EXPECT_FLOAT_EQ(config.mutation_rate, 0.1f);
   EXPECT_EQ(config.prey_count, 75);
-  EXPECT_EQ(config.activation_function, "tanh");
   EXPECT_EQ(config.seed, 42u);
 }
 

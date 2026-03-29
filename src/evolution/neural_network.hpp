@@ -2,7 +2,6 @@
 
 #include "evolution/genome.hpp"
 
-#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -11,15 +10,12 @@ namespace moonai {
 
 class NeuralNetwork {
 public:
-  enum class ActivationFn { Sigmoid, Tanh, ReLU };
-
   struct Node {
     std::uint32_t id;
     NodeType type;
   };
 
-  explicit NeuralNetwork(const Genome &genome,
-                         const std::string &activation_fn = "sigmoid");
+  explicit NeuralNetwork(const Genome &genome);
 
   std::vector<float> activate(const std::vector<float> &inputs);
   void activate_into(const float *inputs, int n_in, float *outputs, int n_out);
@@ -55,8 +51,6 @@ public:
     return values_;
   }
 
-  // GPU cache support methods
-  std::string activation_function() const;
   int num_input_nodes() const;
   int num_output_nodes() const;
 
@@ -85,10 +79,9 @@ private:
 
   int num_inputs_;
   int num_outputs_;
-  ActivationFn activation_fn_ = ActivationFn::Sigmoid;
 
   void build_evaluation_order();
-  static float apply_activation(float x, ActivationFn fn);
+  static float apply_activation(float x);
 };
 
 } // namespace moonai

@@ -61,8 +61,6 @@ local conditions = {
     pop_massive    = extend(moonai_defaults, base_20k),
     no_speciation  = extend(moonai_defaults, { compatibility_threshold = 100.0 }),
     tight_speciation = extend(moonai_defaults, { compatibility_threshold = 1.0 }),
-    tanh           = extend(moonai_defaults, { activation_function = "tanh" }),
-    relu           = extend(moonai_defaults, { activation_function = "relu" }),
     crossover_low  = extend(moonai_defaults, { crossover_rate = 0.25 }),
     crossover_none = extend(moonai_defaults, { crossover_rate = 0.0 }),
 
@@ -79,8 +77,6 @@ local conditions = {
     s5k_mut_low       = extend(moonai_defaults, base_5k, { mutation_rate = 0.1 }),
     s5k_mut_high      = extend(moonai_defaults, base_5k, { mutation_rate = 0.5 }),
     s5k_mut_very_high = extend(moonai_defaults, base_5k, { mutation_rate = 0.8 }),
-    s5k_tanh          = extend(moonai_defaults, base_5k, { activation_function = "tanh" }),
-    s5k_relu          = extend(moonai_defaults, base_5k, { activation_function = "relu" }),
     s5k_no_spec       = extend(moonai_defaults, base_5k, { compatibility_threshold = 100.0 }),
     s5k_tight_spec    = extend(moonai_defaults, base_5k, { compatibility_threshold = 1.0 }),
     s5k_crossover_low = extend(moonai_defaults, base_5k, { crossover_rate = 0.25 }),
@@ -89,8 +85,6 @@ local conditions = {
     -- ── Group D: Parameter sweeps at 10K ─────────────────────────────────
     s10k_mut_low      = extend(moonai_defaults, base_10k, { mutation_rate = 0.1 }),
     s10k_mut_high     = extend(moonai_defaults, base_10k, { mutation_rate = 0.5 }),
-    s10k_tanh         = extend(moonai_defaults, base_10k, { activation_function = "tanh" }),
-    s10k_relu         = extend(moonai_defaults, base_10k, { activation_function = "relu" }),
     s10k_no_spec      = extend(moonai_defaults, base_10k, { compatibility_threshold = 100.0 }),
     s10k_crossover_low= extend(moonai_defaults, base_10k, { crossover_rate = 0.25 }),
 

@@ -10,8 +10,7 @@ namespace moonai {
 
 class NetworkCache {
 public:
-  void assign(Entity e, const Genome &genome,
-              const std::string &activation_func);
+  void assign(Entity e, const Genome &genome);
 
   NeuralNetwork *get(Entity e) const;
 
