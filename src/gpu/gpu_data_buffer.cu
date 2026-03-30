@@ -29,25 +29,20 @@ void GpuPopulationBuffer::allocate_buffers() {
   CUDA_CHECK(cudaMallocHost(&h_pos_y_, float_bytes));
   CUDA_CHECK(cudaMallocHost(&h_vel_x_, float_bytes));
   CUDA_CHECK(cudaMallocHost(&h_vel_y_, float_bytes));
-  CUDA_CHECK(cudaMallocHost(&h_speed_, float_bytes));
   CUDA_CHECK(cudaMallocHost(&h_energy_, float_bytes));
   CUDA_CHECK(cudaMallocHost(&h_age_, int_bytes));
   CUDA_CHECK(cudaMallocHost(&h_alive_, u32_bytes));
-  CUDA_CHECK(cudaMallocHost(&h_distance_traveled_, float_bytes));
   CUDA_CHECK(cudaMallocHost(&h_kill_counts_, u32_bytes));
   CUDA_CHECK(cudaMallocHost(&h_claimed_by_, int_bytes));
-  CUDA_CHECK(cudaMallocHost(&h_sensor_inputs_, sensor_bytes));
   CUDA_CHECK(cudaMallocHost(&h_brain_outputs_, brain_bytes));
 
   CUDA_CHECK(cudaMalloc(&d_pos_x_, float_bytes));
   CUDA_CHECK(cudaMalloc(&d_pos_y_, float_bytes));
   CUDA_CHECK(cudaMalloc(&d_vel_x_, float_bytes));
   CUDA_CHECK(cudaMalloc(&d_vel_y_, float_bytes));
-  CUDA_CHECK(cudaMalloc(&d_speed_, float_bytes));
   CUDA_CHECK(cudaMalloc(&d_energy_, float_bytes));
   CUDA_CHECK(cudaMalloc(&d_age_, int_bytes));
   CUDA_CHECK(cudaMalloc(&d_alive_, u32_bytes));
-  CUDA_CHECK(cudaMalloc(&d_distance_traveled_, float_bytes));
   CUDA_CHECK(cudaMalloc(&d_kill_counts_, u32_bytes));
   CUDA_CHECK(cudaMalloc(&d_claimed_by_, int_bytes));
   CUDA_CHECK(cudaMalloc(&d_sensor_inputs_, sensor_bytes));
@@ -63,22 +58,16 @@ void GpuPopulationBuffer::free_buffers() {
     cudaFreeHost(h_vel_x_);
   if (h_vel_y_)
     cudaFreeHost(h_vel_y_);
-  if (h_speed_)
-    cudaFreeHost(h_speed_);
   if (h_energy_)
     cudaFreeHost(h_energy_);
   if (h_age_)
     cudaFreeHost(h_age_);
   if (h_alive_)
     cudaFreeHost(h_alive_);
-  if (h_distance_traveled_)
-    cudaFreeHost(h_distance_traveled_);
   if (h_kill_counts_)
     cudaFreeHost(h_kill_counts_);
   if (h_claimed_by_)
     cudaFreeHost(h_claimed_by_);
-  if (h_sensor_inputs_)
-    cudaFreeHost(h_sensor_inputs_);
   if (h_brain_outputs_)
     cudaFreeHost(h_brain_outputs_);
 
@@ -90,16 +79,12 @@ void GpuPopulationBuffer::free_buffers() {
     cudaFree(d_vel_x_);
   if (d_vel_y_)
     cudaFree(d_vel_y_);
-  if (d_speed_)
-    cudaFree(d_speed_);
   if (d_energy_)
     cudaFree(d_energy_);
   if (d_age_)
     cudaFree(d_age_);
   if (d_alive_)
     cudaFree(d_alive_);
-  if (d_distance_traveled_)
-    cudaFree(d_distance_traveled_);
   if (d_kill_counts_)
     cudaFree(d_kill_counts_);
   if (d_claimed_by_)
@@ -127,16 +112,12 @@ void GpuPopulationBuffer::upload_async(std::size_t count, cudaStream_t stream) {
                              cudaMemcpyHostToDevice, stream));
   CUDA_CHECK(cudaMemcpyAsync(d_vel_y_, h_vel_y_, float_bytes,
                              cudaMemcpyHostToDevice, stream));
-  CUDA_CHECK(cudaMemcpyAsync(d_speed_, h_speed_, float_bytes,
-                             cudaMemcpyHostToDevice, stream));
   CUDA_CHECK(cudaMemcpyAsync(d_energy_, h_energy_, float_bytes,
                              cudaMemcpyHostToDevice, stream));
   CUDA_CHECK(cudaMemcpyAsync(d_age_, h_age_, int_bytes,
                              cudaMemcpyHostToDevice, stream));
   CUDA_CHECK(cudaMemcpyAsync(d_alive_, h_alive_, u32_bytes,
                              cudaMemcpyHostToDevice, stream));
-  CUDA_CHECK(cudaMemcpyAsync(d_distance_traveled_, h_distance_traveled_,
-                             float_bytes, cudaMemcpyHostToDevice, stream));
 }
 
 void GpuPopulationBuffer::download_async(std::size_t count,
@@ -148,8 +129,6 @@ void GpuPopulationBuffer::download_async(std::size_t count,
   const std::size_t float_bytes = count * sizeof(float);
   const std::size_t int_bytes = count * sizeof(int);
   const std::size_t u32_bytes = count * sizeof(uint32_t);
-  const std::size_t sensor_bytes =
-      count * kSensorInputsPerEntity * sizeof(float);
   const std::size_t brain_bytes =
       count * kBrainOutputsPerEntity * sizeof(float);
 
@@ -167,14 +146,11 @@ void GpuPopulationBuffer::download_async(std::size_t count,
                              cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaMemcpyAsync(h_alive_, d_alive_, u32_bytes,
                              cudaMemcpyDeviceToHost, stream));
-  CUDA_CHECK(cudaMemcpyAsync(h_distance_traveled_, d_distance_traveled_,
-                             float_bytes, cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaMemcpyAsync(h_kill_counts_, d_kill_counts_, u32_bytes,
                              cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaMemcpyAsync(h_claimed_by_, d_claimed_by_, int_bytes,
                              cudaMemcpyDeviceToHost, stream));
-  CUDA_CHECK(cudaMemcpyAsync(h_sensor_inputs_, d_sensor_inputs_, sensor_bytes,
-                             cudaMemcpyDeviceToHost, stream));
+  // Sensor inputs are device-only, not downloaded
   CUDA_CHECK(cudaMemcpyAsync(h_brain_outputs_, d_brain_outputs_, brain_bytes,
                              cudaMemcpyDeviceToHost, stream));
 }

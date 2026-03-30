@@ -140,7 +140,7 @@ template <bool SelfIsPredator>
 __global__ void kernel_build_sensors(
     const float *__restrict__ self_pos_x, const float *__restrict__ self_pos_y,
     const float *__restrict__ self_vel_x, const float *__restrict__ self_vel_y,
-    const float *__restrict__ self_speed, const uint32_t *__restrict__ self_alive,
+    const uint32_t *__restrict__ self_alive,
     const float *__restrict__ self_energy,
     const int *__restrict__ predator_cell_offsets,
     const GpuPopulationEntry *__restrict__ predator_entries,
@@ -150,7 +150,7 @@ __global__ void kernel_build_sensors(
     const GpuFoodEntry *__restrict__ food_entries,
     float *__restrict__ sensor_inputs, int self_count, int grid_cols,
     int grid_rows, float grid_cell_size, float world_width, float world_height,
-    float vision_range, float max_energy) {
+    float vision_range, float max_energy, float agent_speed) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= self_count) {
     return;
@@ -284,9 +284,9 @@ __global__ void kernel_build_sensors(
   }
 
   out[6] = clampf(self_energy[idx] / (max_energy * 2.0f), 0.0f, 1.0f);
-  if (self_speed[idx] > 0.0f) {
-    out[7] = clampf(self_vel_x[idx] / self_speed[idx], -1.0f, 1.0f);
-    out[8] = clampf(self_vel_y[idx] / self_speed[idx], -1.0f, 1.0f);
+  if (agent_speed > 0.0f) {
+    out[7] = clampf(self_vel_x[idx] / agent_speed, -1.0f, 1.0f);
+    out[8] = clampf(self_vel_y[idx] / agent_speed, -1.0f, 1.0f);
   }
   out[9] = clampf(static_cast<float>(local_predators) / kMaxDensity, 0.0f, 1.0f);
   out[10] = clampf(static_cast<float>(local_prey) / kMaxDensity, 0.0f, 1.0f);
@@ -459,10 +459,9 @@ __global__ void kernel_finalize_combat(
 __global__ void kernel_apply_movement(
     float *__restrict__ pos_x, float *__restrict__ pos_y,
     float *__restrict__ vel_x, float *__restrict__ vel_y,
-    const float *__restrict__ speed, const uint32_t *__restrict__ alive,
-    float *__restrict__ distance_traveled,
+    const uint32_t *__restrict__ alive,
     const float *__restrict__ brain_outputs, int count, float world_width,
-    float world_height) {
+    float world_height, float agent_speed) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= count || alive[idx] == 0) {
     return;
@@ -479,11 +478,8 @@ __global__ void kernel_apply_movement(
     dy = 0.0f;
   }
 
-  vel_x[idx] = dx * speed[idx];
-  vel_y[idx] = dy * speed[idx];
-
-  const float old_x = pos_x[idx];
-  const float old_y = pos_y[idx];
+  vel_x[idx] = dx * agent_speed;
+  vel_y[idx] = dy * agent_speed;
 
   pos_x[idx] += vel_x[idx];
   pos_y[idx] += vel_y[idx];
@@ -496,11 +492,6 @@ __global__ void kernel_apply_movement(
     pos_y[idx] += world_height;
   while (pos_y[idx] >= world_height)
     pos_y[idx] -= world_height;
-
-  float move_dx = pos_x[idx] - old_x;
-  float move_dy = pos_y[idx] - old_y;
-  apply_wrap(move_dx, move_dy, world_width, world_height);
-  distance_traveled[idx] += sqrtf(move_dx * move_dx + move_dy * move_dy);
 }
 
 } // namespace
@@ -727,26 +718,26 @@ void GpuBatch::launch_build_sensors_async(const GpuStepParams &params,
           predator_buffer_.device_positions_x(),
           predator_buffer_.device_positions_y(),
           predator_buffer_.device_velocities_x(),
-          predator_buffer_.device_velocities_y(), predator_buffer_.device_speed(),
+          predator_buffer_.device_velocities_y(),
           predator_buffer_.device_alive(), predator_buffer_.device_energy(),
           d_predator_cell_offsets_, d_predator_grid_entries_, d_prey_cell_offsets_,
           d_prey_grid_entries_, d_food_cell_offsets_, d_food_grid_entries_,
           predator_buffer_.device_sensor_inputs(),
           static_cast<int>(predator_count), grid_cols_, grid_rows_,
           grid_cell_size_, params.world_width, params.world_height,
-          params.vision_range, params.max_energy);
+          params.vision_range, params.max_energy, params.predator_speed);
     }
     if (prey_count > 0) {
       kernel_build_sensors<false><<<prey_blocks, kThreadsPerBlock, 0, stream>>>(
           prey_buffer_.device_positions_x(), prey_buffer_.device_positions_y(),
           prey_buffer_.device_velocities_x(), prey_buffer_.device_velocities_y(),
-          prey_buffer_.device_speed(), prey_buffer_.device_alive(),
+          prey_buffer_.device_alive(),
           prey_buffer_.device_energy(), d_predator_cell_offsets_,
           d_predator_grid_entries_, d_prey_cell_offsets_, d_prey_grid_entries_,
           d_food_cell_offsets_, d_food_grid_entries_,
           prey_buffer_.device_sensor_inputs(), static_cast<int>(prey_count),
           grid_cols_, grid_rows_, grid_cell_size_, params.world_width,
-          params.world_height, params.vision_range, params.max_energy);
+          params.world_height, params.vision_range, params.max_energy, params.prey_speed);
     }
     if (predator_count > 0) {
       CUDA_CHECK(cudaMemsetAsync(predator_buffer_.device_brain_outputs(), 0,
@@ -827,20 +818,18 @@ void GpuBatch::launch_post_inference_async(const GpuStepParams &params,
     kernel_apply_movement<<<predator_blocks, kThreadsPerBlock, 0, stream>>>(
         predator_buffer_.device_positions_x(), predator_buffer_.device_positions_y(),
         predator_buffer_.device_velocities_x(),
-        predator_buffer_.device_velocities_y(), predator_buffer_.device_speed(),
+        predator_buffer_.device_velocities_y(),
         predator_buffer_.device_alive(),
-        predator_buffer_.device_distance_traveled(),
         predator_buffer_.device_brain_outputs(), static_cast<int>(predator_count),
-        params.world_width, params.world_height);
+        params.world_width, params.world_height, params.predator_speed);
   }
   if (prey_count > 0) {
     kernel_apply_movement<<<prey_blocks, kThreadsPerBlock, 0, stream>>>(
         prey_buffer_.device_positions_x(), prey_buffer_.device_positions_y(),
         prey_buffer_.device_velocities_x(), prey_buffer_.device_velocities_y(),
-        prey_buffer_.device_speed(), prey_buffer_.device_alive(),
-        prey_buffer_.device_distance_traveled(),
+        prey_buffer_.device_alive(),
         prey_buffer_.device_brain_outputs(), static_cast<int>(prey_count),
-        params.world_width, params.world_height);
+        params.world_width, params.world_height, params.prey_speed);
   }
 
   check_launch_error();

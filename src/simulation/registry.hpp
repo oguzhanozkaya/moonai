@@ -44,7 +44,6 @@ struct AgentRegistry {
   std::vector<float> pos_y;
   std::vector<float> vel_x;
   std::vector<float> vel_y;
-  std::vector<float> speed;
   std::vector<float> energy;
   std::vector<int> age;
   std::vector<uint8_t> alive;
@@ -53,8 +52,6 @@ struct AgentRegistry {
   std::vector<float> sensors;
   std::vector<float> decision_x;
   std::vector<float> decision_y;
-  std::vector<float> distance_traveled;
-  std::vector<int> offspring_count;
   std::vector<int> consumption;
 
   uint32_t create();

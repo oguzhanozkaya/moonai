@@ -10,7 +10,8 @@ namespace moonai::simulation_detail {
 void build_sensors(AgentRegistry &self_agents,
                    const AgentRegistry &predator_agents,
                    const AgentRegistry &prey_agents,
-                   const FoodStore &food_store, const SimulationConfig &config);
+                   const FoodStore &food_store, const SimulationConfig &config,
+                   float agent_speed);
 void update_vitals(AgentRegistry &agents, const SimulationConfig &config);
 void process_food(AgentRegistry &prey_registry, FoodStore &food_store,
                   const SimulationConfig &config,
@@ -19,7 +20,8 @@ void process_combat(AgentRegistry &predator_registry,
                     AgentRegistry &prey_registry,
                     const SimulationConfig &config, std::vector<int> &killed_by,
                     std::vector<uint32_t> &kill_counts);
-void apply_movement(AgentRegistry &agents, const SimulationConfig &config);
+void apply_movement(AgentRegistry &agents, const SimulationConfig &config,
+                    float agent_speed);
 void collect_food_events(AgentRegistry &prey_registry,
                          const FoodStore &food_store,
                          const std::vector<uint8_t> &was_food_active,

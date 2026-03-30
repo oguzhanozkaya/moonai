@@ -21,6 +21,8 @@ struct GpuStepParams {
   float interaction_range = 12.0f;
   float energy_gain_from_food = 40.0f;
   float energy_gain_from_kill = 60.0f;
+  float predator_speed = 0.6f;
+  float prey_speed = 0.66f;
 };
 
 class GpuBatch {

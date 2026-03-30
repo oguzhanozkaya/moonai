@@ -226,9 +226,11 @@ void SimulationManager::step(AppState &state, EvolutionManager &evolution) {
   std::vector<uint32_t> kill_counts(state.predators.size(), 0U);
 
   simulation_detail::build_sensors(state.predators, state.predators, state.prey,
-                                   state.food_store, config_);
+                                   state.food_store, config_,
+                                   config_.predator_speed);
   simulation_detail::build_sensors(state.prey, state.predators, state.prey,
-                                   state.food_store, config_);
+                                   state.food_store, config_,
+                                   config_.prey_speed);
   evolution.compute_actions(state);
   simulation_detail::update_vitals(state.predators, config_);
   simulation_detail::update_vitals(state.prey, config_);
@@ -236,8 +238,9 @@ void SimulationManager::step(AppState &state, EvolutionManager &evolution) {
                                   food_consumed_by);
   simulation_detail::process_combat(state.predators, state.prey, config_,
                                     killed_by, kill_counts);
-  simulation_detail::apply_movement(state.predators, config_);
-  simulation_detail::apply_movement(state.prey, config_);
+  simulation_detail::apply_movement(state.predators, config_,
+                                    config_.predator_speed);
+  simulation_detail::apply_movement(state.prey, config_, config_.prey_speed);
 
   simulation_detail::collect_food_events(state.prey, state.food_store,
                                          was_food_active, food_consumed_by,

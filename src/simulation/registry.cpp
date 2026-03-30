@@ -13,7 +13,6 @@ void resize_registry(AgentRegistry &registry, std::size_t new_size) {
   registry.pos_y.resize(new_size);
   registry.vel_x.resize(new_size);
   registry.vel_y.resize(new_size);
-  registry.speed.resize(new_size);
   registry.energy.resize(new_size);
   registry.age.resize(new_size);
   registry.alive.resize(new_size);
@@ -22,8 +21,6 @@ void resize_registry(AgentRegistry &registry, std::size_t new_size) {
   registry.sensors.resize(new_size * AgentRegistry::INPUT_COUNT);
   registry.decision_x.resize(new_size);
   registry.decision_y.resize(new_size);
-  registry.distance_traveled.resize(new_size);
-  registry.offspring_count.resize(new_size);
   registry.consumption.resize(new_size);
 }
 
@@ -38,7 +35,6 @@ void swap_agent_fields(AgentRegistry &registry, std::size_t a, std::size_t b) {
   swap(registry.pos_y[a], registry.pos_y[b]);
   swap(registry.vel_x[a], registry.vel_x[b]);
   swap(registry.vel_y[a], registry.vel_y[b]);
-  swap(registry.speed[a], registry.speed[b]);
   swap(registry.energy[a], registry.energy[b]);
   swap(registry.age[a], registry.age[b]);
   swap(registry.alive[a], registry.alive[b]);
@@ -50,8 +46,6 @@ void swap_agent_fields(AgentRegistry &registry, std::size_t a, std::size_t b) {
   }
   swap(registry.decision_x[a], registry.decision_x[b]);
   swap(registry.decision_y[a], registry.decision_y[b]);
-  swap(registry.distance_traveled[a], registry.distance_traveled[b]);
-  swap(registry.offspring_count[a], registry.offspring_count[b]);
   swap(registry.consumption[a], registry.consumption[b]);
 }
 
@@ -60,7 +54,6 @@ void pop_back_agent_fields(AgentRegistry &registry, std::size_t new_size) {
   registry.pos_y.pop_back();
   registry.vel_x.pop_back();
   registry.vel_y.pop_back();
-  registry.speed.pop_back();
   registry.energy.pop_back();
   registry.age.pop_back();
   registry.alive.pop_back();
@@ -69,8 +62,6 @@ void pop_back_agent_fields(AgentRegistry &registry, std::size_t new_size) {
   registry.sensors.resize(new_size * AgentRegistry::INPUT_COUNT);
   registry.decision_x.pop_back();
   registry.decision_y.pop_back();
-  registry.distance_traveled.pop_back();
-  registry.offspring_count.pop_back();
   registry.consumption.pop_back();
 }
 

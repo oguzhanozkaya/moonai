@@ -33,9 +33,6 @@ public:
   [[nodiscard]] float *host_velocities_y() const noexcept {
     return h_vel_y_;
   }
-  [[nodiscard]] float *host_speed() const noexcept {
-    return h_speed_;
-  }
   [[nodiscard]] float *host_energy() const noexcept {
     return h_energy_;
   }
@@ -45,17 +42,11 @@ public:
   [[nodiscard]] uint32_t *host_alive() const noexcept {
     return h_alive_;
   }
-  [[nodiscard]] float *host_distance_traveled() const noexcept {
-    return h_distance_traveled_;
-  }
   [[nodiscard]] uint32_t *host_kill_counts() const noexcept {
     return h_kill_counts_;
   }
   [[nodiscard]] int *host_claimed_by() const noexcept {
     return h_claimed_by_;
-  }
-  [[nodiscard]] float *host_sensor_inputs() const noexcept {
-    return h_sensor_inputs_;
   }
   [[nodiscard]] float *host_brain_outputs() const noexcept {
     return h_brain_outputs_;
@@ -73,9 +64,6 @@ public:
   [[nodiscard]] float *device_velocities_y() const noexcept {
     return d_vel_y_;
   }
-  [[nodiscard]] float *device_speed() const noexcept {
-    return d_speed_;
-  }
   [[nodiscard]] float *device_energy() const noexcept {
     return d_energy_;
   }
@@ -84,9 +72,6 @@ public:
   }
   [[nodiscard]] uint32_t *device_alive() const noexcept {
     return d_alive_;
-  }
-  [[nodiscard]] float *device_distance_traveled() const noexcept {
-    return d_distance_traveled_;
   }
   [[nodiscard]] uint32_t *device_kill_counts() const noexcept {
     return d_kill_counts_;
@@ -116,25 +101,20 @@ private:
   float *h_pos_y_ = nullptr;
   float *h_vel_x_ = nullptr;
   float *h_vel_y_ = nullptr;
-  float *h_speed_ = nullptr;
   float *h_energy_ = nullptr;
   int *h_age_ = nullptr;
   uint32_t *h_alive_ = nullptr;
-  float *h_distance_traveled_ = nullptr;
   uint32_t *h_kill_counts_ = nullptr;
   int *h_claimed_by_ = nullptr;
-  float *h_sensor_inputs_ = nullptr;
   float *h_brain_outputs_ = nullptr;
 
   float *d_pos_x_ = nullptr;
   float *d_pos_y_ = nullptr;
   float *d_vel_x_ = nullptr;
   float *d_vel_y_ = nullptr;
-  float *d_speed_ = nullptr;
   float *d_energy_ = nullptr;
   int *d_age_ = nullptr;
   uint32_t *d_alive_ = nullptr;
-  float *d_distance_traveled_ = nullptr;
   uint32_t *d_kill_counts_ = nullptr;
   int *d_claimed_by_ = nullptr;
   float *d_sensor_inputs_ = nullptr;

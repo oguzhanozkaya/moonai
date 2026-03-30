@@ -61,13 +61,10 @@ void EvolutionManager::seed_initial_population(AppState &state) {
     state.evolution.predators.network_cache.assign(
         idx, state.evolution.predators.genomes[idx]);
 
-    state.predators.pos_x[idx] =
-        state.runtime.rng.next_float(0.0f, grid_size);
-    state.predators.pos_y[idx] =
-        state.runtime.rng.next_float(0.0f, grid_size);
+    state.predators.pos_x[idx] = state.runtime.rng.next_float(0.0f, grid_size);
+    state.predators.pos_y[idx] = state.runtime.rng.next_float(0.0f, grid_size);
     state.predators.vel_x[idx] = 0.0f;
     state.predators.vel_y[idx] = 0.0f;
-    state.predators.speed[idx] = config_.predator_speed;
     state.predators.energy[idx] = config_.initial_energy;
     state.predators.age[idx] = 0;
     state.predators.alive[idx] = 1;
@@ -78,8 +75,6 @@ void EvolutionManager::seed_initial_population(AppState &state) {
               0.0f);
     state.predators.decision_x[idx] = 0.0f;
     state.predators.decision_y[idx] = 0.0f;
-    state.predators.distance_traveled[idx] = 0.0f;
-    state.predators.offspring_count[idx] = 0;
     state.predators.consumption[idx] = 0;
   };
 
@@ -98,7 +93,6 @@ void EvolutionManager::seed_initial_population(AppState &state) {
     state.prey.pos_y[idx] = state.runtime.rng.next_float(0.0f, grid_size);
     state.prey.vel_x[idx] = 0.0f;
     state.prey.vel_y[idx] = 0.0f;
-    state.prey.speed[idx] = config_.prey_speed;
     state.prey.energy[idx] = config_.initial_energy;
     state.prey.age[idx] = 0;
     state.prey.alive[idx] = 1;
@@ -108,8 +102,6 @@ void EvolutionManager::seed_initial_population(AppState &state) {
               state.prey.input_ptr(idx) + AgentRegistry::INPUT_COUNT, 0.0f);
     state.prey.decision_x[idx] = 0.0f;
     state.prey.decision_y[idx] = 0.0f;
-    state.prey.distance_traveled[idx] = 0.0f;
-    state.prey.offspring_count[idx] = 0;
     state.prey.consumption[idx] = 0;
   };
 
@@ -149,7 +141,6 @@ uint32_t EvolutionManager::create_predator_offspring(AppState &state,
   state.predators.pos_y[idx] = spawn_position.y;
   state.predators.vel_x[idx] = 0.0f;
   state.predators.vel_y[idx] = 0.0f;
-  state.predators.speed[idx] = state.predators.speed[parent_a];
   state.predators.energy[idx] = config_.offspring_initial_energy;
   state.predators.age[idx] = 0;
   state.predators.alive[idx] = 1;
@@ -159,8 +150,6 @@ uint32_t EvolutionManager::create_predator_offspring(AppState &state,
             state.predators.input_ptr(idx) + AgentRegistry::INPUT_COUNT, 0.0f);
   state.predators.decision_x[idx] = 0.0f;
   state.predators.decision_y[idx] = 0.0f;
-  state.predators.distance_traveled[idx] = 0.0f;
-  state.predators.offspring_count[idx] = 0;
   state.predators.consumption[idx] = 0;
 
   if (idx >= state.evolution.predators.genomes.size()) {
@@ -172,8 +161,6 @@ uint32_t EvolutionManager::create_predator_offspring(AppState &state,
 
   state.predators.energy[parent_a] -= config_.reproduction_energy_cost;
   state.predators.energy[parent_b] -= config_.reproduction_energy_cost;
-  state.predators.offspring_count[parent_a]++;
-  state.predators.offspring_count[parent_b]++;
 
   if (predator_gpu_network_cache_) {
     predator_gpu_network_cache_->invalidate();
@@ -203,7 +190,6 @@ uint32_t EvolutionManager::create_prey_offspring(AppState &state,
   state.prey.pos_y[idx] = spawn_position.y;
   state.prey.vel_x[idx] = 0.0f;
   state.prey.vel_y[idx] = 0.0f;
-  state.prey.speed[idx] = state.prey.speed[parent_a];
   state.prey.energy[idx] = config_.offspring_initial_energy;
   state.prey.age[idx] = 0;
   state.prey.alive[idx] = 1;
@@ -213,8 +199,6 @@ uint32_t EvolutionManager::create_prey_offspring(AppState &state,
             state.prey.input_ptr(idx) + AgentRegistry::INPUT_COUNT, 0.0f);
   state.prey.decision_x[idx] = 0.0f;
   state.prey.decision_y[idx] = 0.0f;
-  state.prey.distance_traveled[idx] = 0.0f;
-  state.prey.offspring_count[idx] = 0;
   state.prey.consumption[idx] = 0;
 
   if (idx >= state.evolution.prey.genomes.size()) {
@@ -226,8 +210,6 @@ uint32_t EvolutionManager::create_prey_offspring(AppState &state,
 
   state.prey.energy[parent_a] -= config_.reproduction_energy_cost;
   state.prey.energy[parent_b] -= config_.reproduction_energy_cost;
-  state.prey.offspring_count[parent_a]++;
-  state.prey.offspring_count[parent_b]++;
 
   if (prey_gpu_network_cache_) {
     prey_gpu_network_cache_->invalidate();

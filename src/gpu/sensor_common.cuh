@@ -9,7 +9,7 @@ struct SensorBuildView {
   const float *agent_pos_y;
   const float *agent_vel_x;
   const float *agent_vel_y;
-  const float *agent_speed;
+  float agent_speed;
   const float *agent_vision;
   const float *agent_energy;
   const unsigned int *agent_ids;
@@ -268,8 +268,8 @@ build_sensor_inputs_for_agent(const SensorBuildView &view, int agent_idx) {
   }
   out[6] = sensor_clampf(
       view.agent_energy[agent_idx] / (view.max_energy * 2.0f), 0.0f, 1.0f);
-  if (view.agent_speed[agent_idx] > 0.0f) {
-    const float inv_speed = 1.0f / view.agent_speed[agent_idx];
+  if (view.agent_speed > 0.0f) {
+    const float inv_speed = 1.0f / view.agent_speed;
     out[7] =
         sensor_clampf(view.agent_vel_x[agent_idx] * inv_speed, -1.0f, 1.0f);
     out[8] =

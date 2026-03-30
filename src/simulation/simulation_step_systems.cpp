@@ -40,8 +40,8 @@ void collect_death_events_impl(const RegistryT &registry,
 void build_sensors(AgentRegistry &self_agents,
                    const AgentRegistry &predator_agents,
                    const AgentRegistry &prey_agents,
-                   const FoodStore &food_store,
-                   const SimulationConfig &config) {
+                   const FoodStore &food_store, const SimulationConfig &config,
+                   float agent_speed) {
   const float world_size = static_cast<float>(config.grid_size);
   const float vision = config.vision_range;
   const float vision_sq = vision * vision;
@@ -159,11 +159,11 @@ void build_sensors(AgentRegistry &self_agents,
         std::clamp(self_agents.energy[i] /
                        (static_cast<float>(config.initial_energy) * 2.0f),
                    0.0f, 1.0f);
-    if (self_agents.speed[i] > 0.0f) {
+    if (agent_speed > 0.0f) {
       sensor_ptr[7] =
-          std::clamp(self_agents.vel_x[i] / self_agents.speed[i], -1.0f, 1.0f);
+          std::clamp(self_agents.vel_x[i] / agent_speed, -1.0f, 1.0f);
       sensor_ptr[8] =
-          std::clamp(self_agents.vel_y[i] / self_agents.speed[i], -1.0f, 1.0f);
+          std::clamp(self_agents.vel_y[i] / agent_speed, -1.0f, 1.0f);
     }
     sensor_ptr[9] = std::clamp(
         static_cast<float>(local_predators) / kMaxDensity, 0.0f, 1.0f);
@@ -308,7 +308,8 @@ void process_combat(AgentRegistry &predator_registry,
   }
 }
 
-void apply_movement(AgentRegistry &agents, const SimulationConfig &config) {
+void apply_movement(AgentRegistry &agents, const SimulationConfig &config,
+                    float agent_speed) {
   const float world_size = static_cast<float>(config.grid_size);
   const uint32_t entity_count = static_cast<uint32_t>(agents.size());
 
@@ -328,11 +329,8 @@ void apply_movement(AgentRegistry &agents, const SimulationConfig &config) {
       dy = 0.0f;
     }
 
-    agents.vel_x[i] = dx * agents.speed[i];
-    agents.vel_y[i] = dy * agents.speed[i];
-
-    const float old_x = agents.pos_x[i];
-    const float old_y = agents.pos_y[i];
+    agents.vel_x[i] = dx * agent_speed;
+    agents.vel_y[i] = dy * agent_speed;
 
     agents.pos_x[i] += agents.vel_x[i];
     agents.pos_y[i] += agents.vel_y[i];
@@ -345,10 +343,6 @@ void apply_movement(AgentRegistry &agents, const SimulationConfig &config) {
       agents.pos_y[i] += world_size;
     while (agents.pos_y[i] >= world_size)
       agents.pos_y[i] -= world_size;
-
-    Vec2 move = wrap_diff({agents.pos_x[i] - old_x, agents.pos_y[i] - old_y},
-                          world_size, world_size);
-    agents.distance_traveled[i] += std::sqrt(move.x * move.x + move.y * move.y);
   }
 }
 
