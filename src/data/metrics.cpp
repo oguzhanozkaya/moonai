@@ -45,12 +45,12 @@ void record_report(AppState &state) {
   float complexity_sum = 0.0f;
   int genome_count = 0;
 
-  for (float energy : state.predators.agents.energy) {
+  for (float energy : state.predators.energy) {
     predator_energy_sum += energy;
     ++predator_energy_count;
   }
 
-  for (float energy : state.prey.agents.energy) {
+  for (float energy : state.prey.energy) {
     prey_energy_sum += energy;
     ++prey_energy_count;
   }

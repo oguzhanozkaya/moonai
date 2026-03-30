@@ -114,8 +114,8 @@ struct UiState {
 struct AppState {
   explicit AppState(std::uint64_t seed) : runtime(seed) {}
 
-  PredatorRegistry predators;
-  PreyRegistry prey;
+  AgentRegistry predators;
+  AgentRegistry prey;
   FoodStore food_store;
   EvolutionState evolution;
   RuntimeState runtime;

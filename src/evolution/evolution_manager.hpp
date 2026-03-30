@@ -4,7 +4,7 @@
 #include "core/random.hpp"
 #include "core/types.hpp"
 #include "evolution/genome.hpp"
-#include "simulation/components.hpp"
+#include "simulation/registry.hpp"
 
 #include <memory>
 #include <vector>
@@ -57,9 +57,9 @@ private:
                              const Genome &parent_b) const;
   void initialize_population(PopulationEvolutionState &population) const;
   void compute_actions_for_population(PopulationEvolutionState &population,
-                                      AgentSoA &agents) const;
+                                      AgentRegistry &agents) const;
   void refresh_population_species(PopulationEvolutionState &population,
-                                  AgentSoA &agents) const;
+                                  AgentRegistry &agents) const;
   void on_population_destroyed(PopulationEvolutionState &population,
                                uint32_t entity);
   void on_population_moved(PopulationEvolutionState &population, uint32_t from,

@@ -61,26 +61,26 @@ void EvolutionManager::seed_initial_population(AppState &state) {
     state.evolution.predators.network_cache.assign(
         idx, state.evolution.predators.genomes[idx]);
 
-    state.predators.positions.x[idx] =
+    state.predators.pos_x[idx] =
         state.runtime.rng.next_float(0.0f, grid_size);
-    state.predators.positions.y[idx] =
+    state.predators.pos_y[idx] =
         state.runtime.rng.next_float(0.0f, grid_size);
-    state.predators.agents.vel_x[idx] = 0.0f;
-    state.predators.agents.vel_y[idx] = 0.0f;
-    state.predators.agents.speed[idx] = config_.predator_speed;
-    state.predators.agents.energy[idx] = config_.initial_energy;
-    state.predators.agents.age[idx] = 0;
-    state.predators.agents.alive[idx] = 1;
-    state.predators.agents.species_id[idx] = 0;
-    state.predators.agents.entity_id[idx] = state.runtime.next_agent_id++;
-    std::fill(state.predators.agents.input_ptr(idx),
-              state.predators.agents.input_ptr(idx) + AgentSoA::INPUT_COUNT,
+    state.predators.vel_x[idx] = 0.0f;
+    state.predators.vel_y[idx] = 0.0f;
+    state.predators.speed[idx] = config_.predator_speed;
+    state.predators.energy[idx] = config_.initial_energy;
+    state.predators.age[idx] = 0;
+    state.predators.alive[idx] = 1;
+    state.predators.species_id[idx] = 0;
+    state.predators.entity_id[idx] = state.runtime.next_agent_id++;
+    std::fill(state.predators.input_ptr(idx),
+              state.predators.input_ptr(idx) + AgentRegistry::INPUT_COUNT,
               0.0f);
-    state.predators.agents.decision_x[idx] = 0.0f;
-    state.predators.agents.decision_y[idx] = 0.0f;
-    state.predators.agents.distance_traveled[idx] = 0.0f;
-    state.predators.agents.offspring_count[idx] = 0;
-    state.predators.predator.kills[idx] = 0;
+    state.predators.decision_x[idx] = 0.0f;
+    state.predators.decision_y[idx] = 0.0f;
+    state.predators.distance_traveled[idx] = 0.0f;
+    state.predators.offspring_count[idx] = 0;
+    state.predators.consumption[idx] = 0;
   };
 
   auto seed_prey = [&] {
@@ -94,23 +94,23 @@ void EvolutionManager::seed_initial_population(AppState &state) {
     state.evolution.prey.network_cache.assign(
         idx, state.evolution.prey.genomes[idx]);
 
-    state.prey.positions.x[idx] = state.runtime.rng.next_float(0.0f, grid_size);
-    state.prey.positions.y[idx] = state.runtime.rng.next_float(0.0f, grid_size);
-    state.prey.agents.vel_x[idx] = 0.0f;
-    state.prey.agents.vel_y[idx] = 0.0f;
-    state.prey.agents.speed[idx] = config_.prey_speed;
-    state.prey.agents.energy[idx] = config_.initial_energy;
-    state.prey.agents.age[idx] = 0;
-    state.prey.agents.alive[idx] = 1;
-    state.prey.agents.species_id[idx] = 0;
-    state.prey.agents.entity_id[idx] = state.runtime.next_agent_id++;
-    std::fill(state.prey.agents.input_ptr(idx),
-              state.prey.agents.input_ptr(idx) + AgentSoA::INPUT_COUNT, 0.0f);
-    state.prey.agents.decision_x[idx] = 0.0f;
-    state.prey.agents.decision_y[idx] = 0.0f;
-    state.prey.agents.distance_traveled[idx] = 0.0f;
-    state.prey.agents.offspring_count[idx] = 0;
-    state.prey.prey.food_eaten[idx] = 0;
+    state.prey.pos_x[idx] = state.runtime.rng.next_float(0.0f, grid_size);
+    state.prey.pos_y[idx] = state.runtime.rng.next_float(0.0f, grid_size);
+    state.prey.vel_x[idx] = 0.0f;
+    state.prey.vel_y[idx] = 0.0f;
+    state.prey.speed[idx] = config_.prey_speed;
+    state.prey.energy[idx] = config_.initial_energy;
+    state.prey.age[idx] = 0;
+    state.prey.alive[idx] = 1;
+    state.prey.species_id[idx] = 0;
+    state.prey.entity_id[idx] = state.runtime.next_agent_id++;
+    std::fill(state.prey.input_ptr(idx),
+              state.prey.input_ptr(idx) + AgentRegistry::INPUT_COUNT, 0.0f);
+    state.prey.decision_x[idx] = 0.0f;
+    state.prey.decision_y[idx] = 0.0f;
+    state.prey.distance_traveled[idx] = 0.0f;
+    state.prey.offspring_count[idx] = 0;
+    state.prey.consumption[idx] = 0;
   };
 
   for (int i = 0; i < config_.predator_count; ++i) {
@@ -145,25 +145,23 @@ uint32_t EvolutionManager::create_predator_offspring(AppState &state,
                           state.evolution.predators.genomes[parent_b]);
 
   const uint32_t idx = state.predators.create();
-  state.predators.positions.x[idx] = spawn_position.x;
-  state.predators.positions.y[idx] = spawn_position.y;
-  state.predators.agents.vel_x[idx] = 0.0f;
-  state.predators.agents.vel_y[idx] = 0.0f;
-  state.predators.agents.speed[idx] = state.predators.agents.speed[parent_a];
-  state.predators.agents.energy[idx] = config_.offspring_initial_energy;
-  state.predators.agents.age[idx] = 0;
-  state.predators.agents.alive[idx] = 1;
-  state.predators.agents.species_id[idx] =
-      state.predators.agents.species_id[parent_a];
-  state.predators.agents.entity_id[idx] = state.runtime.next_agent_id++;
-  std::fill(state.predators.agents.input_ptr(idx),
-            state.predators.agents.input_ptr(idx) + AgentSoA::INPUT_COUNT,
-            0.0f);
-  state.predators.agents.decision_x[idx] = 0.0f;
-  state.predators.agents.decision_y[idx] = 0.0f;
-  state.predators.agents.distance_traveled[idx] = 0.0f;
-  state.predators.agents.offspring_count[idx] = 0;
-  state.predators.predator.kills[idx] = 0;
+  state.predators.pos_x[idx] = spawn_position.x;
+  state.predators.pos_y[idx] = spawn_position.y;
+  state.predators.vel_x[idx] = 0.0f;
+  state.predators.vel_y[idx] = 0.0f;
+  state.predators.speed[idx] = state.predators.speed[parent_a];
+  state.predators.energy[idx] = config_.offspring_initial_energy;
+  state.predators.age[idx] = 0;
+  state.predators.alive[idx] = 1;
+  state.predators.species_id[idx] = state.predators.species_id[parent_a];
+  state.predators.entity_id[idx] = state.runtime.next_agent_id++;
+  std::fill(state.predators.input_ptr(idx),
+            state.predators.input_ptr(idx) + AgentRegistry::INPUT_COUNT, 0.0f);
+  state.predators.decision_x[idx] = 0.0f;
+  state.predators.decision_y[idx] = 0.0f;
+  state.predators.distance_traveled[idx] = 0.0f;
+  state.predators.offspring_count[idx] = 0;
+  state.predators.consumption[idx] = 0;
 
   if (idx >= state.evolution.predators.genomes.size()) {
     state.evolution.predators.genomes.resize(idx + 1);
@@ -172,10 +170,10 @@ uint32_t EvolutionManager::create_predator_offspring(AppState &state,
   state.evolution.predators.network_cache.assign(
       idx, state.evolution.predators.genomes[idx]);
 
-  state.predators.agents.energy[parent_a] -= config_.reproduction_energy_cost;
-  state.predators.agents.energy[parent_b] -= config_.reproduction_energy_cost;
-  state.predators.agents.offspring_count[parent_a]++;
-  state.predators.agents.offspring_count[parent_b]++;
+  state.predators.energy[parent_a] -= config_.reproduction_energy_cost;
+  state.predators.energy[parent_b] -= config_.reproduction_energy_cost;
+  state.predators.offspring_count[parent_a]++;
+  state.predators.offspring_count[parent_b]++;
 
   if (predator_gpu_network_cache_) {
     predator_gpu_network_cache_->invalidate();
@@ -201,23 +199,23 @@ uint32_t EvolutionManager::create_prey_offspring(AppState &state,
                           state.evolution.prey.genomes[parent_b]);
 
   const uint32_t idx = state.prey.create();
-  state.prey.positions.x[idx] = spawn_position.x;
-  state.prey.positions.y[idx] = spawn_position.y;
-  state.prey.agents.vel_x[idx] = 0.0f;
-  state.prey.agents.vel_y[idx] = 0.0f;
-  state.prey.agents.speed[idx] = state.prey.agents.speed[parent_a];
-  state.prey.agents.energy[idx] = config_.offspring_initial_energy;
-  state.prey.agents.age[idx] = 0;
-  state.prey.agents.alive[idx] = 1;
-  state.prey.agents.species_id[idx] = state.prey.agents.species_id[parent_a];
-  state.prey.agents.entity_id[idx] = state.runtime.next_agent_id++;
-  std::fill(state.prey.agents.input_ptr(idx),
-            state.prey.agents.input_ptr(idx) + AgentSoA::INPUT_COUNT, 0.0f);
-  state.prey.agents.decision_x[idx] = 0.0f;
-  state.prey.agents.decision_y[idx] = 0.0f;
-  state.prey.agents.distance_traveled[idx] = 0.0f;
-  state.prey.agents.offspring_count[idx] = 0;
-  state.prey.prey.food_eaten[idx] = 0;
+  state.prey.pos_x[idx] = spawn_position.x;
+  state.prey.pos_y[idx] = spawn_position.y;
+  state.prey.vel_x[idx] = 0.0f;
+  state.prey.vel_y[idx] = 0.0f;
+  state.prey.speed[idx] = state.prey.speed[parent_a];
+  state.prey.energy[idx] = config_.offspring_initial_energy;
+  state.prey.age[idx] = 0;
+  state.prey.alive[idx] = 1;
+  state.prey.species_id[idx] = state.prey.species_id[parent_a];
+  state.prey.entity_id[idx] = state.runtime.next_agent_id++;
+  std::fill(state.prey.input_ptr(idx),
+            state.prey.input_ptr(idx) + AgentRegistry::INPUT_COUNT, 0.0f);
+  state.prey.decision_x[idx] = 0.0f;
+  state.prey.decision_y[idx] = 0.0f;
+  state.prey.distance_traveled[idx] = 0.0f;
+  state.prey.offspring_count[idx] = 0;
+  state.prey.consumption[idx] = 0;
 
   if (idx >= state.evolution.prey.genomes.size()) {
     state.evolution.prey.genomes.resize(idx + 1);
@@ -226,10 +224,10 @@ uint32_t EvolutionManager::create_prey_offspring(AppState &state,
   state.evolution.prey.network_cache.assign(idx,
                                             state.evolution.prey.genomes[idx]);
 
-  state.prey.agents.energy[parent_a] -= config_.reproduction_energy_cost;
-  state.prey.agents.energy[parent_b] -= config_.reproduction_energy_cost;
-  state.prey.agents.offspring_count[parent_a]++;
-  state.prey.agents.offspring_count[parent_b]++;
+  state.prey.energy[parent_a] -= config_.reproduction_energy_cost;
+  state.prey.energy[parent_b] -= config_.reproduction_energy_cost;
+  state.prey.offspring_count[parent_a]++;
+  state.prey.offspring_count[parent_b]++;
 
   if (prey_gpu_network_cache_) {
     prey_gpu_network_cache_->invalidate();
@@ -239,7 +237,7 @@ uint32_t EvolutionManager::create_prey_offspring(AppState &state,
 }
 
 void EvolutionManager::refresh_population_species(
-    PopulationEvolutionState &population, AgentSoA &agents) const {
+    PopulationEvolutionState &population, AgentRegistry &agents) const {
   auto &species = population.species;
   for (auto &entry : species) {
     entry.clear_members();
@@ -293,8 +291,8 @@ void EvolutionManager::refresh_population_species(
 }
 
 void EvolutionManager::refresh_species(AppState &state) {
-  refresh_population_species(state.evolution.predators, state.predators.agents);
-  refresh_population_species(state.evolution.prey, state.prey.agents);
+  refresh_population_species(state.evolution.predators, state.predators);
+  refresh_population_species(state.evolution.prey, state.prey);
 }
 
 void EvolutionManager::on_population_destroyed(

@@ -54,7 +54,8 @@ App::App(AppConfig cfg)
   state_.ui.speed_multiplier = cfg_.speed_multiplier;
 
   simulation_.initialize(state_);
-  evolution_.initialize(state_, AgentSoA::INPUT_COUNT, AgentSoA::OUTPUT_COUNT);
+  evolution_.initialize(state_, AgentRegistry::INPUT_COUNT,
+                        AgentRegistry::OUTPUT_COUNT);
   evolution_.seed_initial_population(state_);
   metrics::refresh_live(state_);
 
@@ -92,8 +93,8 @@ void App::step() {
         state_, pair.parent_a, pair.parent_b, pair.spawn_position);
     if (child != INVALID_ENTITY) {
       state_.runtime.last_step_events.push_back(SimEvent{
-          SimEvent::Birth, state_.predators.agents.entity_id[child],
-          state_.predators.agents.entity_id[child], pair.spawn_position});
+          SimEvent::Birth, state_.predators.entity_id[child],
+          state_.predators.entity_id[child], pair.spawn_position});
       ++state_.runtime.step_events.births;
     }
   }
@@ -103,8 +104,8 @@ void App::step() {
         state_, pair.parent_a, pair.parent_b, pair.spawn_position);
     if (child != INVALID_ENTITY) {
       state_.runtime.last_step_events.push_back(
-          SimEvent{SimEvent::Birth, state_.prey.agents.entity_id[child],
-                   state_.prey.agents.entity_id[child], pair.spawn_position});
+          SimEvent{SimEvent::Birth, state_.prey.entity_id[child],
+                   state_.prey.entity_id[child], pair.spawn_position});
       ++state_.runtime.step_events.births;
     }
   }

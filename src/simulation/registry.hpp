@@ -3,7 +3,6 @@
 #include "core/config.hpp"
 #include "core/random.hpp"
 #include "core/types.hpp"
-#include "simulation/components.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -23,22 +22,40 @@ struct FoodStore {
                     std::uint64_t seed);
 
   void resize(std::size_t n) {
-    positions.resize(n);
+    pos_x.resize(n);
+    pos_y.resize(n);
     active.resize(n);
   }
 
   std::size_t size() const {
-    return positions.size();
+    return pos_x.size();
   }
 
-  PositionSoA positions;
+  std::vector<float> pos_x;
+  std::vector<float> pos_y;
   std::vector<uint8_t> active;
 };
 
-struct PredatorRegistry {
-  PositionSoA positions;
-  AgentSoA agents;
-  PredatorSoA predator;
+struct AgentRegistry {
+  static constexpr int INPUT_COUNT = 12;
+  static constexpr int OUTPUT_COUNT = 2;
+
+  std::vector<float> pos_x;
+  std::vector<float> pos_y;
+  std::vector<float> vel_x;
+  std::vector<float> vel_y;
+  std::vector<float> speed;
+  std::vector<float> energy;
+  std::vector<int> age;
+  std::vector<uint8_t> alive;
+  std::vector<uint32_t> species_id;
+  std::vector<uint32_t> entity_id;
+  std::vector<float> sensors;
+  std::vector<float> decision_x;
+  std::vector<float> decision_y;
+  std::vector<float> distance_traveled;
+  std::vector<int> offspring_count;
+  std::vector<int> consumption;
 
   uint32_t create();
   void destroy(uint32_t entity);
@@ -50,26 +67,13 @@ struct PredatorRegistry {
   RegistryCompactionResult compact_dead();
   uint32_t find_by_agent_id(uint32_t agent_id) const;
 
-private:
-  void resize(std::size_t size);
-  void swap_entities(std::size_t a, std::size_t b);
-  void pop_back();
-};
+  float *input_ptr(std::size_t entity) {
+    return &sensors[entity * INPUT_COUNT];
+  }
 
-struct PreyRegistry {
-  PositionSoA positions;
-  AgentSoA agents;
-  PreySoA prey;
-
-  uint32_t create();
-  void destroy(uint32_t entity);
-  bool valid(uint32_t entity) const;
-  std::size_t size() const;
-  bool empty() const;
-
-  void clear();
-  RegistryCompactionResult compact_dead();
-  uint32_t find_by_agent_id(uint32_t agent_id) const;
+  const float *input_ptr(std::size_t entity) const {
+    return &sensors[entity * INPUT_COUNT];
+  }
 
 private:
   void resize(std::size_t size);

@@ -46,12 +46,12 @@ public:
         write_offsets_(static_cast<std::size_t>(cols_ * rows_), 0),
         entries_(entity_count, INVALID_ENTITY) {}
 
-  void build(const PositionSoA &positions, std::size_t entity_count) {
+  void build(const AgentRegistry &registry, std::size_t entity_count) {
     std::fill(counts_.begin(), counts_.end(), 0);
     std::fill(offsets_.begin(), offsets_.end(), 0);
 
     for (uint32_t idx = 0; idx < entity_count; ++idx) {
-      const int cell = cell_index(positions.x[idx], positions.y[idx]);
+      const int cell = cell_index(registry.pos_x[idx], registry.pos_y[idx]);
       counts_[static_cast<std::size_t>(cell)] += 1;
     }
 
@@ -61,7 +61,7 @@ public:
 
     std::copy(offsets_.begin(), offsets_.end() - 1, write_offsets_.begin());
     for (uint32_t idx = 0; idx < entity_count; ++idx) {
-      const int cell = cell_index(positions.x[idx], positions.y[idx]);
+      const int cell = cell_index(registry.pos_x[idx], registry.pos_y[idx]);
       const std::size_t slot = static_cast<std::size_t>(
           write_offsets_[static_cast<std::size_t>(cell)]++);
       entries_[slot] = idx;
@@ -135,29 +135,27 @@ find_reproduction_pairs_impl(const RegistryT &registry,
   DenseReproductionGrid grid(static_cast<float>(config.grid_size),
                              static_cast<float>(config.grid_size),
                              config.mate_range, registry.size());
-  grid.build(registry.positions, registry.size());
+  grid.build(registry, registry.size());
   const float world_size = static_cast<float>(config.grid_size);
   const uint32_t entity_count = static_cast<uint32_t>(registry.size());
 
   for (uint32_t idx = 0; idx < entity_count; ++idx) {
-    if (registry.agents.energy[idx] < config.reproduction_energy_threshold ||
+    if (registry.energy[idx] < config.reproduction_energy_threshold ||
         used[idx] != 0) {
       continue;
     }
 
-    const Vec2 pos{registry.positions.x[idx], registry.positions.y[idx]};
+    const Vec2 pos{registry.pos_x[idx], registry.pos_y[idx]};
     uint32_t best_mate = INVALID_ENTITY;
     float best_dist_sq = config.mate_range * config.mate_range;
 
     grid.for_each_candidate(pos, config.mate_range, [&](uint32_t mate_id) {
       if (mate_id == idx || used[mate_id] != 0 ||
-          registry.agents.energy[mate_id] <
-              config.reproduction_energy_threshold) {
+          registry.energy[mate_id] < config.reproduction_energy_threshold) {
         return;
       }
 
-      const Vec2 mate_pos{registry.positions.x[mate_id],
-                          registry.positions.y[mate_id]};
+      const Vec2 mate_pos{registry.pos_x[mate_id], registry.pos_y[mate_id]};
       const Vec2 diff = wrap_diff(mate_pos - pos, world_size, world_size);
       const float dist_sq = diff.x * diff.x + diff.y * diff.y;
       if (dist_sq < best_dist_sq) {
@@ -167,8 +165,7 @@ find_reproduction_pairs_impl(const RegistryT &registry,
     });
 
     if (best_mate != INVALID_ENTITY) {
-      const Vec2 mate_pos{registry.positions.x[best_mate],
-                          registry.positions.y[best_mate]};
+      const Vec2 mate_pos{registry.pos_x[best_mate], registry.pos_y[best_mate]};
       const Vec2 diff = wrap_diff(mate_pos - pos, world_size, world_size);
       pairs.push_back(
           PendingOffspring{idx,
@@ -221,32 +218,26 @@ void SimulationManager::step(AppState &state, EvolutionManager &evolution) {
   state.runtime.pending_prey_offspring.clear();
   state.runtime.step_events.clear();
 
-  const std::vector<uint8_t> was_predator_alive = state.predators.agents.alive;
-  const std::vector<uint8_t> was_prey_alive = state.prey.agents.alive;
+  const std::vector<uint8_t> was_predator_alive = state.predators.alive;
+  const std::vector<uint8_t> was_prey_alive = state.prey.alive;
   const std::vector<uint8_t> was_food_active = state.food_store.active;
   std::vector<int> food_consumed_by(state.food_store.size(), -1);
   std::vector<int> killed_by(state.prey.size(), -1);
   std::vector<uint32_t> kill_counts(state.predators.size(), 0U);
 
-  simulation_detail::build_sensors(
-      state.predators.agents, state.predators.positions, state.predators.agents,
-      state.predators.positions, state.prey.agents, state.prey.positions,
-      state.food_store, config_);
-  simulation_detail::build_sensors(
-      state.prey.agents, state.prey.positions, state.predators.agents,
-      state.predators.positions, state.prey.agents, state.prey.positions,
-      state.food_store, config_);
+  simulation_detail::build_sensors(state.predators, state.predators, state.prey,
+                                   state.food_store, config_);
+  simulation_detail::build_sensors(state.prey, state.predators, state.prey,
+                                   state.food_store, config_);
   evolution.compute_actions(state);
-  simulation_detail::update_vitals(state.predators.agents, config_);
-  simulation_detail::update_vitals(state.prey.agents, config_);
+  simulation_detail::update_vitals(state.predators, config_);
+  simulation_detail::update_vitals(state.prey, config_);
   simulation_detail::process_food(state.prey, state.food_store, config_,
                                   food_consumed_by);
   simulation_detail::process_combat(state.predators, state.prey, config_,
                                     killed_by, kill_counts);
-  simulation_detail::apply_movement(state.predators.positions,
-                                    state.predators.agents, config_);
-  simulation_detail::apply_movement(state.prey.positions, state.prey.agents,
-                                    config_);
+  simulation_detail::apply_movement(state.predators, config_);
+  simulation_detail::apply_movement(state.prey, config_);
 
   simulation_detail::collect_food_events(state.prey, state.food_store,
                                          was_food_active, food_consumed_by,

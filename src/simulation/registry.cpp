@@ -8,92 +8,80 @@ namespace moonai {
 
 namespace {
 
-template <typename SpecificSoA>
-void resize_registry(PositionSoA &positions, AgentSoA &agents,
-                     SpecificSoA &specific, std::size_t new_size) {
-  positions.resize(new_size);
-  agents.resize(new_size);
-  specific.resize(new_size);
+void resize_registry(AgentRegistry &registry, std::size_t new_size) {
+  registry.pos_x.resize(new_size);
+  registry.pos_y.resize(new_size);
+  registry.vel_x.resize(new_size);
+  registry.vel_y.resize(new_size);
+  registry.speed.resize(new_size);
+  registry.energy.resize(new_size);
+  registry.age.resize(new_size);
+  registry.alive.resize(new_size);
+  registry.species_id.resize(new_size);
+  registry.entity_id.resize(new_size);
+  registry.sensors.resize(new_size * AgentRegistry::INPUT_COUNT);
+  registry.decision_x.resize(new_size);
+  registry.decision_y.resize(new_size);
+  registry.distance_traveled.resize(new_size);
+  registry.offspring_count.resize(new_size);
+  registry.consumption.resize(new_size);
 }
 
-template <typename SpecificSoA>
-std::size_t registry_size(const PositionSoA &positions, const AgentSoA &agents,
-                          const SpecificSoA &specific) {
-  (void)agents;
-  (void)specific;
-  return positions.size();
+std::size_t registry_size(const AgentRegistry &registry) {
+  return registry.pos_x.size();
 }
 
-void swap_agent_fields(PositionSoA &positions, AgentSoA &agents, std::size_t a,
-                       std::size_t b) {
+void swap_agent_fields(AgentRegistry &registry, std::size_t a, std::size_t b) {
   using std::swap;
 
-  swap(positions.x[a], positions.x[b]);
-  swap(positions.y[a], positions.y[b]);
-  swap(agents.vel_x[a], agents.vel_x[b]);
-  swap(agents.vel_y[a], agents.vel_y[b]);
-  swap(agents.speed[a], agents.speed[b]);
-  swap(agents.energy[a], agents.energy[b]);
-  swap(agents.age[a], agents.age[b]);
-  swap(agents.alive[a], agents.alive[b]);
-  swap(agents.species_id[a], agents.species_id[b]);
-  swap(agents.entity_id[a], agents.entity_id[b]);
-  for (int i = 0; i < AgentSoA::INPUT_COUNT; ++i) {
-    swap(agents.sensors[a * AgentSoA::INPUT_COUNT + i],
-         agents.sensors[b * AgentSoA::INPUT_COUNT + i]);
+  swap(registry.pos_x[a], registry.pos_x[b]);
+  swap(registry.pos_y[a], registry.pos_y[b]);
+  swap(registry.vel_x[a], registry.vel_x[b]);
+  swap(registry.vel_y[a], registry.vel_y[b]);
+  swap(registry.speed[a], registry.speed[b]);
+  swap(registry.energy[a], registry.energy[b]);
+  swap(registry.age[a], registry.age[b]);
+  swap(registry.alive[a], registry.alive[b]);
+  swap(registry.species_id[a], registry.species_id[b]);
+  swap(registry.entity_id[a], registry.entity_id[b]);
+  for (int i = 0; i < AgentRegistry::INPUT_COUNT; ++i) {
+    swap(registry.sensors[a * AgentRegistry::INPUT_COUNT + i],
+         registry.sensors[b * AgentRegistry::INPUT_COUNT + i]);
   }
-  swap(agents.decision_x[a], agents.decision_x[b]);
-  swap(agents.decision_y[a], agents.decision_y[b]);
-  swap(agents.distance_traveled[a], agents.distance_traveled[b]);
-  swap(agents.offspring_count[a], agents.offspring_count[b]);
+  swap(registry.decision_x[a], registry.decision_x[b]);
+  swap(registry.decision_y[a], registry.decision_y[b]);
+  swap(registry.distance_traveled[a], registry.distance_traveled[b]);
+  swap(registry.offspring_count[a], registry.offspring_count[b]);
+  swap(registry.consumption[a], registry.consumption[b]);
 }
 
-void swap_specific(PredatorSoA &predator, std::size_t a, std::size_t b) {
-  using std::swap;
-  swap(predator.kills[a], predator.kills[b]);
+void pop_back_agent_fields(AgentRegistry &registry, std::size_t new_size) {
+  registry.pos_x.pop_back();
+  registry.pos_y.pop_back();
+  registry.vel_x.pop_back();
+  registry.vel_y.pop_back();
+  registry.speed.pop_back();
+  registry.energy.pop_back();
+  registry.age.pop_back();
+  registry.alive.pop_back();
+  registry.species_id.pop_back();
+  registry.entity_id.pop_back();
+  registry.sensors.resize(new_size * AgentRegistry::INPUT_COUNT);
+  registry.decision_x.pop_back();
+  registry.decision_y.pop_back();
+  registry.distance_traveled.pop_back();
+  registry.offspring_count.pop_back();
+  registry.consumption.pop_back();
 }
 
-void swap_specific(PreySoA &prey, std::size_t a, std::size_t b) {
-  using std::swap;
-  swap(prey.food_eaten[a], prey.food_eaten[b]);
-}
-
-void pop_back_agent_fields(PositionSoA &positions, AgentSoA &agents,
-                           std::size_t new_size) {
-  positions.x.pop_back();
-  positions.y.pop_back();
-  agents.vel_x.pop_back();
-  agents.vel_y.pop_back();
-  agents.speed.pop_back();
-  agents.energy.pop_back();
-  agents.age.pop_back();
-  agents.alive.pop_back();
-  agents.species_id.pop_back();
-  agents.entity_id.pop_back();
-  agents.sensors.resize(new_size * AgentSoA::INPUT_COUNT);
-  agents.decision_x.pop_back();
-  agents.decision_y.pop_back();
-  agents.distance_traveled.pop_back();
-  agents.offspring_count.pop_back();
-}
-
-void pop_back_specific(PredatorSoA &predator) {
-  predator.kills.pop_back();
-}
-
-void pop_back_specific(PreySoA &prey) {
-  prey.food_eaten.pop_back();
-}
-
-template <typename RegistryT>
-uint32_t find_by_agent_id_impl(const RegistryT &registry, uint32_t agent_id) {
-  const auto it = std::find(registry.agents.entity_id.begin(),
-                            registry.agents.entity_id.end(), agent_id);
-  if (it == registry.agents.entity_id.end()) {
+uint32_t find_by_agent_id_impl(const AgentRegistry &registry,
+                               uint32_t agent_id) {
+  const auto it =
+      std::find(registry.entity_id.begin(), registry.entity_id.end(), agent_id);
+  if (it == registry.entity_id.end()) {
     return INVALID_ENTITY;
   }
-  return static_cast<uint32_t>(
-      std::distance(registry.agents.entity_id.begin(), it));
+  return static_cast<uint32_t>(std::distance(registry.entity_id.begin(), it));
 }
 
 } // namespace
@@ -104,8 +92,8 @@ void FoodStore::initialize(const SimulationConfig &config, Random &rng) {
 
   const float grid_size = static_cast<float>(config.grid_size);
   for (int i = 0; i < config.food_count; ++i) {
-    positions.x[static_cast<std::size_t>(i)] = rng.next_float(0.0f, grid_size);
-    positions.y[static_cast<std::size_t>(i)] = rng.next_float(0.0f, grid_size);
+    pos_x[static_cast<std::size_t>(i)] = rng.next_float(0.0f, grid_size);
+    pos_y[static_cast<std::size_t>(i)] = rng.next_float(0.0f, grid_size);
   }
 }
 
@@ -124,46 +112,46 @@ void FoodStore::respawn_step(const SimulationConfig &config, int step_index,
       continue;
     }
 
-    positions.x[i] = respawn::respawn_x(seed, step_index, slot, world_size);
-    positions.y[i] = respawn::respawn_y(seed, step_index, slot, world_size);
+    pos_x[i] = respawn::respawn_x(seed, step_index, slot, world_size);
+    pos_y[i] = respawn::respawn_y(seed, step_index, slot, world_size);
     active[i] = 1;
   }
 }
 
-uint32_t PredatorRegistry::create() {
+uint32_t AgentRegistry::create() {
   const uint32_t entity = static_cast<uint32_t>(size());
   resize(size() + 1);
   return entity;
 }
 
-void PredatorRegistry::destroy(uint32_t entity) {
+void AgentRegistry::destroy(uint32_t entity) {
   if (valid(entity)) {
-    agents.alive[entity] = 0;
+    alive[entity] = 0;
   }
 }
 
-bool PredatorRegistry::valid(uint32_t entity) const {
+bool AgentRegistry::valid(uint32_t entity) const {
   return entity != INVALID_ENTITY && entity < size();
 }
 
-std::size_t PredatorRegistry::size() const {
-  return registry_size(positions, agents, predator);
+std::size_t AgentRegistry::size() const {
+  return registry_size(*this);
 }
 
-bool PredatorRegistry::empty() const {
+bool AgentRegistry::empty() const {
   return size() == 0;
 }
 
-void PredatorRegistry::clear() {
+void AgentRegistry::clear() {
   resize(0);
 }
 
-RegistryCompactionResult PredatorRegistry::compact_dead() {
+RegistryCompactionResult AgentRegistry::compact_dead() {
   RegistryCompactionResult result;
 
   std::size_t i = 0;
   while (i < size()) {
-    if (agents.alive[i] != 0) {
+    if (alive[i] != 0) {
       ++i;
       continue;
     }
@@ -184,96 +172,21 @@ RegistryCompactionResult PredatorRegistry::compact_dead() {
   return result;
 }
 
-uint32_t PredatorRegistry::find_by_agent_id(uint32_t agent_id) const {
+uint32_t AgentRegistry::find_by_agent_id(uint32_t agent_id) const {
   return find_by_agent_id_impl(*this, agent_id);
 }
 
-void PredatorRegistry::resize(std::size_t new_size) {
-  resize_registry(positions, agents, predator, new_size);
+void AgentRegistry::resize(std::size_t new_size) {
+  resize_registry(*this, new_size);
 }
 
-void PredatorRegistry::swap_entities(std::size_t a, std::size_t b) {
-  swap_agent_fields(positions, agents, a, b);
-  swap_specific(predator, a, b);
+void AgentRegistry::swap_entities(std::size_t a, std::size_t b) {
+  swap_agent_fields(*this, a, b);
 }
 
-void PredatorRegistry::pop_back() {
+void AgentRegistry::pop_back() {
   const std::size_t new_size = size() - 1;
-  pop_back_agent_fields(positions, agents, new_size);
-  pop_back_specific(predator);
-}
-
-uint32_t PreyRegistry::create() {
-  const uint32_t entity = static_cast<uint32_t>(size());
-  resize(size() + 1);
-  return entity;
-}
-
-void PreyRegistry::destroy(uint32_t entity) {
-  if (valid(entity)) {
-    agents.alive[entity] = 0;
-  }
-}
-
-bool PreyRegistry::valid(uint32_t entity) const {
-  return entity != INVALID_ENTITY && entity < size();
-}
-
-std::size_t PreyRegistry::size() const {
-  return registry_size(positions, agents, prey);
-}
-
-bool PreyRegistry::empty() const {
-  return size() == 0;
-}
-
-void PreyRegistry::clear() {
-  resize(0);
-}
-
-RegistryCompactionResult PreyRegistry::compact_dead() {
-  RegistryCompactionResult result;
-
-  std::size_t i = 0;
-  while (i < size()) {
-    if (agents.alive[i] != 0) {
-      ++i;
-      continue;
-    }
-
-    const uint32_t removed = static_cast<uint32_t>(i);
-    const std::size_t last = size() - 1;
-    if (i != last) {
-      const uint32_t moved_from = static_cast<uint32_t>(last);
-      const uint32_t moved_to = static_cast<uint32_t>(i);
-      swap_entities(i, last);
-      result.moved.push_back({moved_from, moved_to});
-    }
-
-    result.removed.push_back(static_cast<uint32_t>(last));
-    pop_back();
-  }
-
-  return result;
-}
-
-uint32_t PreyRegistry::find_by_agent_id(uint32_t agent_id) const {
-  return find_by_agent_id_impl(*this, agent_id);
-}
-
-void PreyRegistry::resize(std::size_t new_size) {
-  resize_registry(positions, agents, prey, new_size);
-}
-
-void PreyRegistry::swap_entities(std::size_t a, std::size_t b) {
-  swap_agent_fields(positions, agents, a, b);
-  swap_specific(prey, a, b);
-}
-
-void PreyRegistry::pop_back() {
-  const std::size_t new_size = size() - 1;
-  pop_back_agent_fields(positions, agents, new_size);
-  pop_back_specific(prey);
+  pop_back_agent_fields(*this, new_size);
 }
 
 } // namespace moonai

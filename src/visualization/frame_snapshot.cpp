@@ -1,7 +1,7 @@
 #include "visualization/frame_snapshot.hpp"
 
 #include "evolution/neural_network.hpp"
-#include "simulation/components.hpp"
+
 #include "visualization/constants.hpp"
 
 #include <algorithm>
@@ -40,8 +40,9 @@ void update_selected_activations(AppState &state) {
       return false;
     }
 
-    const float *sensors = registry.agents.input_ptr(selected);
-    std::vector<float> sensor_values(sensors, sensors + AgentSoA::INPUT_COUNT);
+    const float *sensors = registry.input_ptr(selected);
+    std::vector<float> sensor_values(sensors,
+                                     sensors + AgentRegistry::INPUT_COUNT);
 
     NeuralNetwork *network = network_cache.get_network(selected);
     if (!network) {
@@ -87,38 +88,37 @@ FrameSnapshot build_frame_snapshot(const AppState &state,
     if (!state.food_store.active[i]) {
       continue;
     }
-    frame.foods.push_back(RenderFood{Vec2{state.food_store.positions.x[i],
-                                          state.food_store.positions.y[i]}});
+    frame.foods.push_back(RenderFood{Vec2{state.food_store.pos_x[i],
+                                          state.food_store.pos_y[i]}});
   }
 
   frame.predators.reserve(state.predators.size());
   for (uint32_t idx = 0; idx < state.predators.size(); ++idx) {
     float energy_ratio =
-        state.predators.agents.energy[idx] / config.sim_config.initial_energy;
+        state.predators.energy[idx] / config.sim_config.initial_energy;
     energy_ratio = std::clamp(energy_ratio, 0.0f, 1.0f);
     const int bucket = std::min(static_cast<int>(energy_ratio * 5.0f), 4);
     pred_dist[bucket] += 1.0f;
 
-    frame.predators.push_back(
-        RenderAgent{idx, state.predators.agents.entity_id[idx],
-                    Vec2{state.predators.positions.x[idx],
-                         state.predators.positions.y[idx]},
-                    Vec2{state.predators.agents.vel_x[idx],
-                         state.predators.agents.vel_y[idx]}});
+    frame.predators.push_back(RenderAgent{
+        idx, state.predators.entity_id[idx],
+        Vec2{state.predators.pos_x[idx],
+             state.predators.pos_y[idx]},
+        Vec2{state.predators.vel_x[idx], state.predators.vel_y[idx]}});
   }
 
   frame.prey.reserve(state.prey.size());
   for (uint32_t idx = 0; idx < state.prey.size(); ++idx) {
     float energy_ratio =
-        state.prey.agents.energy[idx] / config.sim_config.initial_energy;
+        state.prey.energy[idx] / config.sim_config.initial_energy;
     energy_ratio = std::clamp(energy_ratio, 0.0f, 1.0f);
     const int bucket = std::min(static_cast<int>(energy_ratio * 5.0f), 4);
     prey_dist[bucket] += 1.0f;
 
     frame.prey.push_back(RenderAgent{
-        idx, state.prey.agents.entity_id[idx],
-        Vec2{state.prey.positions.x[idx], state.prey.positions.y[idx]},
-        Vec2{state.prey.agents.vel_x[idx], state.prey.agents.vel_y[idx]}});
+        idx, state.prey.entity_id[idx],
+        Vec2{state.prey.pos_x[idx], state.prey.pos_y[idx]},
+        Vec2{state.prey.vel_x[idx], state.prey.vel_y[idx]}});
   }
 
   if (state.metrics.live.alive_predators > 0) {
@@ -158,23 +158,21 @@ FrameSnapshot build_frame_snapshot(const AppState &state,
     const Genome *genome = predator_genome_for(state, predator_selected);
     if (genome) {
       frame.overlay_stats.selected_agent =
-          static_cast<int>(state.predators.agents.entity_id[predator_selected]);
+          static_cast<int>(state.predators.entity_id[predator_selected]);
       frame.overlay_stats.selected_energy =
-          state.predators.agents.energy[predator_selected];
-      frame.overlay_stats.selected_age =
-          state.predators.agents.age[predator_selected];
+          state.predators.energy[predator_selected];
+      frame.overlay_stats.selected_age = state.predators.age[predator_selected];
       frame.overlay_stats.selected_kills =
-          state.predators.predator.kills[predator_selected];
+          state.predators.consumption[predator_selected];
       frame.overlay_stats.selected_food_eaten = 0;
       frame.overlay_stats.selected_genome_complexity = static_cast<int>(
           genome->nodes().size() + genome->connections().size());
       frame.selected_genome = genome;
-      frame.selected_agent_id =
-          state.predators.agents.entity_id[predator_selected];
+      frame.selected_agent_id = state.predators.entity_id[predator_selected];
       frame.has_selected_vision = true;
       frame.selected_position =
-          Vec2{state.predators.positions.x[predator_selected],
-               state.predators.positions.y[predator_selected]};
+          Vec2{state.predators.pos_x[predator_selected],
+               state.predators.pos_y[predator_selected]};
       frame.selected_vision_range = config.sim_config.vision_range;
       frame.selected_node_activations = state.ui.selected_node_activations;
 
@@ -183,8 +181,8 @@ FrameSnapshot build_frame_snapshot(const AppState &state,
         if (idx == predator_selected) {
           continue;
         }
-        const Vec2 other_pos{state.predators.positions.x[idx],
-                             state.predators.positions.y[idx]};
+        const Vec2 other_pos{state.predators.pos_x[idx],
+                             state.predators.pos_y[idx]};
         const Vec2 diff =
             wrap_diff(other_pos - selected_pos,
                       static_cast<float>(config.sim_config.grid_size),
@@ -199,8 +197,8 @@ FrameSnapshot build_frame_snapshot(const AppState &state,
                       chart_colors::PREDATOR_B, visual::SENSOR_ALPHA)});
       }
       for (uint32_t idx = 0; idx < state.prey.size(); ++idx) {
-        const Vec2 other_pos{state.prey.positions.x[idx],
-                             state.prey.positions.y[idx]};
+        const Vec2 other_pos{state.prey.pos_x[idx],
+                             state.prey.pos_y[idx]};
         const Vec2 diff =
             wrap_diff(other_pos - selected_pos,
                       static_cast<float>(config.sim_config.grid_size),
@@ -238,27 +236,26 @@ FrameSnapshot build_frame_snapshot(const AppState &state,
     const Genome *genome = prey_genome_for(state, prey_selected);
     if (genome) {
       frame.overlay_stats.selected_agent =
-          static_cast<int>(state.prey.agents.entity_id[prey_selected]);
-      frame.overlay_stats.selected_energy =
-          state.prey.agents.energy[prey_selected];
-      frame.overlay_stats.selected_age = state.prey.agents.age[prey_selected];
+          static_cast<int>(state.prey.entity_id[prey_selected]);
+      frame.overlay_stats.selected_energy = state.prey.energy[prey_selected];
+      frame.overlay_stats.selected_age = state.prey.age[prey_selected];
       frame.overlay_stats.selected_kills = 0;
       frame.overlay_stats.selected_food_eaten =
-          state.prey.prey.food_eaten[prey_selected];
+          state.prey.consumption[prey_selected];
       frame.overlay_stats.selected_genome_complexity = static_cast<int>(
           genome->nodes().size() + genome->connections().size());
       frame.selected_genome = genome;
-      frame.selected_agent_id = state.prey.agents.entity_id[prey_selected];
+      frame.selected_agent_id = state.prey.entity_id[prey_selected];
       frame.has_selected_vision = true;
-      frame.selected_position = Vec2{state.prey.positions.x[prey_selected],
-                                     state.prey.positions.y[prey_selected]};
+      frame.selected_position = Vec2{state.prey.pos_x[prey_selected],
+                                     state.prey.pos_y[prey_selected]};
       frame.selected_vision_range = config.sim_config.vision_range;
       frame.selected_node_activations = state.ui.selected_node_activations;
 
       const Vec2 selected_pos = frame.selected_position;
       for (uint32_t idx = 0; idx < state.predators.size(); ++idx) {
-        const Vec2 other_pos{state.predators.positions.x[idx],
-                             state.predators.positions.y[idx]};
+        const Vec2 other_pos{state.predators.pos_x[idx],
+                             state.predators.pos_y[idx]};
         const Vec2 diff =
             wrap_diff(other_pos - selected_pos,
                       static_cast<float>(config.sim_config.grid_size),
@@ -276,8 +273,8 @@ FrameSnapshot build_frame_snapshot(const AppState &state,
         if (idx == prey_selected) {
           continue;
         }
-        const Vec2 other_pos{state.prey.positions.x[idx],
-                             state.prey.positions.y[idx]};
+        const Vec2 other_pos{state.prey.pos_x[idx],
+                             state.prey.pos_y[idx]};
         const Vec2 diff =
             wrap_diff(other_pos - selected_pos,
                       static_cast<float>(config.sim_config.grid_size),
