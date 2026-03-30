@@ -5,14 +5,13 @@
 namespace moonai {
 
 void FoodStore::initialize(const SimulationConfig &config, Random &rng) {
-  pos_x.resize(config.food_count);
-  pos_y.resize(config.food_count);
+  resize(static_cast<std::size_t>(config.food_count));
   active.assign(config.food_count, 1);
 
   const float grid_size = static_cast<float>(config.grid_size);
   for (int i = 0; i < config.food_count; ++i) {
-    pos_x[static_cast<std::size_t>(i)] = rng.next_float(0.0f, grid_size);
-    pos_y[static_cast<std::size_t>(i)] = rng.next_float(0.0f, grid_size);
+    positions.x[static_cast<std::size_t>(i)] = rng.next_float(0.0f, grid_size);
+    positions.y[static_cast<std::size_t>(i)] = rng.next_float(0.0f, grid_size);
   }
 }
 
@@ -31,8 +30,8 @@ void FoodStore::respawn_step(const SimulationConfig &config, int step_index,
       continue;
     }
 
-    pos_x[i] = respawn::respawn_x(seed, step_index, slot, world_size);
-    pos_y[i] = respawn::respawn_y(seed, step_index, slot, world_size);
+    positions.x[i] = respawn::respawn_x(seed, step_index, slot, world_size);
+    positions.y[i] = respawn::respawn_y(seed, step_index, slot, world_size);
     active[i] = 1;
   }
 }

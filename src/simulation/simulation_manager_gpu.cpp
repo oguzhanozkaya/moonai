@@ -158,11 +158,9 @@ void SimulationManager::step_gpu(AppState &state, EvolutionManager &evolution) {
 
     auto &buffer = gpu_batch_->buffer();
     std::memcpy(buffer.host_agent_positions_x(),
-                state.registry.positions.x.data(),
-                agent_count * sizeof(float));
+                state.registry.positions.x.data(), agent_count * sizeof(float));
     std::memcpy(buffer.host_agent_positions_y(),
-                state.registry.positions.y.data(),
-                agent_count * sizeof(float));
+                state.registry.positions.y.data(), agent_count * sizeof(float));
     std::memcpy(buffer.host_agent_velocities_x(),
                 state.registry.motion.vel_x.data(),
                 agent_count * sizeof(float));
@@ -171,8 +169,7 @@ void SimulationManager::step_gpu(AppState &state, EvolutionManager &evolution) {
                 agent_count * sizeof(float));
     std::memcpy(buffer.host_agent_speed(), state.registry.motion.speed.data(),
                 agent_count * sizeof(float));
-    std::memcpy(buffer.host_agent_energy(),
-                state.registry.vitals.energy.data(),
+    std::memcpy(buffer.host_agent_energy(), state.registry.vitals.energy.data(),
                 agent_count * sizeof(float));
     std::memcpy(buffer.host_agent_age(), state.registry.vitals.age.data(),
                 agent_count * sizeof(int));
@@ -185,9 +182,11 @@ void SimulationManager::step_gpu(AppState &state, EvolutionManager &evolution) {
                 state.registry.stats.distance_traveled.data(),
                 agent_count * sizeof(float));
 
-    std::memcpy(buffer.host_food_positions_x(), state.food_store.pos_x.data(),
+    std::memcpy(buffer.host_food_positions_x(),
+                state.food_store.positions.x.data(),
                 food_count * sizeof(float));
-    std::memcpy(buffer.host_food_positions_y(), state.food_store.pos_y.data(),
+    std::memcpy(buffer.host_food_positions_y(),
+                state.food_store.positions.y.data(),
                 food_count * sizeof(float));
     for (std::size_t i = 0; i < food_count; ++i) {
       buffer.host_food_active()[i] = state.food_store.active[i];
@@ -264,8 +263,8 @@ void SimulationManager::step_gpu(AppState &state, EvolutionManager &evolution) {
                 buffer.host_agent_velocities_x(), agent_count * sizeof(float));
     std::memcpy(state.registry.motion.vel_y.data(),
                 buffer.host_agent_velocities_y(), agent_count * sizeof(float));
-    std::memcpy(state.registry.vitals.energy.data(),
-                buffer.host_agent_energy(), agent_count * sizeof(float));
+    std::memcpy(state.registry.vitals.energy.data(), buffer.host_agent_energy(),
+                agent_count * sizeof(float));
     std::memcpy(state.registry.vitals.age.data(), buffer.host_agent_age(),
                 agent_count * sizeof(int));
     std::memcpy(state.registry.stats.distance_traveled.data(),
@@ -284,8 +283,8 @@ void SimulationManager::step_gpu(AppState &state, EvolutionManager &evolution) {
           buffer.host_agent_brain_outputs()[i * SensorSoA::OUTPUT_COUNT + 1];
     }
     for (std::size_t i = 0; i < food_count; ++i) {
-      state.food_store.pos_x[i] = buffer.host_food_positions_x()[i];
-      state.food_store.pos_y[i] = buffer.host_food_positions_y()[i];
+      state.food_store.positions.x[i] = buffer.host_food_positions_x()[i];
+      state.food_store.positions.y[i] = buffer.host_food_positions_y()[i];
       state.food_store.active[i] =
           static_cast<uint8_t>(buffer.host_food_active()[i]);
     }

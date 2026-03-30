@@ -98,8 +98,8 @@ void build_sensors(Registry &registry, const FoodStore &food_store,
         continue;
       }
 
-      Vec2 diff = wrap_diff({food_store.pos_x[food_idx] - pos.x,
-                             food_store.pos_y[food_idx] - pos.y},
+      Vec2 diff = wrap_diff({food_store.positions.x[food_idx] - pos.x,
+                             food_store.positions.y[food_idx] - pos.y},
                             world_size, world_size);
       const float dist_sq = diff.x * diff.x + diff.y * diff.y;
       if (dist_sq > vision_sq) {
@@ -192,8 +192,8 @@ void process_food(Registry &registry, FoodStore &food_store,
         continue;
       }
 
-      Vec2 diff = wrap_diff({food_store.pos_x[food_idx] - prey_pos.x,
-                             food_store.pos_y[food_idx] - prey_pos.y},
+      Vec2 diff = wrap_diff({food_store.positions.x[food_idx] - prey_pos.x,
+                             food_store.positions.y[food_idx] - prey_pos.y},
                             world_size, world_size);
       const float dist_sq = diff.x * diff.x + diff.y * diff.y;
       if (dist_sq <= best_dist_sq) {
@@ -352,9 +352,9 @@ void collect_cpu_step_events(Registry &registry, const FoodStore &food_store,
     }
 
     stats.food_eaten[prey_idx] += 1;
-    events.push_back(
-        SimEvent{SimEvent::Food, static_cast<uint32_t>(prey_idx), INVALID_ENTITY,
-                 Vec2{positions.x[prey_idx], positions.y[prey_idx]}});
+    events.push_back(SimEvent{
+        SimEvent::Food, static_cast<uint32_t>(prey_idx), INVALID_ENTITY,
+        Vec2{positions.x[prey_idx], positions.y[prey_idx]}});
   }
 
   const uint32_t entity_count = static_cast<uint32_t>(registry.size());
@@ -366,8 +366,8 @@ void collect_cpu_step_events(Registry &registry, const FoodStore &food_store,
     if (killed_by[agent_idx] >= 0 &&
         static_cast<uint32_t>(killed_by[agent_idx]) < registry.size()) {
       events.push_back(SimEvent{
-          SimEvent::Kill, static_cast<uint32_t>(killed_by[agent_idx]), agent_idx,
-          Vec2{positions.x[agent_idx], positions.y[agent_idx]}});
+          SimEvent::Kill, static_cast<uint32_t>(killed_by[agent_idx]),
+          agent_idx, Vec2{positions.x[agent_idx], positions.y[agent_idx]}});
     }
 
     if (was_alive[agent_idx] && !vitals.alive[agent_idx]) {

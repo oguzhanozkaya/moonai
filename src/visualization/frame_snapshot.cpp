@@ -76,8 +76,8 @@ FrameSnapshot build_frame_snapshot(const AppState &state,
     if (!state.food_store.active[i]) {
       continue;
     }
-    frame.foods.push_back(RenderFood{
-        Vec2{state.food_store.pos_x[i], state.food_store.pos_y[i]}});
+    frame.foods.push_back(RenderFood{Vec2{state.food_store.positions.x[i],
+                                          state.food_store.positions.y[i]}});
   }
 
   const uint32_t entity_count = static_cast<uint32_t>(state.registry.size());

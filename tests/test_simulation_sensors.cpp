@@ -86,9 +86,9 @@ TEST(SimulationSensorsTest, EncodesDxDySentinelsAndFoodDensity) {
     Vec2 best{0.0f, 0.0f};
     float best_dist = std::numeric_limits<float>::max();
     for (std::size_t i = 0; i < food_store.size(); ++i) {
-      Vec2 diff = wrap_diff(
-          {food_store.pos_x[i] - origin.x, food_store.pos_y[i] - origin.y},
-          static_cast<float>(config.grid_size));
+      Vec2 diff = wrap_diff({food_store.positions.x[i] - origin.x,
+                             food_store.positions.y[i] - origin.y},
+                            static_cast<float>(config.grid_size));
       const float dist = distance_sq(diff);
       if (dist < best_dist) {
         best_dist = dist;
