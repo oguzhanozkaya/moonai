@@ -1,7 +1,5 @@
 #include "visualization/frame_snapshot.hpp"
 
-#include "evolution/neural_network.hpp"
-
 #include "visualization/constants.hpp"
 
 #include <algorithm>
@@ -24,54 +22,9 @@ Vec2 wrap_diff(Vec2 diff, float world_width, float world_height) {
 } // namespace
 
 void update_selected_activations(AppState &state) {
+  // Structure-only visualization: no activation computation needed
+  // Activations map remains empty, overlay will use type-based colors
   state.ui.selected_node_activations.clear();
-
-  if (state.ui.selected_agent_id == 0) {
-    return;
-  }
-
-  auto populate_activations = [&](const auto &registry,
-                                  const auto &network_cache,
-                                  const Genome *genome, uint32_t selected) {
-    if (selected == INVALID_ENTITY || !registry.valid(selected)) {
-      return false;
-    }
-    if (!genome) {
-      return false;
-    }
-
-    const float *sensors = registry.input_ptr(selected);
-    std::vector<float> sensor_values(sensors,
-                                     sensors + AgentRegistry::INPUT_COUNT);
-
-    NeuralNetwork *network = network_cache.get_network(selected);
-    if (!network) {
-      return false;
-    }
-
-    network->activate(sensor_values);
-    for (const auto &[node_id, node_index] : network->node_index_map()) {
-      if (node_index >= 0 &&
-          node_index < static_cast<int>(network->last_activations().size())) {
-        state.ui.selected_node_activations[node_id] =
-            network->last_activations()[node_index];
-      }
-    }
-    return true;
-  };
-
-  const uint32_t predator_selected =
-      state.predators.find_by_agent_id(state.ui.selected_agent_id);
-  if (populate_activations(
-          state.predators, state.evolution.predators.network_cache,
-          predator_genome_for(state, predator_selected), predator_selected)) {
-    return;
-  }
-
-  const uint32_t prey_selected =
-      state.prey.find_by_agent_id(state.ui.selected_agent_id);
-  populate_activations(state.prey, state.evolution.prey.network_cache,
-                       prey_genome_for(state, prey_selected), prey_selected);
 }
 
 FrameSnapshot build_frame_snapshot(const AppState &state,
@@ -88,8 +41,8 @@ FrameSnapshot build_frame_snapshot(const AppState &state,
     if (!state.food_store.active[i]) {
       continue;
     }
-    frame.foods.push_back(RenderFood{Vec2{state.food_store.pos_x[i],
-                                          state.food_store.pos_y[i]}});
+    frame.foods.push_back(
+        RenderFood{Vec2{state.food_store.pos_x[i], state.food_store.pos_y[i]}});
   }
 
   frame.predators.reserve(state.predators.size());
@@ -102,8 +55,7 @@ FrameSnapshot build_frame_snapshot(const AppState &state,
 
     frame.predators.push_back(RenderAgent{
         idx, state.predators.entity_id[idx],
-        Vec2{state.predators.pos_x[idx],
-             state.predators.pos_y[idx]},
+        Vec2{state.predators.pos_x[idx], state.predators.pos_y[idx]},
         Vec2{state.predators.vel_x[idx], state.predators.vel_y[idx]}});
   }
 
@@ -115,10 +67,10 @@ FrameSnapshot build_frame_snapshot(const AppState &state,
     const int bucket = std::min(static_cast<int>(energy_ratio * 5.0f), 4);
     prey_dist[bucket] += 1.0f;
 
-    frame.prey.push_back(RenderAgent{
-        idx, state.prey.entity_id[idx],
-        Vec2{state.prey.pos_x[idx], state.prey.pos_y[idx]},
-        Vec2{state.prey.vel_x[idx], state.prey.vel_y[idx]}});
+    frame.prey.push_back(
+        RenderAgent{idx, state.prey.entity_id[idx],
+                    Vec2{state.prey.pos_x[idx], state.prey.pos_y[idx]},
+                    Vec2{state.prey.vel_x[idx], state.prey.vel_y[idx]}});
   }
 
   if (state.metrics.live.alive_predators > 0) {
@@ -170,12 +122,9 @@ FrameSnapshot build_frame_snapshot(const AppState &state,
       frame.selected_genome = genome;
       frame.selected_agent_id = state.predators.entity_id[predator_selected];
       frame.has_selected_vision = true;
-      frame.selected_position =
-          Vec2{state.predators.pos_x[predator_selected],
-               state.predators.pos_y[predator_selected]};
+      frame.selected_position = Vec2{state.predators.pos_x[predator_selected],
+                                     state.predators.pos_y[predator_selected]};
       frame.selected_vision_range = config.sim_config.vision_range;
-      frame.selected_node_activations = state.ui.selected_node_activations;
-
       const Vec2 selected_pos = frame.selected_position;
       for (uint32_t idx = 0; idx < state.predators.size(); ++idx) {
         if (idx == predator_selected) {
@@ -197,8 +146,7 @@ FrameSnapshot build_frame_snapshot(const AppState &state,
                       chart_colors::PREDATOR_B, visual::SENSOR_ALPHA)});
       }
       for (uint32_t idx = 0; idx < state.prey.size(); ++idx) {
-        const Vec2 other_pos{state.prey.pos_x[idx],
-                             state.prey.pos_y[idx]};
+        const Vec2 other_pos{state.prey.pos_x[idx], state.prey.pos_y[idx]};
         const Vec2 diff =
             wrap_diff(other_pos - selected_pos,
                       static_cast<float>(config.sim_config.grid_size),
@@ -250,7 +198,6 @@ FrameSnapshot build_frame_snapshot(const AppState &state,
       frame.selected_position = Vec2{state.prey.pos_x[prey_selected],
                                      state.prey.pos_y[prey_selected]};
       frame.selected_vision_range = config.sim_config.vision_range;
-      frame.selected_node_activations = state.ui.selected_node_activations;
 
       const Vec2 selected_pos = frame.selected_position;
       for (uint32_t idx = 0; idx < state.predators.size(); ++idx) {
@@ -273,8 +220,7 @@ FrameSnapshot build_frame_snapshot(const AppState &state,
         if (idx == prey_selected) {
           continue;
         }
-        const Vec2 other_pos{state.prey.pos_x[idx],
-                             state.prey.pos_y[idx]};
+        const Vec2 other_pos{state.prey.pos_x[idx], state.prey.pos_y[idx]};
         const Vec2 diff =
             wrap_diff(other_pos - selected_pos,
                       static_cast<float>(config.sim_config.grid_size),

@@ -12,6 +12,22 @@
 
 namespace moonai {
 
+namespace {
+// Round up to the next power of 2 for GPU buffer allocation
+inline std::size_t next_power_of_2(std::size_t n) {
+  if (n == 0)
+    return 1;
+  n--;
+  n |= n >> 1;
+  n |= n >> 2;
+  n |= n >> 4;
+  n |= n >> 8;
+  n |= n >> 16;
+  n |= n >> 32;
+  return n + 1;
+}
+} // namespace
+
 void SimulationManager::collect_gpu_step_events(
     AppState &state, const std::vector<uint8_t> &was_predator_alive,
     const std::vector<uint8_t> &was_prey_alive,
@@ -85,10 +101,15 @@ void SimulationManager::ensure_gpu_capacity(std::size_t predator_count,
   }
 
   const bool needs_batch = !gpu_batch_;
+  const bool predators_exceeded =
+      gpu_batch_ && predator_count > gpu_batch_->predator_capacity();
+  const bool prey_exceeded =
+      gpu_batch_ && prey_count > gpu_batch_->prey_capacity();
+  const bool food_exceeded =
+      gpu_batch_ && food_count > gpu_batch_->food_capacity();
   const bool needs_resize =
-      gpu_batch_ && (predator_count > gpu_batch_->predator_capacity() ||
-                     prey_count > gpu_batch_->prey_capacity() ||
-                     food_count > gpu_batch_->food_capacity());
+      predators_exceeded || prey_exceeded || food_exceeded;
+
   if (!needs_batch && !needs_resize) {
     return;
   }
@@ -100,22 +121,31 @@ void SimulationManager::ensure_gpu_capacity(std::size_t predator_count,
   const std::size_t current_food_capacity =
       gpu_batch_ ? gpu_batch_->food_capacity() : 0;
 
+  // Only resize buffers that exceeded their capacity
   const std::size_t new_predator_capacity =
-      std::max(predator_count, current_predator_capacity == 0
-                                   ? predator_count
-                                   : current_predator_capacity * 2);
-  const std::size_t new_prey_capacity = std::max(
-      prey_count,
-      current_prey_capacity == 0 ? prey_count : current_prey_capacity * 2);
+      needs_batch || predators_exceeded
+          ? next_power_of_2(
+                current_predator_capacity == 0
+                    ? predator_count
+                    : std::max(predator_count, current_predator_capacity * 2))
+          : current_predator_capacity;
+  const std::size_t new_prey_capacity =
+      needs_batch || prey_exceeded
+          ? next_power_of_2(
+                current_prey_capacity == 0
+                    ? prey_count
+                    : std::max(prey_count, current_prey_capacity * 2))
+          : current_prey_capacity;
   const std::size_t new_food_capacity =
-      std::max(food_count,
-               current_food_capacity == 0 ? food_count : current_food_capacity);
+      needs_batch || food_exceeded
+          ? next_power_of_2(
+                current_food_capacity == 0
+                    ? food_count
+                    : std::max(food_count, current_food_capacity * 2))
+          : current_food_capacity;
 
   gpu_batch_ = std::make_unique<gpu::GpuBatch>(
       new_predator_capacity, new_prey_capacity, new_food_capacity);
-  spdlog::info("GPU batch processing enabled with capacities {} predators / {} "
-               "prey / {} food",
-               new_predator_capacity, new_prey_capacity, new_food_capacity);
 }
 
 void SimulationManager::enable_gpu(bool enable) {
