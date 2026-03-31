@@ -99,12 +99,12 @@ template <bool HasWalls>
 __device__ __forceinline__ void
 build_sensor_inputs_for_agent(const SensorBuildView &view, int agent_idx) {
   float *out = view.inputs + static_cast<size_t>(agent_idx) * view.num_inputs;
-  out[0] = -1.0f;
-  out[1] = 0.0f;
-  out[2] = -1.0f;
-  out[3] = 0.0f;
-  out[4] = -1.0f;
-  out[5] = 0.0f;
+  out[0] = 2.0f;
+  out[1] = 2.0f;
+  out[2] = 2.0f;
+  out[3] = 2.0f;
+  out[4] = 2.0f;
+  out[5] = 2.0f;
   out[6] = 1.0f;
   out[7] = 0.0f;
   out[8] = 0.0f;
@@ -255,16 +255,16 @@ build_sensor_inputs_for_agent(const SensorBuildView &view, int agent_idx) {
   }
 
   if (nearest_pred_dist_sq < INFINITY) {
-    out[0] = sqrtf(nearest_pred_dist_sq) * inv_vision;
-    out[1] = atan2f(pred_dy, pred_dx) * 0.31830988618f;
+    out[0] = pred_dx * inv_vision;
+    out[1] = pred_dy * inv_vision;
   }
   if (nearest_prey_dist_sq < INFINITY) {
-    out[2] = sqrtf(nearest_prey_dist_sq) * inv_vision;
-    out[3] = atan2f(prey_dy, prey_dx) * 0.31830988618f;
+    out[2] = prey_dx * inv_vision;
+    out[3] = prey_dy * inv_vision;
   }
   if (nearest_food_dist_sq < INFINITY) {
-    out[4] = sqrtf(nearest_food_dist_sq) * inv_vision;
-    out[5] = atan2f(food_dy, food_dx) * 0.31830988618f;
+    out[4] = food_dx * inv_vision;
+    out[5] = food_dy * inv_vision;
   }
   out[6] = sensor_clampf(
       view.agent_energy[agent_idx] / (view.max_energy * 2.0f), 0.0f, 1.0f);

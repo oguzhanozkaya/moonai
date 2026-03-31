@@ -143,16 +143,16 @@ void build_sensors(AgentRegistry &self_agents,
     }
 
     if (nearest_pred_dist_sq < std::numeric_limits<float>::max()) {
-      sensor_ptr[0] = std::clamp(nearest_pred_dir.x / vision, -1.0f, 1.0f);
-      sensor_ptr[1] = std::clamp(nearest_pred_dir.y / vision, -1.0f, 1.0f);
+      sensor_ptr[0] = nearest_pred_dir.x / vision;
+      sensor_ptr[1] = nearest_pred_dir.y / vision;
     }
     if (nearest_prey_dist_sq < std::numeric_limits<float>::max()) {
-      sensor_ptr[2] = std::clamp(nearest_prey_dir.x / vision, -1.0f, 1.0f);
-      sensor_ptr[3] = std::clamp(nearest_prey_dir.y / vision, -1.0f, 1.0f);
+      sensor_ptr[2] = nearest_prey_dir.x / vision;
+      sensor_ptr[3] = nearest_prey_dir.y / vision;
     }
     if (nearest_food_dist_sq < std::numeric_limits<float>::max()) {
-      sensor_ptr[4] = std::clamp(nearest_food_dir.x / vision, -1.0f, 1.0f);
-      sensor_ptr[5] = std::clamp(nearest_food_dir.y / vision, -1.0f, 1.0f);
+      sensor_ptr[4] = nearest_food_dir.x / vision;
+      sensor_ptr[5] = nearest_food_dir.y / vision;
     }
 
     sensor_ptr[6] =
