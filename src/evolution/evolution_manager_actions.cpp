@@ -32,7 +32,7 @@ void EvolutionManager::compute_actions(
     std::vector<float> &predator_decisions,
     std::vector<float> &prey_decisions) {
   MOONAI_PROFILE_SCOPE("evolution_compute_actions");
-  compute_actions_for_population(state.evolution.predators, state.predators,
+  compute_actions_for_population(state.evolution.predators, state.predator,
                                  predator_sensors, predator_decisions);
   compute_actions_for_population(state.evolution.prey, state.prey, prey_sensors,
                                  prey_decisions);

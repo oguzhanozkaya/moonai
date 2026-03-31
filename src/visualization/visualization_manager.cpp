@@ -143,7 +143,7 @@ void VisualizationManager::render(FrameSnapshot frame) {
   frame_.overlay_stats.fps = current_fps_;
 
   if (frame_.overlay_stats.step != last_chart_step_) {
-    overlay_.push_population(frame_.overlay_stats.alive_predators,
+    overlay_.push_population(frame_.overlay_stats.alive_predator,
                              frame_.overlay_stats.alive_prey,
                              frame_.overlay_stats.active_food);
     last_chart_step_ = frame_.overlay_stats.step;

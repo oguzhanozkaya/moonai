@@ -65,9 +65,12 @@ uint32_t find_by_agent_id_impl(const AgentRegistry &registry,
 
 } // namespace
 
-void FoodStore::initialize(const SimulationConfig &config, Random &rng) {
-  resize(static_cast<std::size_t>(config.food_count));
-  active.assign(static_cast<std::size_t>(config.food_count), 1);
+void Food::initialize(const SimulationConfig &config, Random &rng) {
+  const auto count = static_cast<std::size_t>(config.food_count);
+  pos_x.resize(count);
+  pos_y.resize(count);
+  active.resize(count);
+  active.assign(count, 1);
 
   const float grid_size = static_cast<float>(config.grid_size);
   for (int i = 0; i < config.food_count; ++i) {
@@ -76,8 +79,8 @@ void FoodStore::initialize(const SimulationConfig &config, Random &rng) {
   }
 }
 
-void FoodStore::respawn_step(const SimulationConfig &config, int step_index,
-                             std::uint64_t seed) {
+void Food::respawn_step(const SimulationConfig &config, int step_index,
+                        std::uint64_t seed) {
   const float world_size = static_cast<float>(config.grid_size);
 
   for (std::size_t i = 0; i < active.size(); ++i) {
@@ -103,22 +106,12 @@ uint32_t AgentRegistry::create() {
   return entity;
 }
 
-void AgentRegistry::destroy(uint32_t entity) {
-  if (valid(entity)) {
-    alive[entity] = 0;
-  }
-}
-
 bool AgentRegistry::valid(uint32_t entity) const {
   return entity != INVALID_ENTITY && entity < size();
 }
 
 std::size_t AgentRegistry::size() const {
   return registry_size(*this);
-}
-
-bool AgentRegistry::empty() const {
-  return size() == 0;
 }
 
 void AgentRegistry::clear() {

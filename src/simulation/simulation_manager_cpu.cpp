@@ -165,7 +165,7 @@ find_reproduction_pairs_impl(const RegistryT &registry,
 
 void SimulationManager::compact_predators(AppState &state,
                                           EvolutionManager &evolution) {
-  const auto result = state.predators.compact_dead();
+  const auto result = state.predator.compact_dead();
   for (const auto &[from, to] : result.moved) {
     evolution.on_predator_moved(state, from, to);
   }
@@ -187,7 +187,7 @@ void SimulationManager::compact_prey(AppState &state,
 
 void SimulationManager::refresh_world_state_after_step(AppState &state) {
   MOONAI_PROFILE_SCOPE("food_respawn");
-  state.food_store.respawn_step(config_, state.runtime.step,
+  state.food.respawn_step(config_, state.runtime.step,
                                 state.runtime.rng.seed());
 }
 
@@ -198,20 +198,20 @@ void SimulationManager::step(AppState &state, EvolutionManager &evolution) {
   state.runtime.pending_prey_offspring.clear();
   state.runtime.step_events.clear();
 
-  const std::vector<uint8_t> was_predator_alive = state.predators.alive;
+  const std::vector<uint8_t> was_predator_alive = state.predator.alive;
   const std::vector<uint8_t> was_prey_alive = state.prey.alive;
-  const std::vector<uint8_t> was_food_active = state.food_store.active;
-  std::vector<int> food_consumed_by(state.food_store.size(), -1);
+  const std::vector<uint8_t> was_food_active = state.food.active;
+  std::vector<int> food_consumed_by(state.food.size(), -1);
   std::vector<int> killed_by(state.prey.size(), -1);
-  std::vector<uint32_t> kill_counts(state.predators.size(), 0U);
+  std::vector<uint32_t> kill_counts(state.predator.size(), 0U);
 
   std::vector<float> predator_sensors;
   std::vector<float> prey_sensors;
-  simulation_detail::build_sensors(state.predators, state.predators, state.prey,
-                                   state.food_store, config_,
+  simulation_detail::build_sensors(state.predator, state.predator, state.prey,
+                                   state.food, config_,
                                    config_.predator_speed, predator_sensors);
-  simulation_detail::build_sensors(state.prey, state.predators, state.prey,
-                                   state.food_store, config_,
+  simulation_detail::build_sensors(state.prey, state.predator, state.prey,
+                                   state.food, config_,
                                    config_.prey_speed, prey_sensors);
 
   std::vector<float> predator_decisions;
@@ -219,24 +219,24 @@ void SimulationManager::step(AppState &state, EvolutionManager &evolution) {
   evolution.compute_actions(state, predator_sensors, prey_sensors,
                             predator_decisions, prey_decisions);
 
-  simulation_detail::update_vitals(state.predators, config_);
+  simulation_detail::update_vitals(state.predator, config_);
   simulation_detail::update_vitals(state.prey, config_);
-  simulation_detail::process_food(state.prey, state.food_store, config_,
+  simulation_detail::process_food(state.prey, state.food, config_,
                                   food_consumed_by);
-  simulation_detail::process_combat(state.predators, state.prey, config_,
+  simulation_detail::process_combat(state.predator, state.prey, config_,
                                     killed_by, kill_counts);
-  simulation_detail::apply_movement(state.predators, config_,
+  simulation_detail::apply_movement(state.predator, config_,
                                     config_.predator_speed, predator_decisions);
   simulation_detail::apply_movement(state.prey, config_, config_.prey_speed,
                                     prey_decisions);
 
-  simulation_detail::collect_food_events(state.prey, state.food_store,
+  simulation_detail::collect_food_events(state.prey, state.food,
                                          was_food_active, food_consumed_by,
                                          state.runtime.step_events);
-  simulation_detail::collect_combat_events(state.predators, state.prey,
+  simulation_detail::collect_combat_events(state.predator, state.prey,
                                            killed_by, kill_counts,
                                            state.runtime.step_events);
-  simulation_detail::collect_death_events(state.predators, was_predator_alive,
+  simulation_detail::collect_death_events(state.predator, was_predator_alive,
                                           state.runtime.step_events);
   simulation_detail::collect_death_events(state.prey, was_prey_alive,
                                           state.runtime.step_events);
@@ -253,7 +253,7 @@ std::vector<PendingOffspring>
 SimulationManager::find_predator_reproduction_pairs(
     const AppState &state) const {
   MOONAI_PROFILE_SCOPE("find_predator_reproduction_pairs");
-  return find_reproduction_pairs_impl(state.predators, config_);
+  return find_reproduction_pairs_impl(state.predator, config_);
 }
 
 std::vector<PendingOffspring>

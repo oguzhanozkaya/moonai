@@ -223,7 +223,7 @@ void UIOverlay::draw_stats_widget(sf::RenderTarget &target,
   char buf[32];
 
   // Single column: Population counts and events
-  std::snprintf(buf, sizeof(buf), "Predators: %d", stats.alive_predators);
+  std::snprintf(buf, sizeof(buf), "Predators: %d", stats.alive_predator);
   draw_text(target, buf, tx, ty, 13,
             sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G,
                       chart_colors::PREDATOR_B));

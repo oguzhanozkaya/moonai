@@ -6,9 +6,9 @@ namespace moonai::metrics {
 
 namespace {
 
-int count_active_food(const FoodStore &food_store) {
+int count_active_food(const Food &food) {
   int active_food = 0;
-  for (uint8_t active : food_store.active) {
+  for (uint8_t active : food.active) {
     active_food += active ? 1 : 0;
   }
   return active_food;
@@ -17,9 +17,9 @@ int count_active_food(const FoodStore &food_store) {
 } // namespace
 
 void refresh_live(AppState &state) {
-  state.metrics.live.alive_predators = static_cast<int>(state.predators.size());
+  state.metrics.live.alive_predator = static_cast<int>(state.predator.size());
   state.metrics.live.alive_prey = static_cast<int>(state.prey.size());
-  state.metrics.live.active_food = count_active_food(state.food_store);
+  state.metrics.live.active_food = count_active_food(state.food);
   state.metrics.live.predator_species =
       static_cast<int>(state.evolution.predators.species.size());
   state.metrics.live.prey_species =
@@ -31,7 +31,7 @@ void record_report(AppState &state) {
 
   ReportMetrics report;
   report.step = state.runtime.step;
-  report.predator_count = state.metrics.live.alive_predators;
+  report.predator_count = state.metrics.live.alive_predator;
   report.prey_count = state.metrics.live.alive_prey;
   report.births = state.runtime.report_events.births;
   report.deaths = state.runtime.report_events.deaths;
@@ -45,7 +45,7 @@ void record_report(AppState &state) {
   float complexity_sum = 0.0f;
   int genome_count = 0;
 
-  for (float energy : state.predators.energy) {
+  for (float energy : state.predator.energy) {
     predator_energy_sum += energy;
     ++predator_energy_count;
   }

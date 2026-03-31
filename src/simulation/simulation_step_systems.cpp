@@ -29,9 +29,9 @@ void collect_death_events_impl(const RegistryT &registry,
 
 void build_sensors(AgentRegistry &self_agents,
                    const AgentRegistry &predator_agents,
-                   const AgentRegistry &prey_agents,
-                   const FoodStore &food_store, const SimulationConfig &config,
-                   float agent_speed, std::vector<float> &sensors_out) {
+                   const AgentRegistry &prey_agents, const Food &food_store,
+                   const SimulationConfig &config, float agent_speed,
+                   std::vector<float> &sensors_out) {
   const float world_size = static_cast<float>(config.grid_size);
   const float vision = config.vision_range;
   const float vision_sq = vision * vision;
@@ -206,7 +206,7 @@ void update_vitals(AgentRegistry &agents, const SimulationConfig &config) {
   }
 }
 
-void process_food(AgentRegistry &prey_registry, FoodStore &food_store,
+void process_food(AgentRegistry &prey_registry, Food &food_store,
                   const SimulationConfig &config,
                   std::vector<int> &food_consumed_by) {
   std::fill(food_consumed_by.begin(), food_consumed_by.end(), -1);
@@ -362,8 +362,7 @@ void apply_movement(AgentRegistry &agents, const SimulationConfig &config,
   }
 }
 
-void collect_food_events(AgentRegistry &prey_registry,
-                         const FoodStore &food_store,
+void collect_food_events(AgentRegistry &prey_registry, const Food &food_store,
                          const std::vector<uint8_t> &was_food_active,
                          const std::vector<int> &food_consumed_by,
                          EventCounters &counters) {

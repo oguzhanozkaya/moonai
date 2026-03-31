@@ -43,27 +43,27 @@ TEST(SimulationSensorsTest, EncodesDxDySentinelsAndFoodDensity) {
                        simulation_detail::OUTPUT_COUNT);
   evolution.seed_initial_population(state);
 
-  ASSERT_EQ(state.predators.size(), 1u);
+  ASSERT_EQ(state.predator.size(), 1u);
   ASSERT_EQ(state.prey.size(), 1u);
   ASSERT_EQ(simulation_detail::SENSOR_COUNT, 14);
 
   const std::size_t predator_idx = 0;
   const std::size_t prey_idx = 0;
-  state.predators.pos_x[predator_idx] = 10.0f;
-  state.predators.pos_y[predator_idx] = 10.0f;
+  state.predator.pos_x[predator_idx] = 10.0f;
+  state.predator.pos_y[predator_idx] = 10.0f;
   state.prey.pos_x[prey_idx] = 22.0f;
   state.prey.pos_y[prey_idx] = 16.0f;
 
   std::vector<float> predator_sensors;
   std::vector<float> prey_sensors;
-  simulation_detail::build_sensors(state.predators, state.predators, state.prey,
-                                   state.food_store, config,
+  simulation_detail::build_sensors(state.predator, state.predator, state.prey,
+                                   state.food, config,
                                    config.predator_speed, predator_sensors);
-  simulation_detail::build_sensors(state.prey, state.predators, state.prey,
-                                   state.food_store, config, config.prey_speed,
+  simulation_detail::build_sensors(state.prey, state.predator, state.prey,
+                                   state.food, config, config.prey_speed,
                                    prey_sensors);
 
-  const auto &food_store = state.food_store;
+  const auto &food_store = state.food;
   ASSERT_EQ(food_store.size(), 2u);
   ASSERT_TRUE(food_store.active[0]);
   ASSERT_TRUE(food_store.active[1]);
@@ -82,8 +82,8 @@ TEST(SimulationSensorsTest, EncodesDxDySentinelsAndFoodDensity) {
     return best;
   };
 
-  const Vec2 predator_pos{state.predators.pos_x[predator_idx],
-                          state.predators.pos_y[predator_idx]};
+  const Vec2 predator_pos{state.predator.pos_x[predator_idx],
+                          state.predator.pos_y[predator_idx]};
   const Vec2 prey_pos{state.prey.pos_x[prey_idx], state.prey.pos_y[prey_idx]};
   const Vec2 predator_to_prey{prey_pos.x - predator_pos.x,
                               prey_pos.y - predator_pos.y};

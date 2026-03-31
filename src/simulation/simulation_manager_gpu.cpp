@@ -36,10 +36,10 @@ void SimulationManager::collect_gpu_step_events(
   auto &prey_buffer = gpu_batch_->prey_buffer();
   auto &food_buffer = gpu_batch_->food_buffer();
 
-  for (std::size_t food_idx = 0; food_idx < state.food_store.size();
+  for (std::size_t food_idx = 0; food_idx < state.food.size();
        ++food_idx) {
     const int prey_idx = food_buffer.host_consumed_by()[food_idx];
-    if (!was_food_active[food_idx] || state.food_store.active[food_idx] ||
+    if (!was_food_active[food_idx] || state.food.active[food_idx] ||
         prey_idx < 0 || static_cast<uint32_t>(prey_idx) >= state.prey.size()) {
       continue;
     }
@@ -48,11 +48,11 @@ void SimulationManager::collect_gpu_step_events(
     ++state.runtime.step_events.food_eaten;
   }
 
-  const uint32_t predator_count = static_cast<uint32_t>(state.predators.size());
+  const uint32_t predator_count = static_cast<uint32_t>(state.predator.size());
   for (uint32_t predator_idx = 0; predator_idx < predator_count;
        ++predator_idx) {
     if (predator_buffer.host_kill_counts()[predator_idx] > 0) {
-      state.predators.consumption[predator_idx] +=
+      state.predator.consumption[predator_idx] +=
           static_cast<int>(predator_buffer.host_kill_counts()[predator_idx]);
     }
   }
@@ -61,7 +61,7 @@ void SimulationManager::collect_gpu_step_events(
   for (uint32_t prey_idx = 0; prey_idx < prey_count; ++prey_idx) {
     const int killer_idx = prey_buffer.host_claimed_by()[prey_idx];
     if (killer_idx >= 0 &&
-        static_cast<uint32_t>(killer_idx) < state.predators.size()) {
+        static_cast<uint32_t>(killer_idx) < state.predator.size()) {
       ++state.runtime.step_events.kills;
     }
   }
@@ -69,7 +69,7 @@ void SimulationManager::collect_gpu_step_events(
   for (uint32_t predator_idx = 0; predator_idx < predator_count;
        ++predator_idx) {
     if (was_predator_alive[predator_idx] &&
-        state.predators.alive[predator_idx] == 0) {
+        state.predator.alive[predator_idx] == 0) {
       ++state.runtime.step_events.deaths;
     }
   }
@@ -161,9 +161,9 @@ void SimulationManager::step_gpu(AppState &state, EvolutionManager &evolution) {
     return step(state, evolution);
   }
 
-  const std::size_t predator_count = state.predators.size();
+  const std::size_t predator_count = state.predator.size();
   const std::size_t prey_count = state.prey.size();
-  const std::size_t food_count = state.food_store.size();
+  const std::size_t food_count = state.food.size();
   if (predator_count == 0 && prey_count == 0) {
     return;
   }
@@ -179,9 +179,9 @@ void SimulationManager::step_gpu(AppState &state, EvolutionManager &evolution) {
 
   {
     MOONAI_PROFILE_SCOPE("gpu_pack_state");
-    was_predator_alive = state.predators.alive;
+    was_predator_alive = state.predator.alive;
     was_prey_alive = state.prey.alive;
-    was_food_active = state.food_store.active;
+    was_food_active = state.food.active;
 
     auto &predator_buffer = gpu_batch_->predator_buffer();
     auto &prey_buffer = gpu_batch_->prey_buffer();
@@ -189,19 +189,19 @@ void SimulationManager::step_gpu(AppState &state, EvolutionManager &evolution) {
 
     if (predator_count > 0) {
       std::memcpy(predator_buffer.host_positions_x(),
-                  state.predators.pos_x.data(), predator_count * sizeof(float));
+                  state.predator.pos_x.data(), predator_count * sizeof(float));
       std::memcpy(predator_buffer.host_positions_y(),
-                  state.predators.pos_y.data(), predator_count * sizeof(float));
+                  state.predator.pos_y.data(), predator_count * sizeof(float));
       std::memcpy(predator_buffer.host_velocities_x(),
-                  state.predators.vel_x.data(), predator_count * sizeof(float));
+                  state.predator.vel_x.data(), predator_count * sizeof(float));
       std::memcpy(predator_buffer.host_velocities_y(),
-                  state.predators.vel_y.data(), predator_count * sizeof(float));
-      std::memcpy(predator_buffer.host_energy(), state.predators.energy.data(),
+                  state.predator.vel_y.data(), predator_count * sizeof(float));
+      std::memcpy(predator_buffer.host_energy(), state.predator.energy.data(),
                   predator_count * sizeof(float));
-      std::memcpy(predator_buffer.host_age(), state.predators.age.data(),
+      std::memcpy(predator_buffer.host_age(), state.predator.age.data(),
                   predator_count * sizeof(int));
       for (uint32_t i = 0; i < static_cast<uint32_t>(predator_count); ++i) {
-        predator_buffer.host_alive()[i] = state.predators.alive[i];
+        predator_buffer.host_alive()[i] = state.predator.alive[i];
       }
     }
 
@@ -224,12 +224,12 @@ void SimulationManager::step_gpu(AppState &state, EvolutionManager &evolution) {
     }
 
     if (food_count > 0) {
-      std::memcpy(food_buffer.host_positions_x(), state.food_store.pos_x.data(),
+      std::memcpy(food_buffer.host_positions_x(), state.food.pos_x.data(),
                   food_count * sizeof(float));
-      std::memcpy(food_buffer.host_positions_y(), state.food_store.pos_y.data(),
+      std::memcpy(food_buffer.host_positions_y(), state.food.pos_y.data(),
                   food_count * sizeof(float));
       for (std::size_t i = 0; i < food_count; ++i) {
-        food_buffer.host_active()[i] = state.food_store.active[i];
+        food_buffer.host_active()[i] = state.food.active[i];
         food_buffer.host_consumed_by()[i] = -1;
       }
     }
@@ -304,25 +304,25 @@ void SimulationManager::step_gpu(AppState &state, EvolutionManager &evolution) {
     auto &food_buffer = gpu_batch_->food_buffer();
 
     if (predator_count > 0) {
-      std::memcpy(state.predators.pos_x.data(),
+      std::memcpy(state.predator.pos_x.data(),
                   predator_buffer.host_positions_x(),
                   predator_count * sizeof(float));
-      std::memcpy(state.predators.pos_y.data(),
+      std::memcpy(state.predator.pos_y.data(),
                   predator_buffer.host_positions_y(),
                   predator_count * sizeof(float));
-      std::memcpy(state.predators.vel_x.data(),
+      std::memcpy(state.predator.vel_x.data(),
                   predator_buffer.host_velocities_x(),
                   predator_count * sizeof(float));
-      std::memcpy(state.predators.vel_y.data(),
+      std::memcpy(state.predator.vel_y.data(),
                   predator_buffer.host_velocities_y(),
                   predator_count * sizeof(float));
-      std::memcpy(state.predators.energy.data(), predator_buffer.host_energy(),
+      std::memcpy(state.predator.energy.data(), predator_buffer.host_energy(),
                   predator_count * sizeof(float));
-      std::memcpy(state.predators.age.data(), predator_buffer.host_age(),
+      std::memcpy(state.predator.age.data(), predator_buffer.host_age(),
                   predator_count * sizeof(int));
       // Sensor inputs and brain outputs are device-only, not copied back to CPU
       for (uint32_t i = 0; i < static_cast<uint32_t>(predator_count); ++i) {
-        state.predators.alive[i] =
+        state.predator.alive[i] =
             static_cast<uint8_t>(predator_buffer.host_alive()[i]);
       }
     }
@@ -347,12 +347,12 @@ void SimulationManager::step_gpu(AppState &state, EvolutionManager &evolution) {
     }
 
     if (food_count > 0) {
-      std::memcpy(state.food_store.pos_x.data(), food_buffer.host_positions_x(),
+      std::memcpy(state.food.pos_x.data(), food_buffer.host_positions_x(),
                   food_count * sizeof(float));
-      std::memcpy(state.food_store.pos_y.data(), food_buffer.host_positions_y(),
+      std::memcpy(state.food.pos_y.data(), food_buffer.host_positions_y(),
                   food_count * sizeof(float));
       for (std::size_t i = 0; i < food_count; ++i) {
-        state.food_store.active[i] =
+        state.food.active[i] =
             static_cast<uint8_t>(food_buffer.host_active()[i]);
       }
     }

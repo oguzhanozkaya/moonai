@@ -82,7 +82,7 @@ bool EvolutionManager::launch_gpu_neural(AppState &state,
 
   if (!launch_population_gpu_neural(
           state.evolution.predators, *predator_gpu_network_cache_,
-          gpu_batch.predator_buffer(), state.predators.size(),
+          gpu_batch.predator_buffer(), state.predator.size(),
           gpu_batch.stream())) {
     gpu_batch.mark_error();
     return false;

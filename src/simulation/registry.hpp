@@ -16,16 +16,10 @@ struct RegistryCompactionResult {
   std::vector<uint32_t> removed;
 };
 
-struct FoodStore {
+struct Food {
   void initialize(const SimulationConfig &config, Random &rng);
   void respawn_step(const SimulationConfig &config, int step_index,
                     std::uint64_t seed);
-
-  void resize(std::size_t n) {
-    pos_x.resize(n);
-    pos_y.resize(n);
-    active.resize(n);
-  }
 
   std::size_t size() const {
     return pos_x.size();
@@ -49,11 +43,8 @@ struct AgentRegistry {
   std::vector<int> consumption;
 
   uint32_t create();
-  void destroy(uint32_t entity);
   bool valid(uint32_t entity) const;
   std::size_t size() const;
-  bool empty() const;
-
   void clear();
   RegistryCompactionResult compact_dead();
   uint32_t find_by_agent_id(uint32_t agent_id) const;

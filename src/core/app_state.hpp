@@ -42,7 +42,7 @@ struct EventCounters {
 };
 
 struct LiveMetrics {
-  int alive_predators = 0;
+  int alive_predator = 0;
   int alive_prey = 0;
   int active_food = 0;
   int predator_species = 0;
@@ -105,9 +105,9 @@ struct UiState {
 struct AppState {
   explicit AppState(std::uint64_t seed) : runtime(seed) {}
 
-  AgentRegistry predators;
+  AgentRegistry predator;
   AgentRegistry prey;
-  FoodStore food_store;
+  Food food;
   EvolutionState evolution;
   RuntimeState runtime;
   MetricsState metrics;

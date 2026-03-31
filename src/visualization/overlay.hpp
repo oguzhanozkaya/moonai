@@ -21,7 +21,7 @@ namespace moonai {
 struct OverlayStats {
   int step = 0;
   int max_steps = 1500;
-  int alive_predators = 0;
+  int alive_predator = 0;
   int alive_prey = 0;
   int active_food = 0;
   int predator_species = 0;

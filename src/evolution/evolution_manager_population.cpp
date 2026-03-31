@@ -42,7 +42,7 @@ EvolutionManager::create_child_genome(PopulationEvolutionState &population,
 }
 
 void EvolutionManager::seed_initial_population(AppState &state) {
-  state.predators.clear();
+  state.predator.clear();
   state.prey.clear();
   state.runtime.next_agent_id = 1;
   initialize_population(state.evolution.predators);
@@ -51,7 +51,7 @@ void EvolutionManager::seed_initial_population(AppState &state) {
   const float grid_size = static_cast<float>(config_.grid_size);
 
   auto seed_predator = [&] {
-    const uint32_t idx = state.predators.create();
+    const uint32_t idx = state.predator.create();
     Genome genome =
         create_initial_genome(state.evolution.predators, state.runtime.rng);
     if (idx >= state.evolution.predators.genomes.size()) {
@@ -61,16 +61,16 @@ void EvolutionManager::seed_initial_population(AppState &state) {
     state.evolution.predators.network_cache.assign(
         idx, state.evolution.predators.genomes[idx]);
 
-    state.predators.pos_x[idx] = state.runtime.rng.next_float(0.0f, grid_size);
-    state.predators.pos_y[idx] = state.runtime.rng.next_float(0.0f, grid_size);
-    state.predators.vel_x[idx] = 0.0f;
-    state.predators.vel_y[idx] = 0.0f;
-    state.predators.energy[idx] = config_.initial_energy;
-    state.predators.age[idx] = 0;
-    state.predators.alive[idx] = 1;
-    state.predators.species_id[idx] = 0;
-    state.predators.entity_id[idx] = state.runtime.next_agent_id++;
-    state.predators.consumption[idx] = 0;
+    state.predator.pos_x[idx] = state.runtime.rng.next_float(0.0f, grid_size);
+    state.predator.pos_y[idx] = state.runtime.rng.next_float(0.0f, grid_size);
+    state.predator.vel_x[idx] = 0.0f;
+    state.predator.vel_y[idx] = 0.0f;
+    state.predator.energy[idx] = config_.initial_energy;
+    state.predator.age[idx] = 0;
+    state.predator.alive[idx] = 1;
+    state.predator.species_id[idx] = 0;
+    state.predator.entity_id[idx] = state.runtime.next_agent_id++;
+    state.predator.consumption[idx] = 0;
   };
 
   auto seed_prey = [&] {
@@ -116,7 +116,7 @@ uint32_t EvolutionManager::create_predator_offspring(AppState &state,
                                                      uint32_t parent_b,
                                                      Vec2 spawn_position) {
   MOONAI_PROFILE_SCOPE("evolution_offspring_predator");
-  if (!state.predators.valid(parent_a) || !state.predators.valid(parent_b) ||
+  if (!state.predator.valid(parent_a) || !state.predator.valid(parent_b) ||
       parent_a >= state.evolution.predators.genomes.size() ||
       parent_b >= state.evolution.predators.genomes.size()) {
     return INVALID_ENTITY;
@@ -127,17 +127,17 @@ uint32_t EvolutionManager::create_predator_offspring(AppState &state,
                           state.evolution.predators.genomes[parent_a],
                           state.evolution.predators.genomes[parent_b]);
 
-  const uint32_t idx = state.predators.create();
-  state.predators.pos_x[idx] = spawn_position.x;
-  state.predators.pos_y[idx] = spawn_position.y;
-  state.predators.vel_x[idx] = 0.0f;
-  state.predators.vel_y[idx] = 0.0f;
-  state.predators.energy[idx] = config_.offspring_initial_energy;
-  state.predators.age[idx] = 0;
-  state.predators.alive[idx] = 1;
-  state.predators.species_id[idx] = state.predators.species_id[parent_a];
-  state.predators.entity_id[idx] = state.runtime.next_agent_id++;
-  state.predators.consumption[idx] = 0;
+  const uint32_t idx = state.predator.create();
+  state.predator.pos_x[idx] = spawn_position.x;
+  state.predator.pos_y[idx] = spawn_position.y;
+  state.predator.vel_x[idx] = 0.0f;
+  state.predator.vel_y[idx] = 0.0f;
+  state.predator.energy[idx] = config_.offspring_initial_energy;
+  state.predator.age[idx] = 0;
+  state.predator.alive[idx] = 1;
+  state.predator.species_id[idx] = state.predator.species_id[parent_a];
+  state.predator.entity_id[idx] = state.runtime.next_agent_id++;
+  state.predator.consumption[idx] = 0;
 
   if (idx >= state.evolution.predators.genomes.size()) {
     state.evolution.predators.genomes.resize(idx + 1);
@@ -146,8 +146,8 @@ uint32_t EvolutionManager::create_predator_offspring(AppState &state,
   state.evolution.predators.network_cache.assign(
       idx, state.evolution.predators.genomes[idx]);
 
-  state.predators.energy[parent_a] -= config_.reproduction_energy_cost;
-  state.predators.energy[parent_b] -= config_.reproduction_energy_cost;
+  state.predator.energy[parent_a] -= config_.reproduction_energy_cost;
+  state.predator.energy[parent_b] -= config_.reproduction_energy_cost;
 
   if (predator_gpu_network_cache_) {
     predator_gpu_network_cache_->invalidate();
@@ -256,7 +256,7 @@ void EvolutionManager::refresh_population_species(
 }
 
 void EvolutionManager::refresh_species(AppState &state) {
-  refresh_population_species(state.evolution.predators, state.predators);
+  refresh_population_species(state.evolution.predators, state.predator);
   refresh_population_species(state.evolution.prey, state.prey);
 }
 
