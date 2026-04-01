@@ -23,8 +23,6 @@ void SimulationManager::initialize(AppState &state) {
 }
 
 void SimulationManager::step(AppState &state, EvolutionManager &evolution) {
-  metrics::begin_step(state);
-
   if (state.runtime.gpu_enabled) {
     this->step_gpu(state, evolution);
   } else {

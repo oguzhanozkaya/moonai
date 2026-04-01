@@ -144,6 +144,8 @@ bool App::run() {
     for (int i = 0; i < steps_to_run; ++i) {
       MOONAI_PROFILE_SCOPE("step");
 
+      metrics::begin_step(state_);
+
       simulation_.step(state_, evolution_);
       ++state_.runtime.step;
 
