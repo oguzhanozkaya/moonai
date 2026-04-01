@@ -1,8 +1,5 @@
 set(MOONAI_EVOLUTION_SOURCES
     evolution_manager.cpp
-    evolution_manager_population.cpp
-    evolution_manager_actions.cpp
-    evolution_manager_gpu.cpp
     genome.cpp
     neural_network.cpp
     species.cpp

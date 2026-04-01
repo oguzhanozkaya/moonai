@@ -354,15 +354,12 @@ void collect_combat_events(AgentRegistry &predator_registry, const AgentRegistry
   }
 }
 
-void collect_death_events(const AgentRegistry &registry, const std::vector<uint8_t> &was_alive,
-                          EventCounters &counters) {
+void collect_death_events(const AgentRegistry &registry, EventCounters &counters) {
   const uint32_t entity_count = static_cast<uint32_t>(registry.size());
   for (uint32_t idx = 0; idx < entity_count; ++idx) {
-    if (was_alive[idx] == 0 || registry.alive[idx] != 0) {
-      continue;
+    if (registry.alive[idx] == 0) {
+      ++counters.deaths;
     }
-
-    ++counters.deaths;
   }
 }
 

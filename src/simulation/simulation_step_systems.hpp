@@ -26,7 +26,6 @@ void collect_food_events(AgentRegistry &prey_registry, const Food &food_store,
 void collect_combat_events(AgentRegistry &predator_registry, const AgentRegistry &prey_registry,
                            const std::vector<int> &killed_by, const std::vector<uint32_t> &kill_counts,
                            EventCounters &counters);
-void collect_death_events(const AgentRegistry &registry, const std::vector<uint8_t> &was_alive,
-                          EventCounters &counters);
+void collect_death_events(const AgentRegistry &registry, EventCounters &counters);
 
 } // namespace moonai::simulation_detail

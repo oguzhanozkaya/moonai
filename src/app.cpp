@@ -28,14 +28,10 @@ void App::register_signal_handlers() {
   g_running_ = 1;
 }
 
-std::uint64_t App::generate_seed() {
-  return static_cast<std::uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count());
-}
-
 App::App(AppConfig cfg)
     : cfg_([&cfg] {
         if (cfg.sim_config.seed == 0) {
-          cfg.sim_config.seed = App::generate_seed();
+          cfg.sim_config.seed = static_cast<std::uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count());
         }
         return std::move(cfg);
       }()),
@@ -74,44 +70,6 @@ App::App(AppConfig cfg)
   }
 
   register_signal_handlers();
-}
-
-void App::step() {
-  MOONAI_PROFILE_SCOPE("step");
-
-  if (state_.runtime.gpu_enabled) {
-    simulation_.step_gpu(state_, evolution_);
-  } else {
-    simulation_.step(state_, evolution_);
-  }
-
-  for (const auto &pair : state_.runtime.pending_predator_offspring) {
-    const uint32_t child =
-        evolution_.create_predator_offspring(state_, pair.parent_a, pair.parent_b, pair.spawn_position);
-    if (child != INVALID_ENTITY) {
-      ++state_.runtime.step_events.births;
-    }
-  }
-
-  for (const auto &pair : state_.runtime.pending_prey_offspring) {
-    const uint32_t child = evolution_.create_prey_offspring(state_, pair.parent_a, pair.parent_b, pair.spawn_position);
-    if (child != INVALID_ENTITY) {
-      ++state_.runtime.step_events.births;
-    }
-  }
-  state_.runtime.pending_predator_offspring.clear();
-  state_.runtime.pending_prey_offspring.clear();
-
-  state_.runtime.report_events.add(state_.runtime.step_events);
-  state_.runtime.total_events.add(state_.runtime.step_events);
-
-  if (cfg_.sim_config.species_update_interval_steps > 0 &&
-      (state_.runtime.step % cfg_.sim_config.species_update_interval_steps) == 0) {
-    evolution_.refresh_species(state_);
-  }
-
-  ++state_.runtime.step;
-  metrics::refresh_live(state_);
 }
 
 void App::record_and_log() {
@@ -154,10 +112,6 @@ void App::record_and_log() {
                state_.metrics.last_report.prey_species);
 }
 
-bool App::should_continue() const {
-  return !(g_running_ == 0) && !(cfg_.sim_config.max_steps > 0 && state_.runtime.step >= cfg_.sim_config.max_steps);
-}
-
 bool App::run() {
   if (!cfg_.headless && std::getenv("DISPLAY") == nullptr && std::getenv("WAYLAND_DISPLAY") == nullptr) {
     spdlog::error("No display server found. GUI mode requires a display.");
@@ -169,37 +123,38 @@ bool App::run() {
   }
 
   bool completed = true;
+  while (cfg_.sim_config.max_steps == 0 || state_.runtime.step < cfg_.sim_config.max_steps) {
+    MOONAI_PROFILE_SCOPE("frame_total");
 
-  if (cfg_.headless) {
-    while (should_continue()) {
-      step();
+    if (g_running_ == 0) {
+      completed = false;
+      break;
+    }
+
+    if (!cfg_.headless) {
+      visualization_->handle_events();
+      if (visualization_->should_close()) {
+        completed = false;
+        break;
+      }
+    }
+
+    int steps_to_run = state_.ui.paused ? state_.ui.step_requested : std::max(1, state_.ui.speed_multiplier);
+    state_.ui.step_requested = false;
+    for (int i = 0; i < steps_to_run; ++i) {
+      MOONAI_PROFILE_SCOPE("step");
+
+      simulation_.step(state_, evolution_);
+      ++state_.runtime.step;
+
+      metrics::refresh_live(state_);
 
       if (state_.runtime.step % cfg_.sim_config.report_interval_steps == 0) {
         record_and_log();
       }
     }
 
-    completed = (g_running_ != 0);
-  } else {
-    while (should_continue()) {
-      MOONAI_PROFILE_SCOPE("frame_total");
-
-      visualization_->handle_events();
-      if (visualization_->should_close()) {
-        completed = false;
-        break;
-      }
-
-      int steps_to_run = state_.ui.paused ? state_.ui.step_requested : std::max(1, state_.ui.speed_multiplier);
-      state_.ui.step_requested = false;
-      for (int i = 0; i < steps_to_run && should_continue(); ++i) {
-        step();
-
-        if (state_.runtime.step % cfg_.sim_config.report_interval_steps == 0) {
-          record_and_log();
-        }
-      }
-
+    if (!cfg_.headless) {
       visualization_->render(build_frame_snapshot(state_, cfg_));
     }
   }

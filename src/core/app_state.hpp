@@ -2,15 +2,15 @@
 
 #include "core/config.hpp"
 #include "core/random.hpp"
-#include "core/types.hpp"
 #include "evolution/genome.hpp"
 #include "evolution/mutation.hpp"
 #include "evolution/network_cache.hpp"
 #include "evolution/species.hpp"
+#include "gpu/gpu_network_cache.hpp"
 
 #include <cstddef>
 #include <cstdint>
-#include <utility>
+#include <memory>
 #include <vector>
 
 namespace moonai {
@@ -21,11 +21,6 @@ struct UiState {
   bool reset_requested = false;
   int speed_multiplier = 1;
   uint32_t selected_agent_id = 0;
-};
-
-struct RegistryCompactionResult {
-  std::vector<std::pair<uint32_t, uint32_t>> moved;
-  std::vector<uint32_t> removed;
 };
 
 struct Food {
@@ -57,24 +52,19 @@ struct AgentRegistry {
   std::vector<Species> species;
   std::vector<Genome> genomes;
   NetworkCache network_cache;
+  std::unique_ptr<gpu::GpuNetworkCache> gpu_network_cache;
 
   uint32_t create();
   bool valid(uint32_t entity) const;
   std::size_t size() const;
   void clear();
-  RegistryCompactionResult compact_dead();
+  void compact();
   uint32_t find_by_agent_id(uint32_t agent_id) const;
 
 private:
   void resize(std::size_t size);
   void swap_entities(std::size_t a, std::size_t b);
   void pop_back();
-};
-
-struct PendingOffspring {
-  uint32_t parent_a = INVALID_ENTITY;
-  uint32_t parent_b = INVALID_ENTITY;
-  Vec2 spawn_position;
 };
 
 struct EventCounters {
@@ -132,9 +122,6 @@ struct RuntimeState {
   uint32_t next_agent_id = 1;
   int step = 0;
   bool gpu_enabled = false;
-
-  std::vector<PendingOffspring> pending_predator_offspring;
-  std::vector<PendingOffspring> pending_prey_offspring;
 
   EventCounters step_events;
   EventCounters report_events;

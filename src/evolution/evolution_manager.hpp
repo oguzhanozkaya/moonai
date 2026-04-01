@@ -6,7 +6,6 @@
 #include "core/types.hpp"
 #include "evolution/genome.hpp"
 
-#include <memory>
 #include <vector>
 
 namespace moonai {
@@ -27,19 +26,13 @@ public:
 
   void seed_initial_population(AppState &state);
 
-  uint32_t create_predator_offspring(AppState &state, uint32_t parent_a, uint32_t parent_b, Vec2 spawn_position);
-  uint32_t create_prey_offspring(AppState &state, uint32_t parent_a, uint32_t parent_b, Vec2 spawn_position);
-
+  uint32_t create_offspring(AppState &state, AgentRegistry &registry, uint32_t parent_a, uint32_t parent_b,
+                            Vec2 spawn_position);
   void refresh_species(AppState &state);
 
   void compute_actions(AppState &state, const std::vector<float> &predator_sensors,
                        const std::vector<float> &prey_sensors, std::vector<float> &predator_decisions,
                        std::vector<float> &prey_decisions);
-
-  void on_predator_destroyed(AppState &state, uint32_t e);
-  void on_predator_moved(AppState &state, uint32_t from, uint32_t to);
-  void on_prey_destroyed(AppState &state, uint32_t e);
-  void on_prey_moved(AppState &state, uint32_t from, uint32_t to);
 
   void enable_gpu(AppState &state, bool use_gpu);
 
@@ -54,15 +47,10 @@ private:
   void compute_actions_for_population(AgentRegistry &registry, const std::vector<float> &sensors,
                                       std::vector<float> &decisions_out) const;
   void refresh_population_species(AgentRegistry &registry) const;
-  void on_population_destroyed(AgentRegistry &registry, uint32_t entity);
-  void on_population_moved(AgentRegistry &registry, uint32_t from, uint32_t to);
 
   const SimulationConfig &config_;
   int num_inputs_ = 0;
   int num_outputs_ = 0;
-
-  std::unique_ptr<gpu::GpuNetworkCache> predator_gpu_network_cache_;
-  std::unique_ptr<gpu::GpuNetworkCache> prey_gpu_network_cache_;
 };
 
 } // namespace moonai

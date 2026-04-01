@@ -7,7 +7,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <limits>
 #include <spdlog/spdlog.h>
 
 namespace moonai::gpu {
@@ -570,6 +569,8 @@ void GpuBatch::ensure_spatial_grid_capacity(std::size_t cell_count) {
 }
 
 void GpuBatch::upload_async(std::size_t predator_count, std::size_t prey_count, std::size_t food_count) {
+  MOONAI_PROFILE_SCOPE("gpu_upload");
+
   const cudaStream_t stream = static_cast<cudaStream_t>(stream_);
   predator_buffer_.upload_async(predator_count, stream);
   prey_buffer_.upload_async(prey_count, stream);
@@ -577,6 +578,8 @@ void GpuBatch::upload_async(std::size_t predator_count, std::size_t prey_count, 
 }
 
 void GpuBatch::download_async(std::size_t predator_count, std::size_t prey_count, std::size_t food_count) {
+  MOONAI_PROFILE_SCOPE("gpu_download_enqueue");
+
   const cudaStream_t stream = static_cast<cudaStream_t>(stream_);
   predator_buffer_.download_async(predator_count, stream);
   prey_buffer_.download_async(prey_count, stream);
@@ -585,6 +588,8 @@ void GpuBatch::download_async(std::size_t predator_count, std::size_t prey_count
 
 void GpuBatch::launch_build_sensors_async(const GpuStepParams &params, std::size_t predator_count,
                                           std::size_t prey_count, std::size_t food_count) {
+  MOONAI_PROFILE_SCOPE("gpu_launch_sensors");
+
   grid_cell_size_ = std::max(params.vision_range, 1.0f);
   grid_cols_ = std::max(1, static_cast<int>(std::ceil(params.world_width / grid_cell_size_)));
   grid_rows_ = std::max(1, static_cast<int>(std::ceil(params.world_height / grid_cell_size_)));
@@ -687,12 +692,12 @@ void GpuBatch::launch_build_sensors_async(const GpuStepParams &params, std::size
 
 void GpuBatch::launch_post_inference_async(const GpuStepParams &params, std::size_t predator_count,
                                            std::size_t prey_count, std::size_t food_count) {
+  MOONAI_PROFILE_SCOPE("gpu_post_inference_async");
+
   const cudaStream_t stream = static_cast<cudaStream_t>(stream_);
   const int predator_blocks = (static_cast<int>(predator_count) + kThreadsPerBlock - 1) / kThreadsPerBlock;
   const int prey_blocks = (static_cast<int>(prey_count) + kThreadsPerBlock - 1) / kThreadsPerBlock;
   const int food_blocks = (static_cast<int>(food_count) + kThreadsPerBlock - 1) / kThreadsPerBlock;
-
-  MOONAI_PROFILE_SCOPE("gpu_step", stream);
 
   if (predator_count > 0) {
     kernel_update_vitals<<<predator_blocks, kThreadsPerBlock, 0, stream>>>(
@@ -749,6 +754,7 @@ void GpuBatch::launch_post_inference_async(const GpuStepParams &params, std::siz
 }
 
 void GpuBatch::synchronize() {
+  MOONAI_PROFILE_SCOPE("gpu_synchronize");
   const cudaError_t err = cudaStreamSynchronize(static_cast<cudaStream_t>(stream_));
   if (err != cudaSuccess) {
     spdlog::error("GPU synchronize failed: {}", cudaGetErrorString(err));
