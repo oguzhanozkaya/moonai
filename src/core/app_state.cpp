@@ -69,7 +69,6 @@ void AgentRegistry::compact() {
     if (i != last) {
       swap_entities(i, last);
 
-      // Move genome from last to i (equivalent to old on_moved for genomes)
       if (last < genomes.size()) {
         if (i >= genomes.size()) {
           genomes.resize(static_cast<std::size_t>(i) + 1);
@@ -77,25 +76,24 @@ void AgentRegistry::compact() {
         genomes[i] = std::move(genomes[last]);
       }
 
-      // Move network from last to i (equivalent to old on_moved for network_cache)
       network_cache.move_entity(static_cast<uint32_t>(last), static_cast<uint32_t>(i));
+
+      if (last + 1 == genomes.size()) {
+        genomes.pop_back();
+      }
+      network_cache.remove(static_cast<uint32_t>(last));
+    } else {
+      if (!genomes.empty() && last < genomes.size()) {
+        genomes.pop_back();
+      }
+      network_cache.remove(static_cast<uint32_t>(last));
     }
 
-    // Remove from arrays
     pop_back();
 
-    // Remove evolution data for the deleted entity (equivalent to old on_destroyed)
-    // Only pop genome if this was the last element (no swap occurred or we already moved it)
-    if (!genomes.empty() && last < genomes.size()) {
-      genomes.pop_back();
+    if (gpu_network_cache) {
+        gpu_network_cache->invalidate();
     }
-    // Only remove network if entity had one
-    network_cache.remove(static_cast<uint32_t>(last));
-  }
-
-  // Invalidate GPU cache if present (equivalent to old on_moved/on_destroyed)
-  if (gpu_network_cache) {
-    gpu_network_cache->invalidate();
   }
 }
 
