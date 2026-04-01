@@ -83,11 +83,6 @@ ECS solves these with:
 ┌──────────────────────────┴────────────────────────────────┐
 │                    Evolution Core (NEAT)                  │
 │     Genome, NN, Species, Mutation, Crossover (OOP)        │
-└──────────────────────────┬────────────────────────────────┘
-                           │ Exports Metrics
-┌──────────────────────────┴────────────────────────────────┐
-│                    Data Management                        │
-│              Logger (CSV), Metrics, Config (JSON)         │
 └───────────────────────────────────────────────────────────┘
 ```
 
@@ -97,7 +92,6 @@ ECS solves these with:
 | `src/simulation/` | **ECS** | `moonai_simulation` | Sparse-set registry, SoA components, systems (movement, sensors, combat, energy), spatial grid |
 | `src/evolution/` | OOP | `moonai_evolution` | NEAT genome, neural network, NetworkCache, speciation, mutation, crossover |
 | `src/visualization/` | OOP | `moonai_visualization` | SFML window, renderer, UI overlay (queries ECS registry directly) |
-| `src/data/` | OOP | `moonai_data` | CSV logger, metrics collector |
 | `src/gpu/` | Mixed | `moonai_gpu` | CUDA kernels, GpuDataBuffer abstraction, ECS-to-GPU packing |
 
 ### Performance
@@ -469,11 +463,10 @@ moonai/
 │   ├── main.cpp                # Entry point: CLI parsing, init, main loop, shutdown
 │   ├── profiler_main.cpp       # Profiler executable entry point
 │   ├── app.hpp/cpp             # Application orchestration layer
-│   ├── core/                   # Shared types, config, Lua runtime, seeded RNG
+│   ├── core/                   # Shared types, config, Lua runtime, seeded RNG, CSV/JSON logging
 │   ├── simulation/             # ECS-based simulation core
 │   ├── evolution/              # NEAT evolution implementation
 │   ├── visualization/          # SFML rendering and UI
-│   ├── data/                   # Data logging and metrics
 │   └── gpu/                    # CUDA GPU acceleration
 ├── tests/                      # Google Test unit tests
 ├── analysis/                   # Python simulation analysis package
