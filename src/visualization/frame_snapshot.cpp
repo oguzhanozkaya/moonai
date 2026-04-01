@@ -59,31 +59,31 @@ FrameSnapshot build_frame_snapshot(const AppState &state, const AppConfig &confi
                                      Vec2{state.prey.vel_x[idx], state.prey.vel_y[idx]}});
   }
 
-  if (state.metrics.live.alive_predator > 0) {
+  if (state.metrics.live.predator_count > 0) {
     for (float &value : pred_dist) {
-      value /= state.metrics.live.alive_predator;
+      value /= state.metrics.live.predator_count;
     }
   }
-  if (state.metrics.live.alive_prey > 0) {
+  if (state.metrics.live.prey_count > 0) {
     for (float &value : prey_dist) {
-      value /= state.metrics.live.alive_prey;
+      value /= state.metrics.live.prey_count;
     }
   }
 
-  frame.overlay_stats.step = state.runtime.step;
+  frame.overlay_stats.step = state.metrics.live.step;
   frame.overlay_stats.max_steps = config.sim_config.max_steps;
-  frame.overlay_stats.alive_predator = state.metrics.live.alive_predator;
-  frame.overlay_stats.alive_prey = state.metrics.live.alive_prey;
+  frame.overlay_stats.alive_predator = state.metrics.live.predator_count;
+  frame.overlay_stats.alive_prey = state.metrics.live.prey_count;
   frame.overlay_stats.active_food = state.metrics.live.active_food;
   frame.overlay_stats.predator_species = state.metrics.live.predator_species;
   frame.overlay_stats.prey_species = state.metrics.live.prey_species;
   frame.overlay_stats.speed_multiplier = state.ui.speed_multiplier;
   frame.overlay_stats.paused = state.ui.paused;
   frame.overlay_stats.experiment_name = config.experiment_name;
-  frame.overlay_stats.total_kills = state.runtime.total_events.kills;
-  frame.overlay_stats.total_food_eaten = state.runtime.total_events.food_eaten;
-  frame.overlay_stats.total_births = state.runtime.total_events.births;
-  frame.overlay_stats.total_deaths = state.runtime.total_events.deaths;
+  frame.overlay_stats.total_kills = state.metrics.totals.kills;
+  frame.overlay_stats.total_food_eaten = state.metrics.totals.food_eaten;
+  frame.overlay_stats.total_births = state.metrics.totals.births;
+  frame.overlay_stats.total_deaths = state.metrics.totals.deaths;
   for (int i = 0; i < 5; ++i) {
     frame.overlay_stats.predator_energy_dist[i] = pred_dist[i];
     frame.overlay_stats.prey_energy_dist[i] = prey_dist[i];

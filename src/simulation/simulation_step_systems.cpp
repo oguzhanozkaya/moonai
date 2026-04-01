@@ -320,7 +320,7 @@ void apply_movement(AgentRegistry &agents, const SimulationConfig &config, float
 
 void collect_food_events(AgentRegistry &prey_registry, const Food &food_store,
                          const std::vector<uint8_t> &was_food_active, const std::vector<int> &food_consumed_by,
-                         EventCounters &counters) {
+                         MetricsSnapshot &metrics) {
   for (std::size_t food_idx = 0; food_idx < food_store.size(); ++food_idx) {
     const int prey_idx = food_consumed_by[food_idx];
     if (!was_food_active[food_idx] || food_store.active[food_idx] || prey_idx < 0 ||
@@ -329,13 +329,13 @@ void collect_food_events(AgentRegistry &prey_registry, const Food &food_store,
     }
 
     prey_registry.consumption[prey_idx] += 1;
-    ++counters.food_eaten;
+    ++metrics.food_eaten;
   }
 }
 
 void collect_combat_events(AgentRegistry &predator_registry, const AgentRegistry &prey_registry,
                            const std::vector<int> &killed_by, const std::vector<uint32_t> &kill_counts,
-                           EventCounters &counters) {
+                           MetricsSnapshot &metrics) {
   const uint32_t predator_count = static_cast<uint32_t>(predator_registry.size());
   for (uint32_t predator_idx = 0; predator_idx < predator_count; ++predator_idx) {
     if (kill_counts[predator_idx] > 0) {
@@ -350,15 +350,15 @@ void collect_combat_events(AgentRegistry &predator_registry, const AgentRegistry
       continue;
     }
 
-    ++counters.kills;
+    ++metrics.kills;
   }
 }
 
-void collect_death_events(const AgentRegistry &registry, EventCounters &counters) {
+void collect_death_events(const AgentRegistry &registry, MetricsSnapshot &metrics) {
   const uint32_t entity_count = static_cast<uint32_t>(registry.size());
   for (uint32_t idx = 0; idx < entity_count; ++idx) {
     if (registry.alive[idx] == 0) {
-      ++counters.deaths;
+      ++metrics.deaths;
     }
   }
 }

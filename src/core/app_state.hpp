@@ -18,7 +18,6 @@ namespace moonai {
 struct UiState {
   bool paused = false;
   bool step_requested = false;
-  bool reset_requested = false;
   int speed_multiplier = 1;
   uint32_t selected_agent_id = 0;
 };
@@ -67,39 +66,13 @@ private:
   void pop_back();
 };
 
-struct EventCounters {
-  int kills = 0;
-  int food_eaten = 0;
-  int births = 0;
-  int deaths = 0;
-
-  void clear() {
-    kills = 0;
-    food_eaten = 0;
-    births = 0;
-    deaths = 0;
-  }
-
-  void add(const EventCounters &other) {
-    kills += other.kills;
-    food_eaten += other.food_eaten;
-    births += other.births;
-    deaths += other.deaths;
-  }
-};
-
-struct LiveMetrics {
-  int alive_predator = 0;
-  int alive_prey = 0;
-  int active_food = 0;
-  int predator_species = 0;
-  int prey_species = 0;
-};
-
-struct ReportMetrics {
+struct MetricsSnapshot {
   int step = 0;
   int predator_count = 0;
   int prey_count = 0;
+  int active_food = 0;
+  int kills = 0;
+  int food_eaten = 0;
   int births = 0;
   int deaths = 0;
   int predator_species = 0;
@@ -107,12 +80,33 @@ struct ReportMetrics {
   float avg_genome_complexity = 0.0f;
   float avg_predator_energy = 0.0f;
   float avg_prey_energy = 0.0f;
+
+  void clear() {
+    *this = {};
+  }
+
+  void clear_events() {
+    kills = 0;
+    food_eaten = 0;
+    births = 0;
+    deaths = 0;
+  }
+
+  void add_events(const MetricsSnapshot &other) {
+    kills += other.kills;
+    food_eaten += other.food_eaten;
+    births += other.births;
+    deaths += other.deaths;
+  }
 };
 
 struct MetricsState {
-  LiveMetrics live;
-  ReportMetrics last_report;
-  std::vector<ReportMetrics> history;
+  MetricsSnapshot live;
+  MetricsSnapshot step_delta;
+  MetricsSnapshot report_window;
+  MetricsSnapshot totals;
+  MetricsSnapshot last_report;
+  bool has_last_report = false;
 };
 
 struct RuntimeState {
@@ -122,10 +116,6 @@ struct RuntimeState {
   uint32_t next_agent_id = 1;
   int step = 0;
   bool gpu_enabled = false;
-
-  EventCounters step_events;
-  EventCounters report_events;
-  EventCounters total_events;
 };
 
 struct AppState {

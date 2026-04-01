@@ -1,7 +1,7 @@
 #include "app.hpp"
 
+#include "core/metrics.hpp"
 #include "core/profiler_macros.hpp"
-#include "data/metrics.hpp"
 #include "simulation/simulation_step_systems.hpp"
 #include "visualization/frame_snapshot.hpp"
 
@@ -74,6 +74,7 @@ App::App(AppConfig cfg)
 
 void App::record_and_log() {
   evolution_.refresh_species(state_);
+  metrics::refresh_live(state_);
   metrics::record_report(state_);
 
   logger_.log_report(state_.metrics.last_report);
@@ -96,13 +97,12 @@ void App::record_and_log() {
   }
 
   if (best_genome) {
-    logger_.log_best_genome(state_.runtime.step, *best_genome);
+    logger_.log_best_genome(state_.metrics.last_report.step, *best_genome);
   }
 
-  logger_.log_species(state_.runtime.step, state_.predator.species, "predator");
-  logger_.log_species(state_.runtime.step, state_.prey.species, "prey");
+  logger_.log_species(state_.metrics.last_report.step, state_.predator.species, "predator");
+  logger_.log_species(state_.metrics.last_report.step, state_.prey.species, "prey");
   logger_.flush();
-  state_.runtime.report_events.clear();
 
   spdlog::info("Step {:6d}: predators={} prey={} births={} deaths={} "
                "pred_species={} prey_species={}",
@@ -147,7 +147,7 @@ bool App::run() {
       simulation_.step(state_, evolution_);
       ++state_.runtime.step;
 
-      metrics::refresh_live(state_);
+      metrics::finalize_step(state_);
 
       if (state_.runtime.step % cfg_.sim_config.report_interval_steps == 0) {
         record_and_log();
@@ -159,7 +159,7 @@ bool App::run() {
     }
   }
 
-  if (state_.metrics.history.empty() || state_.metrics.history.back().step != state_.runtime.step) {
+  if (!state_.metrics.has_last_report || state_.metrics.last_report.step != state_.metrics.live.step) {
     record_and_log();
   }
 

@@ -187,8 +187,6 @@ Official GitHub releases are CPU-only; CUDA support is available from source bui
 | `Space` | Pause / resume |
 | `↑` / `↓` or `+` / `-` | Increase / decrease simulation speed |
 | `.` | Step one step (while paused) |
-| `E` | Open experiment selector (multi-config only) |
-| `R` | Reset simulation |
 | `S` | Save screenshot |
 | `Esc` | Quit |
 | Left-click | Select an agent (shows stats + live NN panel) |

@@ -1,7 +1,9 @@
 set(MOONAI_CORE_SOURCES
     app_state.cpp
     config.cpp
+    logger.cpp
     lua_runtime.cpp
+    metrics.cpp
     random.cpp
 )
 

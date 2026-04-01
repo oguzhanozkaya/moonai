@@ -14,7 +14,6 @@
 #include <deque>
 #include <string>
 #include <unordered_map>
-#include <vector>
 
 namespace moonai {
 
@@ -65,9 +64,6 @@ public:
   void set_activations(const std::unordered_map<std::uint32_t, float> &vals);
 
   void push_population(int predators, int prey, int food);
-
-  int draw_experiment_selector(sf::RenderTarget &target, const std::vector<std::string> &names, int hover_index,
-                               int scroll_offset);
 
 private:
   void draw_panel(sf::RenderTarget &target, float x, float y, float w, float h);

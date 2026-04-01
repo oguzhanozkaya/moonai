@@ -53,7 +53,6 @@ find_package(Lua REQUIRED)
 add_subdirectory(src/core)
 add_subdirectory(src/simulation)
 add_subdirectory(src/evolution)
-add_subdirectory(src/data)
 add_subdirectory(src/visualization)
 
 if(MOONAI_ENABLE_CUDA)
@@ -67,7 +66,6 @@ target_link_libraries(moonai PRIVATE
     moonai_core
     moonai_simulation
     moonai_evolution
-    moonai_data
 )
 
 if(MOONAI_BUILD_PROFILER)
@@ -77,7 +75,6 @@ if(MOONAI_BUILD_PROFILER)
       moonai_core_profiler
       moonai_simulation_profiler
       moonai_evolution_profiler
-      moonai_data_profiler
       moonai_visualization_profiler
   )
   target_compile_definitions(moonai_profiler PRIVATE MOONAI_BUILD_PROFILER)

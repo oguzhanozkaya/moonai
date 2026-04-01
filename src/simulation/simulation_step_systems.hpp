@@ -22,10 +22,10 @@ void apply_movement(AgentRegistry &agents, const SimulationConfig &config, float
                     const std::vector<float> &decisions);
 void collect_food_events(AgentRegistry &prey_registry, const Food &food_store,
                          const std::vector<uint8_t> &was_food_active, const std::vector<int> &food_consumed_by,
-                         EventCounters &counters);
+                         MetricsSnapshot &metrics);
 void collect_combat_events(AgentRegistry &predator_registry, const AgentRegistry &prey_registry,
                            const std::vector<int> &killed_by, const std::vector<uint32_t> &kill_counts,
-                           EventCounters &counters);
-void collect_death_events(const AgentRegistry &registry, EventCounters &counters);
+                           MetricsSnapshot &metrics);
+void collect_death_events(const AgentRegistry &registry, MetricsSnapshot &metrics);
 
 } // namespace moonai::simulation_detail

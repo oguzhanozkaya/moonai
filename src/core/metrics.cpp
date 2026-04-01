@@ -1,4 +1,4 @@
-#include "data/metrics.hpp"
+#include "core/metrics.hpp"
 
 #include "core/app_state.hpp"
 
@@ -16,23 +16,39 @@ int count_active_food(const Food &food) {
 
 } // namespace
 
+void begin_step(AppState &state) {
+  state.metrics.step_delta.clear();
+}
+
 void refresh_live(AppState &state) {
-  state.metrics.live.alive_predator = static_cast<int>(state.predator.size());
-  state.metrics.live.alive_prey = static_cast<int>(state.prey.size());
-  state.metrics.live.active_food = count_active_food(state.food);
-  state.metrics.live.predator_species = static_cast<int>(state.predator.species.size());
-  state.metrics.live.prey_species = static_cast<int>(state.prey.species.size());
+  MetricsSnapshot &live = state.metrics.live;
+  live.clear();
+  live.step = state.runtime.step;
+  live.predator_count = static_cast<int>(state.predator.size());
+  live.prey_count = static_cast<int>(state.prey.size());
+  live.active_food = count_active_food(state.food);
+  live.predator_species = static_cast<int>(state.predator.species.size());
+  live.prey_species = static_cast<int>(state.prey.species.size());
+}
+
+void finalize_step(AppState &state) {
+  refresh_live(state);
+  state.metrics.report_window.step = state.metrics.live.step;
+  state.metrics.report_window.add_events(state.metrics.step_delta);
+  state.metrics.totals.step = state.metrics.live.step;
+  state.metrics.totals.add_events(state.metrics.step_delta);
 }
 
 void record_report(AppState &state) {
-  refresh_live(state);
-
-  ReportMetrics report;
-  report.step = state.runtime.step;
-  report.predator_count = state.metrics.live.alive_predator;
-  report.prey_count = state.metrics.live.alive_prey;
-  report.births = state.runtime.report_events.births;
-  report.deaths = state.runtime.report_events.deaths;
+  MetricsSnapshot report;
+  report.step = state.metrics.live.step;
+  report.predator_count = state.metrics.live.predator_count;
+  report.prey_count = state.metrics.live.prey_count;
+  report.active_food = state.metrics.live.active_food;
+  report.kills = state.metrics.report_window.kills;
+  report.food_eaten = state.metrics.report_window.food_eaten;
+  report.births = state.metrics.report_window.births;
+  report.deaths = state.metrics.report_window.deaths;
   report.predator_species = state.metrics.live.predator_species;
   report.prey_species = state.metrics.live.prey_species;
 
@@ -74,7 +90,8 @@ void record_report(AppState &state) {
   }
 
   state.metrics.last_report = report;
-  state.metrics.history.push_back(report);
+  state.metrics.has_last_report = true;
+  state.metrics.report_window.clear_events();
 }
 
 } // namespace moonai::metrics

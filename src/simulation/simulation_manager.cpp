@@ -1,6 +1,7 @@
 #include "simulation/simulation_manager.hpp"
 
 #include "core/app_state.hpp"
+#include "core/metrics.hpp"
 #include "core/profiler_macros.hpp"
 #include "evolution/evolution_manager.hpp"
 #include "gpu/gpu_batch.hpp"
@@ -22,7 +23,7 @@ void SimulationManager::initialize(AppState &state) {
 }
 
 void SimulationManager::step(AppState &state, EvolutionManager &evolution) {
-  state.runtime.step_events.clear();
+  metrics::begin_step(state);
 
   if (state.runtime.gpu_enabled) {
     this->step_gpu(state, evolution);
@@ -32,14 +33,10 @@ void SimulationManager::step(AppState &state, EvolutionManager &evolution) {
 
   state.predator.compact();
   state.prey.compact();
-  refresh_world_state_after_step(state);
+  state.food.respawn_step(config_, state.runtime.step, state.runtime.rng.seed());
 
   reproduction(state, evolution, state.predator);
   reproduction(state, evolution, state.prey);
-
-  state.runtime.report_events.add(state.runtime.step_events);
-  state.runtime.total_events.add(state.runtime.step_events);
-
   if (config_.species_update_interval_steps > 0 && (state.runtime.step % config_.species_update_interval_steps) == 0) {
     evolution.refresh_species(state);
   }
@@ -66,19 +63,19 @@ inline std::size_t next_power_of_2(std::size_t n) {
 } // namespace
 
 void SimulationManager::collect_gpu_step_events(AppState &state, const std::vector<uint8_t> &was_food_active) {
+  MOONAI_PROFILE_SCOPE("collect_gpu_step_events");
+
   auto &predator_buffer = gpu_batch_->predator_buffer();
   auto &prey_buffer = gpu_batch_->prey_buffer();
   auto &food_buffer = gpu_batch_->food_buffer();
 
   for (std::size_t food_idx = 0; food_idx < state.food.size(); ++food_idx) {
     const int prey_idx = food_buffer.host_consumed_by()[food_idx];
-    if (!was_food_active[food_idx] || state.food.active[food_idx] || prey_idx < 0 ||
-        static_cast<uint32_t>(prey_idx) >= state.prey.size()) {
-      continue;
+    if (was_food_active[food_idx] && !state.food.active[food_idx] && prey_idx >= 0 &&
+        static_cast<uint32_t>(prey_idx) < state.prey.size()) {
+      ++state.prey.consumption[prey_idx];
+      ++state.metrics.step_delta.food_eaten;
     }
-
-    state.prey.consumption[prey_idx] += 1;
-    ++state.runtime.step_events.food_eaten;
   }
 
   const uint32_t predator_count = static_cast<uint32_t>(state.predator.size());
@@ -86,25 +83,19 @@ void SimulationManager::collect_gpu_step_events(AppState &state, const std::vect
     if (predator_buffer.host_kill_counts()[predator_idx] > 0) {
       state.predator.consumption[predator_idx] += static_cast<int>(predator_buffer.host_kill_counts()[predator_idx]);
     }
+    if (state.predator.alive[predator_idx] == 0) {
+      ++state.metrics.step_delta.deaths;
+    }
   }
 
   const uint32_t prey_count = static_cast<uint32_t>(state.prey.size());
   for (uint32_t prey_idx = 0; prey_idx < prey_count; ++prey_idx) {
     const int killer_idx = prey_buffer.host_claimed_by()[prey_idx];
     if (killer_idx >= 0 && static_cast<uint32_t>(killer_idx) < state.predator.size()) {
-      ++state.runtime.step_events.kills;
+      ++state.metrics.step_delta.kills;
     }
-  }
-
-  for (uint32_t predator_idx = 0; predator_idx < predator_count; ++predator_idx) {
-    if (state.predator.alive[predator_idx] == 0) {
-      ++state.runtime.step_events.deaths;
-    }
-  }
-
-  for (uint32_t prey_idx = 0; prey_idx < prey_count; ++prey_idx) {
     if (state.prey.alive[prey_idx] == 0) {
-      ++state.runtime.step_events.deaths;
+      ++state.metrics.step_delta.deaths;
     }
   }
 }
@@ -389,11 +380,6 @@ private:
 
 } // namespace
 
-void SimulationManager::refresh_world_state_after_step(AppState &state) {
-  MOONAI_PROFILE_SCOPE("food_respawn");
-  state.food.respawn_step(config_, state.runtime.step, state.runtime.rng.seed());
-}
-
 void SimulationManager::step_cpu(AppState &state, EvolutionManager &evolution) {
   MOONAI_PROFILE_SCOPE("simulation_step_cpu");
 
@@ -422,11 +408,11 @@ void SimulationManager::step_cpu(AppState &state, EvolutionManager &evolution) {
   simulation_detail::apply_movement(state.prey, config_, config_.prey_speed, prey_decisions);
 
   simulation_detail::collect_food_events(state.prey, state.food, was_food_active, food_consumed_by,
-                                         state.runtime.step_events);
+                                         state.metrics.step_delta);
   simulation_detail::collect_combat_events(state.predator, state.prey, killed_by, kill_counts,
-                                           state.runtime.step_events);
-  simulation_detail::collect_death_events(state.predator, state.runtime.step_events);
-  simulation_detail::collect_death_events(state.prey, state.runtime.step_events);
+                                           state.metrics.step_delta);
+  simulation_detail::collect_death_events(state.predator, state.metrics.step_delta);
+  simulation_detail::collect_death_events(state.prey, state.metrics.step_delta);
 }
 
 void SimulationManager::reproduction(AppState &state, EvolutionManager &evolution, AgentRegistry &registry) {
@@ -468,7 +454,7 @@ void SimulationManager::reproduction(AppState &state, EvolutionManager &evolutio
       const float clamped_y = std::clamp(mid_pos.y, 0.0f, world_size);
       const uint32_t child = evolution.create_offspring(state, registry, idx, best_mate, {clamped_x, clamped_y});
       if (child != INVALID_ENTITY) {
-        ++state.runtime.step_events.births;
+        ++state.metrics.step_delta.births;
       }
       used[idx] = 1;
       used[best_mate] = 1;

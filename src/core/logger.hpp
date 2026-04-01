@@ -12,7 +12,7 @@ namespace moonai {
 
 class Genome;
 class Species;
-struct ReportMetrics;
+struct MetricsSnapshot;
 
 class Logger {
 public:
@@ -20,7 +20,7 @@ public:
   ~Logger();
 
   bool initialize(const SimulationConfig &config);
-  void log_report(const ReportMetrics &metrics);
+  void log_report(const MetricsSnapshot &metrics);
   void log_best_genome(int step, const Genome &genome);
   void log_species(int step, const std::vector<Species> &species, const std::string &population_name);
 

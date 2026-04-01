@@ -12,9 +12,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <string>
-#include <unordered_map>
-#include <vector>
 
 namespace moonai {
 
@@ -34,21 +31,6 @@ public:
   static constexpr float simulation_margin() {
     return 25.0f;
   }
-
-  void set_experiments(const std::vector<std::string> &names);
-  bool in_experiment_select_mode() const {
-    return experiment_select_mode_;
-  }
-  const std::string &selected_experiment() const {
-    return selected_experiment_name_;
-  }
-  bool experiment_was_selected() const {
-    return experiment_selected_;
-  }
-  void clear_experiment_selected() {
-    experiment_selected_ = false;
-  }
-  void enter_experiment_select_mode();
 
 private:
   static constexpr unsigned int kGuiMaxFps = 360;
@@ -84,13 +66,6 @@ private:
 
   unsigned int window_width_ = 1600;
   unsigned int window_height_ = 900;
-
-  bool experiment_select_mode_ = false;
-  bool experiment_selected_ = false;
-  std::vector<std::string> experiment_names_;
-  std::string selected_experiment_name_;
-  int experiment_hover_index_ = -1;
-  int experiment_scroll_offset_ = 0;
 };
 
 } // namespace moonai

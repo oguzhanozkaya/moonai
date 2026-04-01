@@ -2,8 +2,8 @@
 
 #include "core/app_state.hpp"
 #include "core/config.hpp"
-#include "data/logger.hpp"
-#include "data/metrics.hpp"
+#include "core/logger.hpp"
+#include "core/metrics.hpp"
 #include "evolution/evolution_manager.hpp"
 #include "simulation/simulation_manager.hpp"
 #include "visualization/visualization_manager.hpp"
