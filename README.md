@@ -24,7 +24,7 @@ MoonAI achieves high performance through data-oriented ECS architecture:
 **Key Optimizations:**
 - **Cache-friendly layouts**: Structure-of-Arrays (SoA) component storage
 - **Efficient GPU packing**: Contiguous memcpy from ECS to GPU buffers
-- **Parallel systems**: OpenMP parallelization across all simulation systems
+- **Parallel systems**: CUDA parallelization on GPU; CPU systems single-threaded
 - **SIMD-ready**: Contiguous data enables AVX/AVX-512 vectorization
 
 ## Key Features
@@ -59,7 +59,7 @@ Traditional OOP with `vector<unique_ptr<Agent>>` causes:
 ECS solves these with:
 - Contiguous component arrays (Structure of Arrays)
 - Direct GPU memory mapping (zero-copy transfers)
-- Trivial parallelization (OpenMP)
+- GPU parallelization (CUDA)
 
 ### System Architecture
 
@@ -155,6 +155,12 @@ just test -R GpuTest   # filter tests
 just run
 ```
 
+The profiler executable is available but not built by default. To build and run it:
+
+```bash
+just profile-run
+```
+
 ## Build
 
 There is one build type — it always bundles SFML visualization and auto-detects CUDA:
@@ -172,6 +178,7 @@ Official GitHub releases are CPU-only; CUDA support is available from source bui
 | Option | Default | Description |
 |--------|---------|-------------|
 | `MOONAI_BUILD_TESTS` | `ON` | Build unit tests |
+| `MOONAI_BUILD_PROFILER` | `OFF` | Build profiler executable (requires CUDA)
 
 ### Runtime Modes
 

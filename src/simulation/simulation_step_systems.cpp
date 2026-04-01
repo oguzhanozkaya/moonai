@@ -11,18 +11,6 @@ namespace {
 constexpr float kMaxDensity = 10.0f;
 constexpr float kMissingTargetSentinel = 2.0f;
 
-template <typename RegistryT, typename Callback>
-void collect_death_events_impl(const RegistryT &registry, const std::vector<uint8_t> &was_alive, Callback &&callback) {
-  const uint32_t entity_count = static_cast<uint32_t>(registry.size());
-  for (uint32_t idx = 0; idx < entity_count; ++idx) {
-    if (was_alive[idx] == 0 || registry.alive[idx] != 0) {
-      continue;
-    }
-
-    callback(idx);
-  }
-}
-
 } // namespace
 
 void build_sensors(AgentRegistry &self_agents, const AgentRegistry &predator_agents, const AgentRegistry &prey_agents,
@@ -368,7 +356,14 @@ void collect_combat_events(AgentRegistry &predator_registry, const AgentRegistry
 
 void collect_death_events(const AgentRegistry &registry, const std::vector<uint8_t> &was_alive,
                           EventCounters &counters) {
-  collect_death_events_impl(registry, was_alive, [&](uint32_t idx) { ++counters.deaths; });
+  const uint32_t entity_count = static_cast<uint32_t>(registry.size());
+  for (uint32_t idx = 0; idx < entity_count; ++idx) {
+    if (was_alive[idx] == 0 || registry.alive[idx] != 0) {
+      continue;
+    }
+
+    ++counters.deaths;
+  }
 }
 
 } // namespace moonai::simulation_detail

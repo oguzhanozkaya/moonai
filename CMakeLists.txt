@@ -11,10 +11,21 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-
+# Compiler warnings for all build types (Debug, Release, CI, local)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  add_compile_options(
+    -Wall
+    -Wextra
+    -Wunused-variable
+    -Wunused-but-set-variable
+    -Wunused-function
+    -Wunused-value
+  )
+endif()
 
 # ── Options ──────────────────────────────────────────────────────────────────
-option(MOONAI_BUILD_TESTS  "Build unit tests"                 ON)
+option(MOONAI_BUILD_TESTS    "Build unit tests"                 ON)
+option(MOONAI_BUILD_PROFILER "Build profiler executable"        OFF)
 
 # ── CUDA auto-detection ───────────────────────────────────────────────────────
 # Not a user option — enabled automatically when nvcc is present.
@@ -38,9 +49,6 @@ find_package(SFML 3 COMPONENTS Graphics Window System REQUIRED)
 find_package(sol2 CONFIG REQUIRED)
 find_package(Lua REQUIRED)
 
-# ── OpenMP ────────────────────────────────────────────────────────────────────
-find_package(OpenMP)
-
 # ── Subsystem libraries ─────────────────────────────────────────────────────
 add_subdirectory(src/core)
 add_subdirectory(src/simulation)
@@ -55,8 +63,6 @@ endif()
 # ── Main executable ──────────────────────────────────────────────────────────
 add_executable(moonai src/main.cpp src/app.cpp)
 
-add_executable(moonai_profiler src/profiler_main.cpp src/app.cpp)
-
 target_link_libraries(moonai PRIVATE
     moonai_core
     moonai_simulation
@@ -64,14 +70,18 @@ target_link_libraries(moonai PRIVATE
     moonai_data
 )
 
-target_link_libraries(moonai_profiler PRIVATE
-    moonai_core_profiler
-    moonai_simulation_profiler
-    moonai_evolution_profiler
-    moonai_data_profiler
-    moonai_visualization_profiler
-)
-target_compile_definitions(moonai_profiler PRIVATE MOONAI_BUILD_PROFILER)
+if(MOONAI_BUILD_PROFILER)
+  add_executable(moonai_profiler src/profiler_main.cpp src/app.cpp)
+
+  target_link_libraries(moonai_profiler PRIVATE
+      moonai_core_profiler
+      moonai_simulation_profiler
+      moonai_evolution_profiler
+      moonai_data_profiler
+      moonai_visualization_profiler
+  )
+  target_compile_definitions(moonai_profiler PRIVATE MOONAI_BUILD_PROFILER)
+endif()
 
 target_link_libraries(moonai PRIVATE moonai_visualization)
 
@@ -81,15 +91,17 @@ if(MOONAI_ENABLE_CUDA)
     target_link_libraries(moonai_evolution PRIVATE moonai_gpu)
     target_compile_definitions(moonai_evolution PRIVATE MOONAI_ENABLE_CUDA)
 
-    target_link_libraries(moonai_evolution_profiler PRIVATE moonai_gpu_profiler)
-    target_compile_definitions(moonai_evolution_profiler PRIVATE MOONAI_ENABLE_CUDA)
-
     target_link_libraries(moonai PRIVATE moonai_gpu)
     target_compile_definitions(moonai PRIVATE MOONAI_ENABLE_CUDA)
 
-    target_link_libraries(moonai_profiler PRIVATE moonai_gpu_profiler)
-    target_compile_definitions(moonai_profiler PRIVATE MOONAI_ENABLE_CUDA)
-    target_include_directories(moonai_profiler PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+    if(MOONAI_BUILD_PROFILER)
+        target_link_libraries(moonai_evolution_profiler PRIVATE moonai_gpu_profiler)
+        target_compile_definitions(moonai_evolution_profiler PRIVATE MOONAI_ENABLE_CUDA)
+
+        target_link_libraries(moonai_profiler PRIVATE moonai_gpu_profiler)
+        target_compile_definitions(moonai_profiler PRIVATE MOONAI_ENABLE_CUDA)
+        target_include_directories(moonai_profiler PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+    endif()
 endif()
 
 # ── Copy runtime assets to build directory ───────────────────────────────────
@@ -102,12 +114,14 @@ add_custom_command(TARGET moonai POST_BUILD
     COMMENT "Copying config.lua to build directory"
 )
 
-add_custom_command(TARGET moonai_profiler POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_SOURCE_DIR}/config.lua
-        $<TARGET_FILE_DIR:moonai_profiler>/config.lua
-    COMMENT "Copying profiler config to build directory"
-)
+if(MOONAI_BUILD_PROFILER)
+    add_custom_command(TARGET moonai_profiler POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_SOURCE_DIR}/config.lua
+            $<TARGET_FILE_DIR:moonai_profiler>/config.lua
+        COMMENT "Copying profiler config to build directory"
+    )
+endif()
 
 # ── Tests ────────────────────────────────────────────────────────────────────
 if(MOONAI_BUILD_TESTS)

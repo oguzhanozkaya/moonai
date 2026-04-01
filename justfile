@@ -26,23 +26,21 @@ setup-python:
     cd profiler && uv sync
 
 # Configure CMake (run after setup or when CMakeLists change)
+# Pass extra cmake args (e.g., just configure -DVAR=value)
 [group('build')]
-configure:
-    cmake --preset {{preset}}
+configure *args:
+    cmake --preset {{preset}} {{args}}
 
 # Build the project
 [group('build')]
 build:
     cmake --build {{build-dir}} --parallel
 
-# Build in release mode (with LTO and native optimizations for local builds)
+# Build in release mode (with LTO, native optimizations, and strict warnings)
+# Pass extra cmake args (e.g., just release -DMOONAI_BUILD_PROFILER=ON)
 [group('build')]
-release:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    export CMAKE_CXX_FLAGS_RELEASE="-O3 -DNDEBUG -march=native -flto"
-    export CMAKE_CUDA_FLAGS_RELEASE="-O3 -DNDEBUG -march=native -flto"
-    just build-type=release configure
+release *args:
+    just build-type=release configure {{args}}
     just build-type=release build
 
 # ─── Run ────────────────────────────────────────────────────────────────────
@@ -92,7 +90,7 @@ profile: profile-run profile-analyse
 
 # Run the built-in profiler with optional arguments
 [group('profile')]
-profile-run *args: release
+profile-run *args: (release "-DMOONAI_BUILD_PROFILER=ON")
     {{release-dir}}/moonai_profiler {{args}}
 
 # Generate the self-contained HTML profiler report from output/profiles/

@@ -1,9 +1,7 @@
 #include "visualization/frame_snapshot.hpp"
-
 #include "visualization/constants.hpp"
 
 #include <algorithm>
-#include <cmath>
 
 namespace moonai {
 

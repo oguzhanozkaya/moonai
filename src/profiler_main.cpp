@@ -455,7 +455,6 @@ void write_manifest(std::vector<RunData> runs, const std::filesystem::path &outp
   metadata["gpu_allowed"] = cfg.enable_gpu;
   metadata["platform"] = moonai::AppConfig::platform;
   metadata["cuda_compiled"] = moonai::AppConfig::cuda_compiled;
-  metadata["openmp_compiled"] = moonai::AppConfig::openmp_compiled;
   metadata["generated_at_utc"] = utc_timestamp();
   manifest["metadata"] = metadata;
 

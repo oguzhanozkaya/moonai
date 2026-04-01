@@ -199,7 +199,6 @@ bool App::run() {
 
       const bool step_requested = cfg_.interactive && state_.ui.step_requested;
       if (cfg_.interactive && state_.ui.paused && !step_requested) {
-        update_selected_activations(state_);
         visualization_->render(build_frame_snapshot(state_, cfg_));
         continue;
       }

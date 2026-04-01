@@ -27,7 +27,6 @@ struct FrameSnapshot {
   std::unordered_map<std::uint32_t, float> selected_node_activations;
 };
 
-void update_selected_activations(AppState &state);
 FrameSnapshot build_frame_snapshot(const AppState &state, const AppConfig &config);
 
 } // namespace moonai

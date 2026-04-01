@@ -73,13 +73,6 @@ struct AppConfig {
       false;
 #endif
 
-  static constexpr bool openmp_compiled =
-#ifdef MOONAI_OPENMP_ENABLED
-      true;
-#else
-      false;
-#endif
-
   static constexpr const char *platform =
 #ifdef _WIN32
       "windows";
@@ -106,11 +99,11 @@ struct CLIArgs {
   int max_steps_override = 0; // 0 = use config value
 
   // Lua config orchestration
-  std::string experiment_name = ""; // --experiment: select one from multi-config
-  bool run_all = false;             // --all: run all experiments sequentially
-  bool list_experiments = false;    // --list: list experiment names and exit
-  std::string run_name = "";        // --name: override output directory name
-  bool validate_only = false;       // --validate: check config and exit
+  std::string experiment_name;   // --experiment: select one from multi-config
+  bool run_all = false;          // --all: run all experiments sequentially
+  bool list_experiments = false; // --list: list experiment names and exit
+  std::string run_name;          // --name: override output directory name
+  bool validate_only = false;    // --validate: check config and exit
 
   // --set key=value overrides
   std::vector<std::pair<std::string, std::string>> overrides;

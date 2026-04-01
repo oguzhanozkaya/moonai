@@ -10,8 +10,13 @@
 ---
 Checks: >
   # Dead code detection (primary focus)
-  clang-analyzer-deadcode.*,
-  misc-unused-*,
+  clang-analyzer-deadcode.DeadStores,
+  misc-unused-alias-decls,
+  misc-unused-parameters,
+  misc-unused-using-decls,
+  bugprone-unused-local-non-trivial-variable,
+  bugprone-unused-raii,
+  bugprone-unused-return-value,
   readability-delete-null-pointer,
   readability-redundant-*,
   

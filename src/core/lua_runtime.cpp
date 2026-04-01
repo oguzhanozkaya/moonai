@@ -18,13 +18,6 @@ template <typename T> void lua_get(const sol::table &tbl, const char *key, T &fi
   }
 }
 
-void lua_get_bool(const sol::table &tbl, const char *key, bool &field) {
-  auto val = tbl[key];
-  if (val.valid()) {
-    field = val.get<bool>();
-  }
-}
-
 void lua_get_uint64(const sol::table &tbl, const char *key, std::uint64_t &field) {
   auto val = tbl[key];
   if (val.valid()) {

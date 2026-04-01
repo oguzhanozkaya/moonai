@@ -297,7 +297,7 @@ __global__ void kernel_claim_food(const float *__restrict__ prey_pos_x, const fl
                                   const uint32_t *__restrict__ prey_alive, const int *__restrict__ food_cell_offsets,
                                   const GpuFoodEntry *__restrict__ food_entries, int *__restrict__ food_consumed_by,
                                   int prey_count, int grid_cols, int grid_rows, float grid_cell_size,
-                                  float pickup_range, float world_width, float world_height) {
+                                  float pickup_range) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= prey_count || prey_alive[idx] == 0) {
     return;
@@ -365,8 +365,7 @@ __global__ void kernel_claim_combat(const float *__restrict__ predator_pos_x, co
                                     const int *__restrict__ prey_cell_offsets,
                                     const GpuPopulationEntry *__restrict__ prey_entries,
                                     int *__restrict__ prey_claimed_by, int predator_count, int grid_cols, int grid_rows,
-                                    float grid_cell_size, float interaction_range, float world_width,
-                                    float world_height) {
+                                    float grid_cell_size, float interaction_range) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= predator_count || predator_alive[idx] == 0) {
     return;
@@ -715,7 +714,7 @@ void GpuBatch::launch_post_inference_async(const GpuStepParams &params, std::siz
     kernel_claim_food<<<prey_blocks, kThreadsPerBlock, 0, stream>>>(
         prey_buffer_.device_positions_x(), prey_buffer_.device_positions_y(), prey_buffer_.device_alive(),
         d_food_cell_offsets_, d_food_grid_entries_, food_buffer_.device_consumed_by(), static_cast<int>(prey_count),
-        grid_cols_, grid_rows_, grid_cell_size_, params.interaction_range, params.world_width, params.world_height);
+        grid_cols_, grid_rows_, grid_cell_size_, params.interaction_range);
     kernel_finalize_food<<<food_blocks, kThreadsPerBlock, 0, stream>>>(
         prey_buffer_.device_energy(), prey_buffer_.device_alive(), food_buffer_.device_active(),
         food_buffer_.device_consumed_by(), static_cast<int>(food_count), params.energy_gain_from_food);
@@ -725,7 +724,7 @@ void GpuBatch::launch_post_inference_async(const GpuStepParams &params, std::siz
     kernel_claim_combat<<<predator_blocks, kThreadsPerBlock, 0, stream>>>(
         predator_buffer_.device_positions_x(), predator_buffer_.device_positions_y(), predator_buffer_.device_alive(),
         d_prey_cell_offsets_, d_prey_grid_entries_, prey_buffer_.device_claimed_by(), static_cast<int>(predator_count),
-        grid_cols_, grid_rows_, grid_cell_size_, params.interaction_range, params.world_width, params.world_height);
+        grid_cols_, grid_rows_, grid_cell_size_, params.interaction_range);
     kernel_finalize_combat<<<prey_blocks, kThreadsPerBlock, 0, stream>>>(
         predator_buffer_.device_energy(), predator_buffer_.device_alive(), predator_buffer_.device_kill_counts(),
         prey_buffer_.device_alive(), prey_buffer_.device_claimed_by(), static_cast<int>(prey_count),
