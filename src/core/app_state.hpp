@@ -116,6 +116,7 @@ struct RuntimeState {
 
   std::vector<PendingOffspring> pending_predator_offspring;
   std::vector<PendingOffspring> pending_prey_offspring;
+
   EventCounters step_events;
   EventCounters report_events;
   EventCounters total_events;
