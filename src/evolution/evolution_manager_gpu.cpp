@@ -43,9 +43,8 @@ bool launch_population_gpu_neural(PopulationEvolutionState &population, gpu::Gpu
 
 } // namespace
 
-void EvolutionManager::enable_gpu(bool use_gpu) {
-  use_gpu_ = use_gpu;
-  if (use_gpu_) {
+void EvolutionManager::enable_gpu(AppState &state, bool use_gpu) {
+  if (use_gpu) {
     if (!predator_gpu_network_cache_) {
       predator_gpu_network_cache_ = std::make_unique<gpu::GpuNetworkCache>();
       predator_gpu_network_cache_->invalidate();
@@ -54,10 +53,12 @@ void EvolutionManager::enable_gpu(bool use_gpu) {
       prey_gpu_network_cache_ = std::make_unique<gpu::GpuNetworkCache>();
       prey_gpu_network_cache_->invalidate();
     }
+    state.runtime.gpu_enabled = true;
     spdlog::info("GPU neural inference enabled");
   } else {
     predator_gpu_network_cache_.reset();
     prey_gpu_network_cache_.reset();
+    state.runtime.gpu_enabled = false;
     spdlog::info("GPU neural inference disabled");
   }
 }

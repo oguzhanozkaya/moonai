@@ -54,6 +54,7 @@ App::App(AppConfig cfg)
   simulation_.initialize(state_);
   evolution_.initialize(state_, simulation_detail::SENSOR_COUNT, simulation_detail::OUTPUT_COUNT);
   evolution_.seed_initial_population(state_);
+  state_.runtime.gpu_enabled = cfg_.enable_gpu;
   metrics::refresh_live(state_);
 
   logger_.initialize(cfg_.sim_config);
@@ -66,9 +67,9 @@ App::App(AppConfig cfg)
     }
   }
 
-  if (cfg_.enable_gpu) {
-    evolution_.enable_gpu(true);
-    simulation_.enable_gpu(true);
+  if (state_.runtime.gpu_enabled) {
+    evolution_.enable_gpu(state_, true);
+    simulation_.enable_gpu(state_, true);
     spdlog::info("GPU acceleration enabled");
   }
 
@@ -78,7 +79,7 @@ App::App(AppConfig cfg)
 void App::step() {
   MOONAI_PROFILE_SCOPE("step");
 
-  if (cfg_.enable_gpu && simulation_.gpu_enabled()) {
+  if (state_.runtime.gpu_enabled) {
     simulation_.step_gpu(state_, evolution_);
   } else {
     simulation_.step(state_, evolution_);
@@ -101,7 +102,8 @@ void App::step() {
   state_.runtime.pending_predator_offspring.clear();
   state_.runtime.pending_prey_offspring.clear();
 
-  accumulate_step_events(state_);
+  state_.runtime.report_events.add(state_.runtime.step_events);
+  state_.runtime.total_events.add(state_.runtime.step_events);
 
   if (cfg_.sim_config.species_update_interval_steps > 0 &&
       (state_.runtime.step % cfg_.sim_config.species_update_interval_steps) == 0) {
@@ -112,7 +114,7 @@ void App::step() {
   metrics::refresh_live(state_);
 }
 
-ReportMetrics App::record_and_log() {
+void App::record_and_log() {
   evolution_.refresh_species(state_);
   metrics::record_report(state_);
 
@@ -144,24 +146,26 @@ ReportMetrics App::record_and_log() {
   logger_.flush();
   state_.runtime.report_events.clear();
 
-  return state_.metrics.last_report;
+  spdlog::info("Step {:6d}: predators={} prey={} births={} deaths={} "
+               "pred_species={} prey_species={}",
+               state_.metrics.last_report.step, state_.metrics.last_report.predator_count,
+               state_.metrics.last_report.prey_count, state_.metrics.last_report.births,
+               state_.metrics.last_report.deaths, state_.metrics.last_report.predator_species,
+               state_.metrics.last_report.prey_species);
 }
 
 bool App::should_continue() const {
   return !(g_running_ == 0) && !(cfg_.sim_config.max_steps > 0 && state_.runtime.step >= cfg_.sim_config.max_steps);
 }
 
-void App::log_report(const ReportMetrics &snapshot) const {
-  spdlog::info("Step {:6d}: predators={} prey={} births={} deaths={} "
-               "pred_species={} prey_species={}",
-               snapshot.step, snapshot.predator_count, snapshot.prey_count, snapshot.births, snapshot.deaths,
-               snapshot.predator_species, snapshot.prey_species);
-}
-
 bool App::run() {
   if (!cfg_.headless && std::getenv("DISPLAY") == nullptr && std::getenv("WAYLAND_DISPLAY") == nullptr) {
     spdlog::error("No display server found. GUI mode requires a display.");
     return false;
+  }
+  if (!cfg_.headless && !visualization_) {
+    spdlog::error("Visualization requested but not initialized");
+    return true;
   }
 
   bool completed = true;
@@ -171,62 +175,40 @@ bool App::run() {
       step();
 
       if (state_.runtime.step % cfg_.sim_config.report_interval_steps == 0) {
-        log_report(record_and_log());
+        record_and_log();
       }
     }
 
-    if (state_.metrics.history.empty() || state_.metrics.history.back().step != state_.runtime.step) {
-      record_and_log();
-    }
-
-    logger_.flush();
     completed = (g_running_ != 0);
   } else {
-    if (!visualization_) {
-      spdlog::error("Visualization requested but not initialized");
-      return true;
-    }
-
     while (should_continue()) {
       MOONAI_PROFILE_SCOPE("frame_total");
 
       visualization_->handle_events();
-
       if (visualization_->should_close()) {
         completed = false;
         break;
       }
 
-      const bool step_requested = cfg_.interactive && state_.ui.step_requested;
-      if (cfg_.interactive && state_.ui.paused && !step_requested) {
-        visualization_->render(build_frame_snapshot(state_, cfg_));
-        continue;
-      }
-
-      if (cfg_.interactive && step_requested) {
-        state_.ui.step_requested = false;
-      }
-
-      int steps_to_run = step_requested ? 1 : (cfg_.interactive ? state_.ui.speed_multiplier : cfg_.speed_multiplier);
-      steps_to_run = std::max(1, steps_to_run);
-
+      int steps_to_run = state_.ui.paused ? state_.ui.step_requested : std::max(1, state_.ui.speed_multiplier);
+      state_.ui.step_requested = false;
       for (int i = 0; i < steps_to_run && should_continue(); ++i) {
         step();
 
         if (state_.runtime.step % cfg_.sim_config.report_interval_steps == 0) {
-          log_report(record_and_log());
+          record_and_log();
         }
       }
 
       visualization_->render(build_frame_snapshot(state_, cfg_));
     }
-
-    if (state_.metrics.history.empty() || state_.metrics.history.back().step != state_.runtime.step) {
-      record_and_log();
-    }
-
-    logger_.flush();
   }
+
+  if (state_.metrics.history.empty() || state_.metrics.history.back().step != state_.runtime.step) {
+    record_and_log();
+  }
+
+  logger_.flush();
 
   if (!completed) {
     spdlog::info("Simulation stopped by user (window closed)");

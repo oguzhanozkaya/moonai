@@ -46,7 +46,7 @@ struct SimulationConfig {
   float c3_weight = 0.4f;
   int species_update_interval_steps = 60;
 
-  std::uint64_t seed = 0;
+  std::uint64_t seed = 67;
 
   std::string output_dir = "output";
   int report_interval_steps = 1000000;
@@ -61,7 +61,6 @@ struct AppConfig {
   SimulationConfig sim_config;
   std::string experiment_name;
   bool headless = false;
-  bool interactive = true;
   bool enable_gpu = true;
   int speed_multiplier = 1;
   std::optional<std::string> run_name_override;

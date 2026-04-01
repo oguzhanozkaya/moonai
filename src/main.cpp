@@ -39,7 +39,6 @@ int run_experiment(const std::string &name, const moonai::SimulationConfig &conf
   app_cfg.headless = args.headless;
   app_cfg.enable_gpu = !args.no_gpu;
   app_cfg.run_name_override = args.run_name.empty() ? std::nullopt : std::optional(args.run_name);
-  app_cfg.interactive = true;
   app_cfg.speed_multiplier = 64;
 
   if (args.max_steps_override != 0) {

@@ -33,9 +33,8 @@ private:
   static std::uint64_t generate_seed();
 
   void step();
-  ReportMetrics record_and_log();
+  void record_and_log();
   bool should_continue() const;
-  void log_report(const ReportMetrics &snapshot) const;
 };
 
 } // namespace moonai

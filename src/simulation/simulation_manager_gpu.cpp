@@ -4,7 +4,6 @@
 #include "core/profiler_macros.hpp"
 #include "evolution/evolution_manager.hpp"
 #include "gpu/gpu_batch.hpp"
-#include "simulation/simulation_step_systems.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -76,10 +75,6 @@ void SimulationManager::collect_gpu_step_events(AppState &state, const std::vect
 
 void SimulationManager::ensure_gpu_capacity(std::size_t predator_count, std::size_t prey_count,
                                             std::size_t food_count) {
-  if (!gpu_enabled_) {
-    return;
-  }
-
   const bool needs_batch = !gpu_batch_;
   const bool predators_exceeded = gpu_batch_ && predator_count > gpu_batch_->predator_capacity();
   const bool prey_exceeded = gpu_batch_ && prey_count > gpu_batch_->prey_capacity();
@@ -112,15 +107,20 @@ void SimulationManager::ensure_gpu_capacity(std::size_t predator_count, std::siz
   gpu_batch_ = std::make_unique<gpu::GpuBatch>(new_predator_capacity, new_prey_capacity, new_food_capacity);
 }
 
-void SimulationManager::enable_gpu(bool enable) {
-  gpu_enabled_ = enable;
+void SimulationManager::enable_gpu(AppState &state, bool enable) {
   if (enable) {
     ensure_gpu_capacity(static_cast<std::size_t>(config_.predator_count), static_cast<std::size_t>(config_.prey_count),
                         static_cast<std::size_t>(config_.food_count));
+    state.runtime.gpu_enabled = true;
   } else {
-    gpu_batch_.reset();
-    spdlog::info("GPU batch processing disabled");
+    disable_gpu(state);
   }
+}
+
+void SimulationManager::disable_gpu(AppState &state) {
+  gpu_batch_.reset();
+  state.runtime.gpu_enabled = false;
+  spdlog::info("GPU batch processing disabled");
 }
 
 void SimulationManager::step_gpu(AppState &state, EvolutionManager &evolution) {
@@ -224,8 +224,7 @@ void SimulationManager::step_gpu(AppState &state, EvolutionManager &evolution) {
       MOONAI_PROFILE_SCOPE("cpu_fallback");
       spdlog::error("GPU neural inference failed, disabling GPU path and "
                     "retrying on CPU");
-      gpu_enabled_ = false;
-      gpu_batch_.reset();
+      disable_gpu(state);
       return step(state, evolution);
     }
   }
@@ -248,8 +247,7 @@ void SimulationManager::step_gpu(AppState &state, EvolutionManager &evolution) {
   if (!gpu_batch_->ok()) {
     MOONAI_PROFILE_SCOPE("cpu_fallback");
     spdlog::error("GPU step failed, disabling GPU path and retrying on CPU");
-    gpu_enabled_ = false;
-    gpu_batch_.reset();
+    disable_gpu(state);
     return step(state, evolution);
   }
 

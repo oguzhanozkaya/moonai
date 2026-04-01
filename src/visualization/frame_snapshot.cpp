@@ -1,9 +1,24 @@
 #include "visualization/frame_snapshot.hpp"
+#include "evolution/genome.hpp"
 #include "visualization/constants.hpp"
 
 #include <algorithm>
 
 namespace moonai {
+
+static inline const Genome *predator_genome_for(const AppState &state, uint32_t entity) {
+  if (entity == INVALID_ENTITY || entity >= state.evolution.predators.genomes.size()) {
+    return nullptr;
+  }
+  return &state.evolution.predators.genomes[entity];
+}
+
+static inline const Genome *prey_genome_for(const AppState &state, uint32_t entity) {
+  if (entity == INVALID_ENTITY || entity >= state.evolution.prey.genomes.size()) {
+    return nullptr;
+  }
+  return &state.evolution.prey.genomes[entity];
+}
 
 FrameSnapshot build_frame_snapshot(const AppState &state, const AppConfig &config) {
   FrameSnapshot frame;

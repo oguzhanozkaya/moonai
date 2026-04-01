@@ -566,7 +566,6 @@ int main(int argc, const char *argv[]) {
   base_cfg.experiment_name = args.experiment_name;
   base_cfg.headless = false;
   base_cfg.enable_gpu = !args.no_gpu;
-  base_cfg.interactive = false;
   base_cfg.speed_multiplier = args.speed_multiplier;
   const auto output_path =
       std::filesystem::path(args.output_dir) / (utc_timestamp() + "_" + args.experiment_name + ".json");

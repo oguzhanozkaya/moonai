@@ -41,10 +41,7 @@ public:
   void on_prey_destroyed(AppState &state, uint32_t e);
   void on_prey_moved(AppState &state, uint32_t from, uint32_t to);
 
-  void enable_gpu(bool use_gpu);
-  bool gpu_enabled() const {
-    return use_gpu_;
-  }
+  void enable_gpu(AppState &state, bool use_gpu);
 
   // GPU neural inference (called by SimulationManager during GPU step)
   bool launch_gpu_neural(AppState &state, gpu::GpuBatch &gpu_batch);
@@ -63,7 +60,6 @@ private:
   const SimulationConfig &config_;
   int num_inputs_ = 0;
   int num_outputs_ = 0;
-  bool use_gpu_ = false;
 
   std::unique_ptr<gpu::GpuNetworkCache> predator_gpu_network_cache_;
   std::unique_ptr<gpu::GpuNetworkCache> prey_gpu_network_cache_;

@@ -10,13 +10,11 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
 namespace moonai {
 
-// Registry structs (moved from simulation/registry.hpp)
 struct RegistryCompactionResult {
   std::vector<std::pair<uint32_t, uint32_t>> moved;
   std::vector<uint32_t> removed;
@@ -60,7 +58,6 @@ private:
   void pop_back();
 };
 
-// App state structs
 struct PendingOffspring {
   uint32_t parent_a = INVALID_ENTITY;
   uint32_t parent_b = INVALID_ENTITY;
@@ -115,6 +112,8 @@ struct RuntimeState {
   Random rng;
   uint32_t next_agent_id = 1;
   int step = 0;
+  bool gpu_enabled = false;
+
   std::vector<PendingOffspring> pending_predator_offspring;
   std::vector<PendingOffspring> pending_prey_offspring;
   EventCounters step_events;
@@ -154,43 +153,11 @@ struct AppState {
   AgentRegistry predator;
   AgentRegistry prey;
   Food food;
+
   EvolutionState evolution;
   RuntimeState runtime;
   MetricsState metrics;
   UiState ui;
 };
-
-inline void accumulate_step_events(AppState &state) {
-  state.runtime.report_events.add(state.runtime.step_events);
-  state.runtime.total_events.add(state.runtime.step_events);
-}
-
-inline Genome *predator_genome_for(AppState &state, uint32_t entity) {
-  if (entity == INVALID_ENTITY || entity >= state.evolution.predators.genomes.size()) {
-    return nullptr;
-  }
-  return &state.evolution.predators.genomes[entity];
-}
-
-inline const Genome *predator_genome_for(const AppState &state, uint32_t entity) {
-  if (entity == INVALID_ENTITY || entity >= state.evolution.predators.genomes.size()) {
-    return nullptr;
-  }
-  return &state.evolution.predators.genomes[entity];
-}
-
-inline Genome *prey_genome_for(AppState &state, uint32_t entity) {
-  if (entity == INVALID_ENTITY || entity >= state.evolution.prey.genomes.size()) {
-    return nullptr;
-  }
-  return &state.evolution.prey.genomes[entity];
-}
-
-inline const Genome *prey_genome_for(const AppState &state, uint32_t entity) {
-  if (entity == INVALID_ENTITY || entity >= state.evolution.prey.genomes.size()) {
-    return nullptr;
-  }
-  return &state.evolution.prey.genomes[entity];
-}
 
 } // namespace moonai

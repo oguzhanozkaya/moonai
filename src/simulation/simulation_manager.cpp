@@ -1,5 +1,4 @@
 #include "simulation/simulation_manager.hpp"
-
 #include "core/app_state.hpp"
 #include "gpu/gpu_batch.hpp"
 

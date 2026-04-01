@@ -6,9 +6,24 @@ A modular and extensible simulation platform for studying continuous evolutionar
 
 **Website:** https://moon-aii.github.io/moonai/
 
+### Team
+
+- Caner Aras
+- Emir Irkılata
+- Oğuzhan Özkaya
+
+### Supervisor
+
+- Ayşenur Birtürk
+
+### Jury Members
+
+- Deniz Canturk
+- Mehmet Evren Coskun
+
 ## Overview
 
-MoonAI uses a simplified predator-prey environment as a synthetic benchmark to evaluate evolutionary computation methods. Agents (predators and prey) are controlled by neural networks whose structure and weights evolve continuously through births and deaths using the **NeuroEvolution of Augmenting Topologies (NEAT)** algorithm.
+MoonAI uses a predator-prey environment as a synthetic benchmark to evaluate evolutionary computation methods. Agents (predators and prey) are controlled by neural networks whose structure and weights evolve continuously through births and deaths using the **NeuroEvolution of Augmenting Topologies (NEAT)** algorithm.
 
 The platform enables researchers to:
 
@@ -16,16 +31,6 @@ The platform enables researchers to:
 - Compare different genetic representations, mutation strategies, and selection methods
 - Generate structured datasets for machine learning research without real-world data
 - Visualize agent behavior and algorithm evolution in real time
-
-## Performance
-
-MoonAI achieves high performance through data-oriented ECS architecture:
-
-**Key Optimizations:**
-- **Cache-friendly layouts**: Structure-of-Arrays (SoA) component storage
-- **Efficient GPU packing**: Contiguous memcpy from ECS to GPU buffers
-- **Parallel systems**: CUDA parallelization on GPU; CPU systems single-threaded
-- **SIMD-ready**: Contiguous data enables AVX/AVX-512 vectorization
 
 ## Key Features
 
@@ -98,6 +103,16 @@ ECS solves these with:
 | `src/data/` | OOP | `moonai_data` | CSV logger, metrics collector |
 | `src/gpu/` | Mixed | `moonai_gpu` | CUDA kernels, GpuDataBuffer abstraction, ECS-to-GPU packing |
 
+### Performance
+
+MoonAI achieves high performance through data-oriented ECS architecture:
+
+**Key Optimizations:**
+- **Cache-friendly layouts**: Structure-of-Arrays (SoA) component storage
+- **Efficient GPU packing**: Contiguous memcpy from ECS to GPU buffers
+- **Parallel systems**: CUDA parallelization on GPU
+- **SIMD-ready**: Contiguous data enables AVX/AVX-512 vectorization
+
 ## Prerequisites
 
 | Tool | Version | Required |
@@ -141,24 +156,12 @@ cmake --preset linux-debug
 cmake --build build/linux-debug --parallel
 ```
 
-### 4. Run tests
+Run `just --list` to see all available commands.
 
-```bash
-just test              # basic run
-just test --verbose    # verbose output
-just test -R GpuTest   # filter tests
-```
-
-### 5. Run the simulation
+### 4. Run the simulation
 
 ```bash
 just run
-```
-
-The profiler executable is available but not built by default. To build and run it:
-
-```bash
-just profile-run
 ```
 
 ## Build
@@ -179,26 +182,6 @@ Official GitHub releases are CPU-only; CUDA support is available from source bui
 |--------|---------|-------------|
 | `MOONAI_BUILD_TESTS` | `ON` | Build unit tests |
 | `MOONAI_BUILD_PROFILER` | `OFF` | Build profiler executable (requires CUDA)
-
-### Runtime Modes
-
-Mode selection happens at runtime via flags — no need to rebuild:
-
-| Command | Description |
-|---------|-------------|
-| `just run` | Default: visualization window, GPU if available for large populations |
-| `just run-release` | Release build: faster execution for large experiments |
-
-Both commands accept additional arguments after `--`:
-
-| Example | Description |
-|---------|-------------|
-| `just run -- --headless` | No window, max speed (auto-switches if `$DISPLAY` unset) |
-| `just run -- --no-gpu` | Force CPU inference even if CUDA is compiled in |
-| `just run -- --headless --no-gpu` | Headless + CPU-only (for servers without a display or GPU) |
-| `just run -- --experiment <name>` | Run specific experiment instead of default |
-
-CUDA is enabled at runtime when available. The GPU path executes sensing, neural inference, and simulation systems (movement, combat, energy, aging) entirely on GPU. If any GPU operation fails, MoonAI automatically disables the CUDA path and falls back to CPU execution.
 
 ### Visualization Controls
 
@@ -318,7 +301,7 @@ just experiment-analyse     # reads output/, writes a self-contained HTML report
 
 ### Analysis
 
-The Python analysis tool has a single mode: it always generates one self-contained HTML report for all qualifying runs in `output/`.
+The Python analysis tool generates self-contained HTML report for all qualifying runs in `output/`.
 
 ```bash
 just experiment-analyse
@@ -330,7 +313,7 @@ Internally this runs the packaged analysis entry point from `analysis/`:
 cd analysis && uv run moonai-analysis
 ```
 
-The analysis step is non-interactive and always writes a timestamped report to `analysis/output/`, for example `report_20260324_154233.html`.
+The analysis writes a timestamped report to `analysis/output/`, for example `report_20260324_154233.html`.
 
 The generated HTML is fully self-contained: it embeds all plots and report data directly into a single file, including:
 
@@ -351,9 +334,38 @@ The analysis code is structured as a small package under `analysis/moonai_analys
 - `html_report.py` renders the final self-contained HTML document
 - `templates/report.html.j2` defines the HTML report layout
 
-### Profiler output and analysis
+### Experiment conditions
 
-Profiler runs use the dedicated `moonai_profiler` entry point. The profiler is configured via CLI arguments instead of a config file.
+66 conditions defined in `config.lua` across 9 groups, each × 5 seeds = **330 deterministic runs**.
+
+The default baseline is 2000 agents (500 predators, 1500 prey) on a 3000×3000 square world with 1500 steps per report window. Scaled experiments use `scale_base()` to maintain agent density by proportionally adjusting world size and food count.
+
+- Group A — Baseline sweeps (2K agents)
+- Group B — Scale experiments (proportional world)
+- Group C — Parameter sweeps at 5K
+- Group D — Parameter sweeps at 10K
+- Group E — World density (5K agents, varying world size)
+- Group F — Reporting window length
+- Group G — Energy / resource dynamics
+- Group H — Agent speed / interaction range (5K)
+- Group I — Topology complexity
+
+### Large-scale experiments
+
+Experiments with 5K+ agents require significant compute. Recommendations:
+
+- **GPU strongly recommended** for populations >= 2000 (auto-enabled when CUDA is available)
+- **Release build** (`just release`) for 2-5x faster simulation
+- **Headless mode** (`--headless`) disables gui for maximum throughput
+- **Memory**: ~4 GB RAM for 10K agents, ~8 GB for 20K agents
+- **VRAM**: ~512 MB for 10K agents, ~1 GB for 20K agents
+- Running all 330 experiments sequentially takes significant time; use `--experiment` to run specific conditions or parallelize across machines
+
+## Profiler
+
+The profiler executable is available but not built by default (set `MOONAI_BUILD_PROFILER=ON` to enable). It captures detailed per-frame timing data for performance analysis.
+
+### Running the Profiler
 
 ```bash
 just profile-run                                     # Run with defaults (600 frames, 6 seeds)
@@ -379,10 +391,11 @@ Each profiler run writes a single JSON file to `output/profiles/`:
 
 The profiler drops the fastest and slowest runs by average frame time, and reports aggregate timing data from the remaining runs. Standard simulation builds do not include profiler instrumentation.
 
-To generate the standalone profiler report:
+### Generating Reports
 
 ```bash
-just profile-analyse
+just profile-analyse    # Generate HTML report from latest profile run
+just profile            # Full pipeline: run profiler and build report
 ```
 
 The profiler writes a timestamped self-contained HTML report to `profiler/output/`, for example `profile_report_20260324_154233.html`.
@@ -390,38 +403,10 @@ The profiler writes a timestamped self-contained HTML report to `profiler/output
 The profiler package lives under `profiler/moonai_profiler/` and includes:
 
 - `pipeline.py` for orchestration
-- `io.py` for discovering and validating `profile_suite.json` runs
+- `io.py` for discovering and validating profile runs
 - `plots.py` for embedded timing charts
 - `html_report.py` for rendering
 - `templates/report.html.j2` for layout
-
-### Experiment conditions
-
-66 conditions defined in `config.lua` across 9 groups, each × 5 seeds = **330 deterministic runs**.
-
-The default baseline is 2000 agents (500 predators, 1500 prey) on a 3000×3000 square world with 1500 steps per report window. Scaled experiments use `scale_base()` to maintain agent density by proportionally adjusting world size and food count.
-
-- Group A — Baseline sweeps (2K agents)
-- Group B — Scale experiments (proportional world)
-- Group C — Parameter sweeps at 5K
-- Group D — Parameter sweeps at 10K
-- Group E — World density (5K agents, varying world size)
-- Group F — Reporting window length
-- Group G — Energy / resource dynamics
-- Group H — Agent speed / interaction range (5K)
-- Group I — Topology complexity
-
-### Large-scale experiments
-
-Experiments with 5K+ agents require significant compute. Recommendations:
-
-- **GPU strongly recommended** for populations >= 2000 (auto-enabled when CUDA is available)
-- **Release build** (`just release`) for 2-5x faster simulation
-- **Headless mode** (`--headless`) disables rendering for maximum throughput
-- **Visual mode** uses the same GPU acceleration as headless when CUDA is available, but headless mode achieves higher throughput because it eliminates rendering overhead (SFML runs on CPU, GPU is fully dedicated to simulation)
-- **Memory**: ~4 GB RAM for 10K agents, ~8 GB for 20K agents
-- **VRAM**: ~512 MB for 10K agents, ~1 GB for 20K agents
-- Running all 330 experiments sequentially takes significant time; use `--experiment` to run specific conditions or parallelize across machines
 
 ## Development
 
@@ -434,55 +419,35 @@ just test              # basic run
 just test --verbose    # verbose output
 just test -R GpuTest   # filter tests
 
-# Run the profiler with default settings (600 frames, 6 seeds)
-just profile-run
-
-# Run profiler with custom frame count
-just profile-run --frames 300
-
-# Generate the standalone profiler HTML report
-just profile-analyse
-
-# Full profiler pipeline: run profiler and build the report
-just profile
-
+# Code formatting and linting
+just lint              # Auto-format and run static analysis
 ```
-
-The dedicated profiler writes one `profile_suite.json` file per suite under a unique
-directory in `output/profiles/` by default when invoked through `just profile-run`.
 
 ## Project Structure
 
 ```
 moonai/
 ├── CMakeLists.txt              # Root CMake configuration
-├── CMakePresets.json            # Build presets for Linux/Windows
+├── CMakePresets.json           # Build presets for Linux/Windows
 ├── vcpkg.json                  # Dependency manifest
-├── justfile                    # Project commands (run `just --list` for full list)
-├── config.lua                  # Unified config: default run + experiment matrix (66 × 5 seeds)
+├── justfile                    # Project commands
+├── config.lua                  # Unified config: default run + experiment matrix
+├── .clang-format               # LLVM code style configuration
+├── .clang-tidy                 # Static analysis configuration
 ├── src/
 │   ├── main.cpp                # Entry point: CLI parsing, init, main loop, shutdown
-│   ├── core/                   # Shared types (Vec2, Entity), config loader, Lua runtime, seeded RNG
-│   ├── simulation/             # ECS CORE - Data-oriented simulation
-│   │   ├── registry.hpp/cpp    # Sparse-set ECS registry with SoA storage
-│   │   ├── entity.hpp          # Entity handles (index + generation)
-│   │   ├── components.hpp      # SoA component definitions
-│   │   ├── spatial_grid.hpp/cpp  # Entity-based spatial indexing
-│   │   ├── simulation_manager.hpp/cpp # Coordinates ECS systems
-│   │   └── systems/            # ECS system implementations
-│   │       ├── movement.hpp/cpp
-│   │       ├── sensor.hpp/cpp
-│   │       ├── combat.hpp/cpp
-│   │       ├── energy.hpp/cpp
-│   │       └── food_respawn.hpp/cpp
-│   ├── evolution/              # NEAT: genome, neural network, NetworkCache, speciation
-│   ├── visualization/          # SFML rendering (queries ECS directly)
-│   ├── data/                   # CSV/JSON logger, metrics collector
-│   └── gpu/                    # CUDA kernels, GpuDataBuffer, ECS-to-GPU packing
+│   ├── profiler_main.cpp       # Profiler executable entry point
+│   ├── app.hpp/cpp             # Application orchestration layer
+│   ├── core/                   # Shared types, config, Lua runtime, seeded RNG
+│   ├── simulation/             # ECS-based simulation core
+│   ├── evolution/              # NEAT evolution implementation
+│   ├── visualization/          # SFML rendering and UI
+│   ├── data/                   # Data logging and metrics
+│   └── gpu/                    # CUDA GPU acceleration
 ├── tests/                      # Google Test unit tests
-├── analysis/                   # Python simulation analysis package and generated report output
-├── profiler/                   # Python profiler analysis package and generated report output
-├── docs/                       # Project documents (PDFs + LLD LaTeX source)
+├── analysis/                   # Python simulation analysis package
+├── profiler/                   # Python profiler analysis package
+├── docs/                       # Project documents
 ├── web/                        # GitHub Pages website
 └── .github/workflows/          # CI/CD pipelines
 ```
@@ -502,21 +467,11 @@ Each run writes to `output/{experiment_name}/` (named experiments) or `output/YY
 
 MoonAI follows the **LLVM coding style** (2-space indentation, LLVM brace breaking, etc.).
 
-### Code Quality Tools
-
-Code formatting and static analysis are available via just commands:
-
-| Command | Purpose |
-|---------|---------|
-| `just lint` | Auto-format all C++ files and run cppcheck static analysis |
-
-**Run manually before committing** — these are not automatic during build.
-
 ### Style Configuration
 
 - **`.clang-format`** — LLVM-based configuration in project root
   - 2-space indentation
-  - 80 column limit
+  - 120 column limit
   - Attached braces
   - Right-aligned pointers/references
 
@@ -530,20 +485,3 @@ Code formatting and static analysis are available via just commands:
 | Member variables | Trailing underscore: `speed_`, `position_` |
 | Functions / variables | `snake_case` |
 | Classes / structs | `PascalCase` |
-
-## Project
-
-### Team
-
-- Caner Aras
-- Emir Irkılata
-- Oğuzhan Özkaya
-
-### Supervisor
-- Ayşenur Birtürk
-
-### Jury Members
-- Deniz Canturk
-- Mehmet Evren Coskun
-
-*This project is developed as part of the CMPE 491/492 Senior Design course at TED University.*

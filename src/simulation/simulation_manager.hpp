@@ -1,7 +1,6 @@
 #pragma once
 
 #include "core/config.hpp"
-#include "core/types.hpp"
 
 #include <cstddef>
 #include <memory>
@@ -26,10 +25,8 @@ public:
   void step_gpu(AppState &state, EvolutionManager &evolution);
   void reset(AppState &state);
 
-  void enable_gpu(bool enable);
-  bool gpu_enabled() const {
-    return gpu_enabled_;
-  }
+  void enable_gpu(AppState &state, bool enable);
+  void disable_gpu(AppState &state);
 
 private:
   void initialize(AppState &state, bool log_initialization);
@@ -46,7 +43,6 @@ private:
   const SimulationConfig &config_;
 
   // GPU support
-  bool gpu_enabled_ = false;
   std::unique_ptr<gpu::GpuBatch> gpu_batch_;
 };
 
