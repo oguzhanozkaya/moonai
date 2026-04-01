@@ -20,8 +20,8 @@ void refresh_live(AppState &state) {
   state.metrics.live.alive_predator = static_cast<int>(state.predator.size());
   state.metrics.live.alive_prey = static_cast<int>(state.prey.size());
   state.metrics.live.active_food = count_active_food(state.food);
-  state.metrics.live.predator_species = static_cast<int>(state.evolution.predators.species.size());
-  state.metrics.live.prey_species = static_cast<int>(state.evolution.prey.species.size());
+  state.metrics.live.predator_species = static_cast<int>(state.predator.species.size());
+  state.metrics.live.prey_species = static_cast<int>(state.prey.species.size());
 }
 
 void record_report(AppState &state) {
@@ -53,12 +53,12 @@ void record_report(AppState &state) {
     ++prey_energy_count;
   }
 
-  for (const auto &genome : state.evolution.predators.genomes) {
+  for (const auto &genome : state.predator.genomes) {
     complexity_sum += static_cast<float>(genome.nodes().size() + genome.connections().size());
     ++genome_count;
   }
 
-  for (const auto &genome : state.evolution.prey.genomes) {
+  for (const auto &genome : state.prey.genomes) {
     complexity_sum += static_cast<float>(genome.nodes().size() + genome.connections().size());
     ++genome_count;
   }

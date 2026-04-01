@@ -122,14 +122,14 @@ void App::record_and_log() {
 
   const Genome *best_genome = nullptr;
   std::size_t best_complexity = 0;
-  for (const auto &genome : state_.evolution.predators.genomes) {
+  for (const auto &genome : state_.predator.genomes) {
     const std::size_t complexity = genome.nodes().size() + genome.connections().size();
     if (!best_genome || complexity > best_complexity) {
       best_genome = &genome;
       best_complexity = complexity;
     }
   }
-  for (const auto &genome : state_.evolution.prey.genomes) {
+  for (const auto &genome : state_.prey.genomes) {
     const std::size_t complexity = genome.nodes().size() + genome.connections().size();
     if (!best_genome || complexity > best_complexity) {
       best_genome = &genome;
@@ -141,8 +141,8 @@ void App::record_and_log() {
     logger_.log_best_genome(state_.runtime.step, *best_genome);
   }
 
-  logger_.log_species(state_.runtime.step, state_.evolution.predators.species, "predator");
-  logger_.log_species(state_.runtime.step, state_.evolution.prey.species, "prey");
+  logger_.log_species(state_.runtime.step, state_.predator.species, "predator");
+  logger_.log_species(state_.runtime.step, state_.prey.species, "prey");
   logger_.flush();
   state_.runtime.report_events.clear();
 

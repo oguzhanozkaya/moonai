@@ -15,6 +15,14 @@
 
 namespace moonai {
 
+struct UiState {
+  bool paused = false;
+  bool step_requested = false;
+  bool reset_requested = false;
+  int speed_multiplier = 1;
+  uint32_t selected_agent_id = 0;
+};
+
 struct RegistryCompactionResult {
   std::vector<std::pair<uint32_t, uint32_t>> moved;
   std::vector<uint32_t> removed;
@@ -44,6 +52,11 @@ struct AgentRegistry {
   std::vector<uint32_t> species_id;
   std::vector<uint32_t> entity_id;
   std::vector<int> consumption;
+
+  InnovationTracker innovation_tracker;
+  std::vector<Species> species;
+  std::vector<Genome> genomes;
+  NetworkCache network_cache;
 
   uint32_t create();
   bool valid(uint32_t entity) const;
@@ -106,6 +119,12 @@ struct ReportMetrics {
   float avg_prey_energy = 0.0f;
 };
 
+struct MetricsState {
+  LiveMetrics live;
+  ReportMetrics last_report;
+  std::vector<ReportMetrics> history;
+};
+
 struct RuntimeState {
   explicit RuntimeState(std::uint64_t seed) : rng(seed) {}
 
@@ -122,43 +141,17 @@ struct RuntimeState {
   EventCounters total_events;
 };
 
-struct PopulationEvolutionState {
-  InnovationTracker innovation_tracker;
-  std::vector<Species> species;
-  std::vector<Genome> genomes;
-  NetworkCache network_cache;
-};
-
-struct EvolutionState {
-  PopulationEvolutionState predators;
-  PopulationEvolutionState prey;
-};
-
-struct MetricsState {
-  LiveMetrics live;
-  ReportMetrics last_report;
-  std::vector<ReportMetrics> history;
-};
-
-struct UiState {
-  bool paused = false;
-  bool step_requested = false;
-  bool reset_requested = false;
-  int speed_multiplier = 1;
-  uint32_t selected_agent_id = 0;
-};
-
 struct AppState {
   explicit AppState(std::uint64_t seed) : runtime(seed) {}
+
+  UiState ui;
 
   AgentRegistry predator;
   AgentRegistry prey;
   Food food;
 
-  EvolutionState evolution;
-  RuntimeState runtime;
   MetricsState metrics;
-  UiState ui;
+  RuntimeState runtime;
 };
 
 } // namespace moonai

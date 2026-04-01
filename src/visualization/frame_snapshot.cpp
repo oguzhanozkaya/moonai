@@ -7,17 +7,17 @@
 namespace moonai {
 
 static inline const Genome *predator_genome_for(const AppState &state, uint32_t entity) {
-  if (entity == INVALID_ENTITY || entity >= state.evolution.predators.genomes.size()) {
+  if (entity == INVALID_ENTITY || entity >= state.predator.genomes.size()) {
     return nullptr;
   }
-  return &state.evolution.predators.genomes[entity];
+  return &state.predator.genomes[entity];
 }
 
 static inline const Genome *prey_genome_for(const AppState &state, uint32_t entity) {
-  if (entity == INVALID_ENTITY || entity >= state.evolution.prey.genomes.size()) {
+  if (entity == INVALID_ENTITY || entity >= state.prey.genomes.size()) {
     return nullptr;
   }
-  return &state.evolution.prey.genomes[entity];
+  return &state.prey.genomes[entity];
 }
 
 FrameSnapshot build_frame_snapshot(const AppState &state, const AppConfig &config) {

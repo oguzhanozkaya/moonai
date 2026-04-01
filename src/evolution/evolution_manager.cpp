@@ -9,12 +9,12 @@ EvolutionManager::EvolutionManager(const SimulationConfig &config) : config_(con
 
 EvolutionManager::~EvolutionManager() = default;
 
-void EvolutionManager::initialize_population(PopulationEvolutionState &population) const {
-  population.innovation_tracker = InnovationTracker();
-  population.innovation_tracker.set_counters(0, static_cast<std::uint32_t>(num_inputs_ + num_outputs_ + 1));
-  population.species.clear();
-  population.genomes.clear();
-  population.network_cache.clear();
+void EvolutionManager::initialize_population(AgentRegistry &registry) const {
+  registry.innovation_tracker = InnovationTracker();
+  registry.innovation_tracker.set_counters(0, static_cast<std::uint32_t>(num_inputs_ + num_outputs_ + 1));
+  registry.species.clear();
+  registry.genomes.clear();
+  registry.network_cache.clear();
 }
 
 void EvolutionManager::initialize(AppState &state, int num_inputs, int num_outputs) {
@@ -22,8 +22,8 @@ void EvolutionManager::initialize(AppState &state, int num_inputs, int num_outpu
   num_outputs_ = num_outputs;
 
   Species::reset_id_counter();
-  initialize_population(state.evolution.predators);
-  initialize_population(state.evolution.prey);
+  initialize_population(state.predator);
+  initialize_population(state.prey);
 
   if (predator_gpu_network_cache_) {
     predator_gpu_network_cache_->invalidate();

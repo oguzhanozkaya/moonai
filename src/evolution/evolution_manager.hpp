@@ -12,7 +12,7 @@
 namespace moonai {
 
 struct AppState;
-struct PopulationEvolutionState;
+struct AgentRegistry;
 namespace gpu {
 class GpuBatch;
 class GpuNetworkCache;
@@ -47,15 +47,15 @@ public:
   bool launch_gpu_neural(AppState &state, gpu::GpuBatch &gpu_batch);
 
 private:
-  Genome create_initial_genome(PopulationEvolutionState &population, Random &rng) const;
-  Genome create_child_genome(PopulationEvolutionState &population, Random &rng, const Genome &parent_a,
+  Genome create_initial_genome(AgentRegistry &registry, Random &rng) const;
+  Genome create_child_genome(AgentRegistry &registry, Random &rng, const Genome &parent_a,
                              const Genome &parent_b) const;
-  void initialize_population(PopulationEvolutionState &population) const;
-  void compute_actions_for_population(PopulationEvolutionState &population, AgentRegistry &agents,
-                                      const std::vector<float> &sensors, std::vector<float> &decisions_out) const;
-  void refresh_population_species(PopulationEvolutionState &population, AgentRegistry &agents) const;
-  void on_population_destroyed(PopulationEvolutionState &population, uint32_t entity);
-  void on_population_moved(PopulationEvolutionState &population, uint32_t from, uint32_t to);
+  void initialize_population(AgentRegistry &registry) const;
+  void compute_actions_for_population(AgentRegistry &registry, const std::vector<float> &sensors,
+                                      std::vector<float> &decisions_out) const;
+  void refresh_population_species(AgentRegistry &registry) const;
+  void on_population_destroyed(AgentRegistry &registry, uint32_t entity);
+  void on_population_moved(AgentRegistry &registry, uint32_t from, uint32_t to);
 
   const SimulationConfig &config_;
   int num_inputs_ = 0;

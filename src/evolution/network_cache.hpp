@@ -1,6 +1,5 @@
 #pragma once
 
-#include "core/types.hpp"
 #include "evolution/genome.hpp"
 #include "evolution/neural_network.hpp"
 

@@ -1,4 +1,6 @@
 #include "evolution/network_cache.hpp"
+#include "core/types.hpp"
+
 namespace moonai {
 
 void NetworkCache::assign(uint32_t e, const Genome &genome) {
