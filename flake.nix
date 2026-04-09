@@ -47,6 +47,7 @@
           CXX = "${pkgs.gcc}/bin/g++";
           VCPKG_ROOT = "${pkgs.vcpkg}/share/vcpkg";
           CUDA_PATH = "${pkgs.cudatoolkit}";
+          LD_LIBRARY_PATH = "${pkgs.cudatoolkit}/lib:${pkgs.lib.makeLibraryPath [ pkgs.libGL pkgs.libGLU ]}";
 
           shellHook = ''
             echo "Project Packages and environment loaded for ${system}."
