@@ -5,10 +5,7 @@
 
 #include <vector>
 
-namespace moonai::simulation_detail {
-
-inline constexpr int SENSOR_COUNT = 14;
-inline constexpr int OUTPUT_COUNT = 2;
+namespace moonai::systems {
 
 void build_sensors(AgentRegistry &self_agents, const AgentRegistry &predator_agents, const AgentRegistry &prey_agents,
                    const Food &food_store, const SimulationConfig &config, float agent_speed,
@@ -28,4 +25,4 @@ void collect_combat_events(AgentRegistry &predator_registry, const AgentRegistry
                            MetricsSnapshot &metrics);
 void collect_death_events(const AgentRegistry &registry, MetricsSnapshot &metrics);
 
-} // namespace moonai::simulation_detail
+} // namespace moonai::systems

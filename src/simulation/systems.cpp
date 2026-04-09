@@ -1,10 +1,12 @@
-#include "simulation/simulation_step_systems.hpp"
+#include "simulation/systems.hpp"
+
+#include "core/types.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
 
-namespace moonai::simulation_detail {
+namespace moonai::systems {
 
 namespace {
 
@@ -363,4 +365,4 @@ void collect_death_events(const AgentRegistry &registry, MetricsSnapshot &metric
   }
 }
 
-} // namespace moonai::simulation_detail
+} // namespace moonai::systems

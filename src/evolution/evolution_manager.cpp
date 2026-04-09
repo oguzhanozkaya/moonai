@@ -1,12 +1,12 @@
 #include "evolution/evolution_manager.hpp"
 #include "core/app_state.hpp"
 #include "core/profiler_macros.hpp"
+#include "core/types.hpp"
 #include "evolution/crossover.hpp"
 #include "evolution/evolution_manager.hpp"
 #include "evolution/mutation.hpp"
 #include "gpu/gpu_batch.hpp"
 #include "gpu/gpu_network_cache.hpp"
-#include "simulation/simulation_step_systems.hpp"
 
 #include <algorithm>
 #include <spdlog/spdlog.h>
@@ -37,8 +37,8 @@ void EvolutionManager::initialize(AppState &state, int num_inputs, int num_outpu
   initialize_population(state.prey);
 }
 
-using simulation_detail::OUTPUT_COUNT;
-using simulation_detail::SENSOR_COUNT;
+using moonai::OUTPUT_COUNT;
+using moonai::SENSOR_COUNT;
 
 void EvolutionManager::compute_actions_for_population(AgentRegistry &registry, const std::vector<float> &sensors,
                                                       std::vector<float> &decisions_out) const {

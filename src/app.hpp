@@ -5,7 +5,7 @@
 #include "core/logger.hpp"
 #include "core/metrics.hpp"
 #include "evolution/evolution_manager.hpp"
-#include "simulation/simulation_manager.hpp"
+#include "simulation/manager.hpp"
 #include "visualization/visualization_manager.hpp"
 
 #include <csignal>

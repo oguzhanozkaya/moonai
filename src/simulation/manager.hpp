@@ -4,7 +4,6 @@
 
 #include <cstddef>
 #include <memory>
-#include <vector>
 
 namespace moonai {
 
@@ -32,17 +31,8 @@ public:
   void disable_gpu(AppState &state);
 
 private:
-  void step_cpu(AppState &state, EvolutionManager &evolution);
-  void step_gpu(AppState &state, EvolutionManager &evolution);
-
-  void ensure_gpu_capacity(std::size_t predator_count, std::size_t prey_count, std::size_t food_count);
-  void collect_gpu_step_events(AppState &state, const std::vector<uint8_t> &was_food_active);
-  void reproduction(AppState &state, EvolutionManager &evolution, AgentRegistry &registry);
-  void refresh_world_state_after_step(AppState &state);
-
   const SimulationConfig &config_;
 
-  // GPU support
   std::unique_ptr<gpu::GpuBatch> gpu_batch_;
 };
 

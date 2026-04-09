@@ -2,7 +2,7 @@
 
 #include "core/metrics.hpp"
 #include "core/profiler_macros.hpp"
-#include "simulation/simulation_step_systems.hpp"
+#include "core/types.hpp"
 #include "visualization/frame_snapshot.hpp"
 
 #include <algorithm>
@@ -48,7 +48,7 @@ App::App(AppConfig cfg)
   state_.ui.speed_multiplier = cfg_.speed_multiplier;
 
   simulation_.initialize(state_);
-  evolution_.initialize(state_, simulation_detail::SENSOR_COUNT, simulation_detail::OUTPUT_COUNT);
+  evolution_.initialize(state_, SENSOR_COUNT, OUTPUT_COUNT);
   evolution_.seed_initial_population(state_);
   state_.runtime.gpu_enabled = cfg_.enable_gpu;
   metrics::refresh_live(state_);

@@ -12,7 +12,6 @@ target_link_libraries(moonai_tests PRIVATE
     moonai_core
     moonai_simulation
     moonai_evolution
-    moonai_data
 )
 
 gtest_discover_tests(moonai_tests)

@@ -1,8 +1,9 @@
 #include "core/app_state.hpp"
 #include "core/random.hpp"
+#include "core/types.hpp"
 #include "evolution/evolution_manager.hpp"
-#include "simulation/simulation_manager.hpp"
-#include "simulation/simulation_step_systems.hpp"
+#include "simulation/manager.hpp"
+#include "simulation/systems.hpp"
 
 #include <gtest/gtest.h>
 
@@ -38,13 +39,12 @@ TEST(SimulationSensorsTest, EncodesDxDySentinelsAndFoodDensity) {
   simulation.initialize(state);
 
   EvolutionManager evolution(config);
-  evolution.initialize(state, simulation_detail::SENSOR_COUNT,
-                       simulation_detail::OUTPUT_COUNT);
+  evolution.initialize(state, SENSOR_COUNT, OUTPUT_COUNT);
   evolution.seed_initial_population(state);
 
   ASSERT_EQ(state.predator.size(), 1u);
   ASSERT_EQ(state.prey.size(), 1u);
-  ASSERT_EQ(simulation_detail::SENSOR_COUNT, 14);
+  ASSERT_EQ(SENSOR_COUNT, 14);
 
   const std::size_t predator_idx = 0;
   const std::size_t prey_idx = 0;
@@ -55,12 +55,9 @@ TEST(SimulationSensorsTest, EncodesDxDySentinelsAndFoodDensity) {
 
   std::vector<float> predator_sensors;
   std::vector<float> prey_sensors;
-  simulation_detail::build_sensors(state.predator, state.predator, state.prey,
-                                   state.food, config, config.predator_speed,
-                                   predator_sensors);
-  simulation_detail::build_sensors(state.prey, state.predator, state.prey,
-                                   state.food, config, config.prey_speed,
-                                   prey_sensors);
+  systems::build_sensors(state.predator, state.predator, state.prey, state.food, config, config.predator_speed,
+                         predator_sensors);
+  systems::build_sensors(state.prey, state.predator, state.prey, state.food, config, config.prey_speed, prey_sensors);
 
   const auto &food_store = state.food;
   ASSERT_EQ(food_store.size(), 2u);
@@ -81,28 +78,20 @@ TEST(SimulationSensorsTest, EncodesDxDySentinelsAndFoodDensity) {
     return best;
   };
 
-  const Vec2 predator_pos{state.predator.pos_x[predator_idx],
-                          state.predator.pos_y[predator_idx]};
+  const Vec2 predator_pos{state.predator.pos_x[predator_idx], state.predator.pos_y[predator_idx]};
   const Vec2 prey_pos{state.prey.pos_x[prey_idx], state.prey.pos_y[prey_idx]};
-  const Vec2 predator_to_prey{prey_pos.x - predator_pos.x,
-                              prey_pos.y - predator_pos.y};
-  const Vec2 prey_to_predator{predator_pos.x - prey_pos.x,
-                              predator_pos.y - prey_pos.y};
+  const Vec2 predator_to_prey{prey_pos.x - predator_pos.x, prey_pos.y - predator_pos.y};
+  const Vec2 prey_to_predator{predator_pos.x - prey_pos.x, predator_pos.y - prey_pos.y};
   const Vec2 predator_to_food = nearest_food_delta(predator_pos);
   const Vec2 prey_to_food = nearest_food_delta(prey_pos);
 
-  const float *predator_sensor_ptr =
-      &predator_sensors[predator_idx * simulation_detail::SENSOR_COUNT];
+  const float *predator_sensor_ptr = &predator_sensors[predator_idx * SENSOR_COUNT];
   EXPECT_FLOAT_EQ(predator_sensor_ptr[0], kMissingTargetSentinel);
   EXPECT_FLOAT_EQ(predator_sensor_ptr[1], kMissingTargetSentinel);
-  EXPECT_NEAR(predator_sensor_ptr[2], predator_to_prey.x / config.vision_range,
-              kEpsilon);
-  EXPECT_NEAR(predator_sensor_ptr[3], predator_to_prey.y / config.vision_range,
-              kEpsilon);
-  EXPECT_NEAR(predator_sensor_ptr[4], predator_to_food.x / config.vision_range,
-              kEpsilon);
-  EXPECT_NEAR(predator_sensor_ptr[5], predator_to_food.y / config.vision_range,
-              kEpsilon);
+  EXPECT_NEAR(predator_sensor_ptr[2], predator_to_prey.x / config.vision_range, kEpsilon);
+  EXPECT_NEAR(predator_sensor_ptr[3], predator_to_prey.y / config.vision_range, kEpsilon);
+  EXPECT_NEAR(predator_sensor_ptr[4], predator_to_food.x / config.vision_range, kEpsilon);
+  EXPECT_NEAR(predator_sensor_ptr[5], predator_to_food.y / config.vision_range, kEpsilon);
   EXPECT_FLOAT_EQ(predator_sensor_ptr[6], 0.5f);
   EXPECT_FLOAT_EQ(predator_sensor_ptr[7], 0.0f);
   EXPECT_FLOAT_EQ(predator_sensor_ptr[8], 0.0f);
@@ -113,18 +102,13 @@ TEST(SimulationSensorsTest, EncodesDxDySentinelsAndFoodDensity) {
   // EXPECT_FLOAT_EQ(predator_sensor_ptr[11], 2.0f / kMaxDensity);
   EXPECT_FLOAT_EQ(predator_sensor_ptr[11], 1.0f / kMaxDensity);
 
-  const float *prey_sensor_ptr =
-      &prey_sensors[prey_idx * simulation_detail::SENSOR_COUNT];
-  EXPECT_NEAR(prey_sensor_ptr[0], prey_to_predator.x / config.vision_range,
-              kEpsilon);
-  EXPECT_NEAR(prey_sensor_ptr[1], prey_to_predator.y / config.vision_range,
-              kEpsilon);
+  const float *prey_sensor_ptr = &prey_sensors[prey_idx * SENSOR_COUNT];
+  EXPECT_NEAR(prey_sensor_ptr[0], prey_to_predator.x / config.vision_range, kEpsilon);
+  EXPECT_NEAR(prey_sensor_ptr[1], prey_to_predator.y / config.vision_range, kEpsilon);
   EXPECT_FLOAT_EQ(prey_sensor_ptr[2], kMissingTargetSentinel);
   EXPECT_FLOAT_EQ(prey_sensor_ptr[3], kMissingTargetSentinel);
-  EXPECT_NEAR(prey_sensor_ptr[4], prey_to_food.x / config.vision_range,
-              kEpsilon);
-  EXPECT_NEAR(prey_sensor_ptr[5], prey_to_food.y / config.vision_range,
-              kEpsilon);
+  EXPECT_NEAR(prey_sensor_ptr[4], prey_to_food.x / config.vision_range, kEpsilon);
+  EXPECT_NEAR(prey_sensor_ptr[5], prey_to_food.y / config.vision_range, kEpsilon);
   EXPECT_FLOAT_EQ(prey_sensor_ptr[6], 0.5f);
   EXPECT_FLOAT_EQ(prey_sensor_ptr[7], 0.0f);
   EXPECT_FLOAT_EQ(prey_sensor_ptr[8], 0.0f);
