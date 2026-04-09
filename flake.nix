@@ -3,17 +3,18 @@
   inputs = { nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable"; };
   outputs = { self, nixpkgs }:
   let
-    supportedSystems = [
-      "x86_64-linux"
-      "aarch64-linux"
-      "x86_64-darwin"
-      "aarch64-darwin"
-    ];
+    supportedSystems = [ "x86_64-linux" ];
     forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
   in {
     devShells = forAllSystems (system: 
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        pkgs = import nixpkgs {
+          inherit system;
+          config = {
+            allowUnfree = true;
+            cudaSupport = true;
+          };
+        };
       in
       {
         default = pkgs.mkShell {
@@ -27,10 +28,23 @@
             clang-tools
             cppcheck
             llvm
+            pkg-config
+
+            cudatoolkit
+
+            libx11
+            libxi
+            libxrandr
+            libxcursor
+            udev
+            libGL
+            libGLU
           ];
 
           CC = "${pkgs.gcc}/bin/gcc";
           CXX = "${pkgs.gcc}/bin/g++";
+          VCPKG_ROOT = "${pkgs.vcpkg}/share/vcpkg";
+          CUDA_PATH = "${pkgs.cudatoolkit}";
 
           shellHook = ''
             echo "Project Packages and environment loaded for ${system}."

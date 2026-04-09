@@ -1,0 +1,88 @@
+\babel@toc {english}{}\relax 
+\contentsline {section}{\numberline {1}Introduction}{3}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Object Design Trade-offs}{3}{subsection.1.1}%
+\contentsline {subsubsection}{\numberline {1.1.1}Value Semantics vs.\ Pointer Semantics for \texttt {Genome}}{3}{subsubsection.1.1.1}%
+\contentsline {subsubsection}{\numberline {1.1.2}GPU CSR Layout vs.\ Padded Layout}{3}{subsubsection.1.1.2}%
+\contentsline {subsubsection}{\numberline {1.1.3}Precomputed Incoming Adjacency in \texttt {NeuralNetwork}}{4}{subsubsection.1.1.3}%
+\contentsline {subsubsection}{\numberline {1.1.4}Static Utility Classes (\texttt {Mutation}, \texttt {Crossover}, \texttt {Physics})}{4}{subsubsection.1.1.4}%
+\contentsline {subsubsection}{\numberline {1.1.5}\texttt {TickCallback} Decoupling}{4}{subsubsection.1.1.5}%
+\contentsline {subsection}{\numberline {1.2}Interface Documentation Guidelines}{4}{subsection.1.2}%
+\contentsline {subsection}{\numberline {1.3}Engineering Standards}{5}{subsection.1.3}%
+\contentsline {subsection}{\numberline {1.4}Definitions, Acronyms, and Abbreviations}{5}{subsection.1.4}%
+\contentsline {section}{\numberline {2}Package Overview}{6}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Dependency Rules}{7}{subsection.2.1}%
+\contentsline {section}{\numberline {3}Core Package (\texttt {src/core/})}{7}{section.3}%
+\contentsline {subsection}{\numberline {3.1}\texttt {Vec2} (struct)}{8}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}\texttt {BoundaryMode} (enum class)}{8}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}\texttt {SimulationConfig} (struct)}{9}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}\texttt {ConfigError} (struct)}{10}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}\texttt {CLIArgs} (struct)}{11}{subsection.3.5}%
+\contentsline {subsection}{\numberline {3.6}Free Functions}{11}{subsection.3.6}%
+\contentsline {subsection}{\numberline {3.7}\texttt {Random} (class)}{11}{subsection.3.7}%
+\contentsline {section}{\numberline {4}Simulation Package (\texttt {src/simulation/})}{12}{section.4}%
+\contentsline {subsection}{\numberline {4.1}\texttt {AgentType} (enum class)}{12}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}\texttt {Agent} (abstract class)}{12}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}\texttt {Predator} : \texttt {Agent}}{13}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}\texttt {Prey} : \texttt {Agent}}{14}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.5}\texttt {Food} (struct)}{14}{subsection.4.5}%
+\contentsline {subsection}{\numberline {4.6}\texttt {Environment} (class)}{14}{subsection.4.6}%
+\contentsline {subsection}{\numberline {4.7}\texttt {SensorInput} (struct)}{15}{subsection.4.7}%
+\contentsline {subsection}{\numberline {4.8}\texttt {Physics} (static class)}{15}{subsection.4.8}%
+\contentsline {subsubsection}{\numberline {4.8.1}\texttt {build\_sensors()}}{15}{subsubsection.4.8.1}%
+\contentsline {subsubsection}{\numberline {4.8.2}\texttt {process\_attacks()}}{15}{subsubsection.4.8.2}%
+\contentsline {subsection}{\numberline {4.9}\texttt {SpatialGrid} (class)}{16}{subsection.4.9}%
+\contentsline {subsection}{\numberline {4.10}\texttt {SimulationManager} (class)}{16}{subsection.4.10}%
+\contentsline {subsubsection}{\numberline {4.10.1}Per-Tick Sequence (internal)}{16}{subsubsection.4.10.1}%
+\contentsline {section}{\numberline {5}Evolution Package (\texttt {src/evolution/})}{17}{section.5}%
+\contentsline {subsection}{\numberline {5.1}\texttt {NodeType} (enum class)}{18}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}\texttt {NodeGene} and \texttt {ConnectionGene} (structs)}{19}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}\texttt {Genome} (class)}{19}{subsection.5.3}%
+\contentsline {subsubsection}{\numberline {5.3.1}Compatibility Distance Algorithm}{19}{subsubsection.5.3.1}%
+\contentsline {subsubsection}{\numberline {5.3.2}JSON Serialization Format}{20}{subsubsection.5.3.2}%
+\contentsline {subsection}{\numberline {5.4}\texttt {NeuralNetwork} (class)}{20}{subsection.5.4}%
+\contentsline {subsubsection}{\numberline {5.4.1}Construction Algorithm}{20}{subsubsection.5.4.1}%
+\contentsline {subsubsection}{\numberline {5.4.2}\texttt {activate(inputs)} Algorithm}{20}{subsubsection.5.4.2}%
+\contentsline {subsubsection}{\numberline {5.4.3}Activation Functions}{20}{subsubsection.5.4.3}%
+\contentsline {subsection}{\numberline {5.5}\texttt {Species} (class)}{21}{subsection.5.5}%
+\contentsline {subsubsection}{\numberline {5.5.1}Key Algorithms}{21}{subsubsection.5.5.1}%
+\contentsline {subsection}{\numberline {5.6}\texttt {InnovationTracker} (class)}{22}{subsection.5.6}%
+\contentsline {subsection}{\numberline {5.7}\texttt {Mutation} (static class)}{22}{subsection.5.7}%
+\contentsline {subsection}{\numberline {5.8}\texttt {Crossover} (static class)}{23}{subsection.5.8}%
+\contentsline {subsection}{\numberline {5.9}\texttt {EvolutionManager} (class)}{23}{subsection.5.9}%
+\contentsline {subsubsection}{\numberline {5.9.1}\texttt {evaluate\_generation()} Algorithm}{24}{subsubsection.5.9.1}%
+\contentsline {subsubsection}{\numberline {5.9.2}\texttt {compute\_fitness()} Algorithm}{25}{subsubsection.5.9.2}%
+\contentsline {subsubsection}{\numberline {5.9.3}\texttt {evolve()} Algorithm}{25}{subsubsection.5.9.3}%
+\contentsline {subsubsection}{\numberline {5.9.4}Checkpoint Format}{25}{subsubsection.5.9.4}%
+\contentsline {subsubsection}{\numberline {5.9.5}\texttt {TickCallback} Type Alias}{25}{subsubsection.5.9.5}%
+\contentsline {section}{\numberline {6}Visualization Package (\texttt {src/visualization/})}{25}{section.6}%
+\contentsline {subsection}{\numberline {6.1}\texttt {Renderer} (class)}{26}{subsection.6.1}%
+\contentsline {subsubsection}{\numberline {6.1.1}Species Color Algorithm}{27}{subsubsection.6.1.1}%
+\contentsline {subsection}{\numberline {6.2}\texttt {OverlayStats} (struct)}{27}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}\texttt {UIOverlay} (class)}{27}{subsection.6.3}%
+\contentsline {subsubsection}{\numberline {6.3.1}\texttt {draw\_nn\_panel()} Algorithm}{28}{subsubsection.6.3.1}%
+\contentsline {subsubsection}{\numberline {6.3.2}\texttt {draw\_fitness\_chart()} Algorithm}{28}{subsubsection.6.3.2}%
+\contentsline {subsection}{\numberline {6.4}\texttt {VisualizationManager} (class)}{28}{subsection.6.4}%
+\contentsline {subsubsection}{\numberline {6.4.1}Key Bindings}{29}{subsubsection.6.4.1}%
+\contentsline {subsubsection}{\numberline {6.4.2}Camera Model}{29}{subsubsection.6.4.2}%
+\contentsline {section}{\numberline {7}Data Package (\texttt {src/data/})}{29}{section.7}%
+\contentsline {subsection}{\numberline {7.1}\texttt {GenerationMetrics} (struct)}{30}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}\texttt {MetricsCollector} (class)}{30}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}\texttt {Logger} (class)}{31}{subsection.7.3}%
+\contentsline {subsubsection}{\numberline {7.3.1}Output File Formats}{31}{subsubsection.7.3.1}%
+\contentsline {paragraph}{\texttt {config.json}}{31}{paragraph*.38}%
+\contentsline {paragraph}{\texttt {stats.csv}}{31}{paragraph*.39}%
+\contentsline {paragraph}{\texttt {species.csv}}{31}{paragraph*.40}%
+\contentsline {paragraph}{\texttt {genomes.json}}{31}{paragraph*.41}%
+\contentsline {paragraph}{\texttt {ticks.csv} (optional)}{32}{paragraph*.42}%
+\contentsline {section}{\numberline {8}GPU Package (\texttt {src/gpu/})}{32}{section.8}%
+\contentsline {subsection}{\numberline {8.1}\texttt {GpuNetDesc} (struct)}{34}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}CSR Layout Diagram}{34}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}\texttt {GpuAgentStats} and \texttt {GpuFitnessWeights} (structs)}{34}{subsection.8.3}%
+\contentsline {subsection}{\numberline {8.4}\texttt {GpuNetworkData} (struct)}{35}{subsection.8.4}%
+\contentsline {subsection}{\numberline {8.5}\texttt {GpuBatch} (class, RAII)}{35}{subsection.8.5}%
+\contentsline {subsection}{\numberline {8.6}CUDA Kernel Algorithms}{36}{subsection.8.6}%
+\contentsline {subsubsection}{\numberline {8.6.1}\texttt {neural\_forward\_kernel}}{36}{subsubsection.8.6.1}%
+\contentsline {subsubsection}{\numberline {8.6.2}\texttt {fitness\_eval\_kernel}}{37}{subsubsection.8.6.2}%
+\contentsline {subsubsection}{\numberline {8.6.3}Host Launch Functions}{37}{subsubsection.8.6.3}%
+\contentsline {section}{\numberline {9}Glossary}{37}{section.9}%
+\contentsline {section}{References}{40}{section*.50}%
