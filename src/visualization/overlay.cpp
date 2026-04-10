@@ -1,4 +1,5 @@
 #include "visualization/overlay.hpp"
+#include "visualization/system_font_resolver.hpp"
 
 #include <SFML/Graphics/CircleShape.hpp>
 #include <SFML/Graphics/VertexArray.hpp>
@@ -6,7 +7,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
-#include <filesystem>
 #include <queue>
 #include <spdlog/spdlog.h>
 #include <tuple>
@@ -14,37 +14,24 @@
 
 namespace moonai {
 
-bool UIOverlay::initialize(const std::string &font_path) {
-  // Try specified path first, then common system font locations
-  std::vector<std::string> paths;
-  if (!font_path.empty()) {
-    paths.push_back(font_path);
+bool UIOverlay::initialize() {
+  const auto resolved_font = resolve_system_monospace_font();
+  if (!resolved_font) {
+    spdlog::warn("No system font found. UI overlay will be disabled.");
+    font_loaded_ = false;
+    return false;
   }
 
-  // Common font locations
-  paths.push_back("/usr/share/fonts/TTF/DejaVuSansMono.ttf");
-  paths.push_back("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf");
-  paths.push_back("/usr/share/fonts/dejavu-sans-mono-fonts/DejaVuSansMono.ttf");
-  paths.push_back("/usr/share/fonts/TTF/DejaVuSans.ttf");
-  paths.push_back("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
-  paths.push_back("/usr/share/fonts/liberation-mono/LiberationMono-Regular.ttf");
-  paths.push_back("/usr/share/fonts/liberation/LiberationMono-Regular.ttf");
-  paths.push_back("/usr/share/fonts/noto/NotoSansMono-Regular.ttf");
-  paths.push_back("/usr/share/fonts/noto-cjk/NotoSansMono-Regular.ttf");
-  paths.push_back("C:\\Windows\\Fonts\\consola.ttf");
-  paths.push_back("C:\\Windows\\Fonts\\cour.ttf");
-
-  if (auto it = std::find_if(paths.begin(), paths.end(),
-                             [this](const auto &p) { return std::filesystem::exists(p) && font_.openFromFile(p); });
-      it != paths.end()) {
-    font_loaded_ = true;
-    spdlog::debug("Loaded font: {}", *it);
-    return true;
+  if (!font_.openFromFile(resolved_font->path)) {
+    spdlog::warn("Failed to load resolved system font '{}'. UI overlay will be disabled.",
+                 resolved_font->path.string());
+    font_loaded_ = false;
+    return false;
   }
 
-  spdlog::warn("No system font found. UI overlay will be disabled.");
-  font_loaded_ = false;
-  return false;
+  font_loaded_ = true;
+  spdlog::info("UI font loaded via {}: {}", resolved_font->source, resolved_font->path.string());
+  return true;
 }
 
 void UIOverlay::draw(sf::RenderTarget &target, const OverlayStats &stats, const Genome *selected_genome) {

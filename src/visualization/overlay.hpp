@@ -52,7 +52,7 @@ struct OverlayStats {
 
 class UIOverlay {
 public:
-  bool initialize(const std::string &font_path = "");
+  bool initialize();
 
   void draw(sf::RenderTarget &target, const OverlayStats &stats, const Genome *selected_genome = nullptr);
 

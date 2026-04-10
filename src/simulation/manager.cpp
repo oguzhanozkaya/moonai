@@ -37,10 +37,6 @@ void SimulationManager::step(AppState &state, EvolutionManager &evolution) {
   }
 }
 
-void SimulationManager::reset(AppState &state) {
-  initialize(state);
-}
-
 void SimulationManager::enable_gpu(AppState &state, bool enable) {
   if (enable) {
     gpu_backend::ensure_capacity(gpu_batch_, static_cast<std::size_t>(config_.predator_count),

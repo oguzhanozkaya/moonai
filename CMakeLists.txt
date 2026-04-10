@@ -48,6 +48,9 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(SFML 3 COMPONENTS Graphics Window System REQUIRED)
 find_package(sol2 CONFIG REQUIRED)
 find_package(Lua REQUIRED)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_package(Fontconfig REQUIRED)
+endif()
 
 # ── Subsystem libraries ─────────────────────────────────────────────────────
 add_subdirectory(src/core)
@@ -125,4 +128,3 @@ if(MOONAI_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
-

@@ -9,7 +9,6 @@ namespace moonai {
 
 struct AppState;
 struct AgentRegistry;
-struct PendingOffspring;
 class EvolutionManager;
 
 namespace gpu {
@@ -25,7 +24,6 @@ public:
 
   void initialize(AppState &state);
   void step(AppState &state, EvolutionManager &evolution);
-  void reset(AppState &state);
 
   void enable_gpu(AppState &state, bool enable);
   void disable_gpu(AppState &state);
