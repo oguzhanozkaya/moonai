@@ -48,9 +48,6 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(SFML 3 COMPONENTS Graphics Window System REQUIRED)
 find_package(sol2 CONFIG REQUIRED)
 find_package(Lua REQUIRED)
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    find_package(Fontconfig REQUIRED)
-endif()
 
 # ── Subsystem libraries ─────────────────────────────────────────────────────
 add_subdirectory(src/core)
@@ -107,11 +104,18 @@ endif()
 # ── Copy runtime assets to build directory ───────────────────────────────────
 # config.lua is resolved relative to CWD; copy it alongside the binary so that
 # running from the build dir (e.g. ./build/linux-debug/moonai) works out of the box.
+set(MOONAI_BUNDLED_FONT_RELATIVE_PATH assets/fonts/JetBrainsMono-Regular.ttf)
+
 add_custom_command(TARGET moonai POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_SOURCE_DIR}/config.lua
         $<TARGET_FILE_DIR:moonai>/config.lua
-    COMMENT "Copying config.lua to build directory"
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        $<TARGET_FILE_DIR:moonai>/assets/fonts
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_SOURCE_DIR}/${MOONAI_BUNDLED_FONT_RELATIVE_PATH}
+        $<TARGET_FILE_DIR:moonai>/${MOONAI_BUNDLED_FONT_RELATIVE_PATH}
+    COMMENT "Copying runtime assets to build directory"
 )
 
 if(MOONAI_BUILD_PROFILER)
@@ -119,7 +123,12 @@ if(MOONAI_BUILD_PROFILER)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${CMAKE_SOURCE_DIR}/config.lua
             $<TARGET_FILE_DIR:moonai_profiler>/config.lua
-        COMMENT "Copying profiler config to build directory"
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            $<TARGET_FILE_DIR:moonai_profiler>/assets/fonts
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_SOURCE_DIR}/${MOONAI_BUNDLED_FONT_RELATIVE_PATH}
+            $<TARGET_FILE_DIR:moonai_profiler>/${MOONAI_BUNDLED_FONT_RELATIVE_PATH}
+        COMMENT "Copying profiler runtime assets to build directory"
     )
 endif()
 

@@ -1,5 +1,4 @@
 #include "visualization/overlay.hpp"
-#include "visualization/system_font_resolver.hpp"
 
 #include <SFML/Graphics/CircleShape.hpp>
 #include <SFML/Graphics/VertexArray.hpp>
@@ -15,22 +14,16 @@
 namespace moonai {
 
 bool UIOverlay::initialize() {
-  const auto resolved_font = resolve_system_monospace_font();
-  if (!resolved_font) {
-    spdlog::warn("No system font found. UI overlay will be disabled.");
-    font_loaded_ = false;
-    return false;
-  }
+  constexpr const char *kBundledFontPath = "assets/fonts/JetBrainsMono-Regular.ttf";
 
-  if (!font_.openFromFile(resolved_font->path)) {
-    spdlog::warn("Failed to load resolved system font '{}'. UI overlay will be disabled.",
-                 resolved_font->path.string());
+  if (!font_.openFromFile(kBundledFontPath)) {
+    spdlog::warn("Failed to load bundled font '{}'. UI overlay will be disabled.", kBundledFontPath);
     font_loaded_ = false;
     return false;
   }
 
   font_loaded_ = true;
-  spdlog::info("UI font loaded via {}: {}", resolved_font->source, resolved_font->path.string());
+  spdlog::info("UI font loaded from bundled asset: {}", kBundledFontPath);
   return true;
 }
 
