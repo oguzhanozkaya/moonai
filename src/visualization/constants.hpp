@@ -6,9 +6,9 @@ namespace moonai {
 
 // uint32_t sizes
 namespace sizes {
-constexpr float PREDATOR_RADIUS = 12.0f;
-constexpr float PREY_RADIUS = 9.6f;
-constexpr float FOOD_RADIUS = 6.0f;
+constexpr float PREDATOR_RADIUS = 6.0f;
+constexpr float PREY_RADIUS = 4.8f;
+constexpr float FOOD_RADIUS = 1.2f;
 } // namespace sizes
 
 // UI Chart colors (SFML RGB)
