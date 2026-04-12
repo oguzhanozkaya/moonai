@@ -1,19 +1,14 @@
 #pragma once
 
 #include <cassert>
-#include <chrono>
-#include <memory>
-#include <string>
-#include <vector>
 
-// CUDA forward declaration for profiler (always defined)
+// CUDA forward declaration for profiler
 #ifndef __CUDACC__
 typedef struct CUstream_st *cudaStream_t;
 #else
 #include <cuda_runtime.h>
 #endif
 
-// Profiler macros - minimal header for use in other translation units
 #ifndef MOONAI_BUILD_PROFILER
 
 #define MOONAI_PROFILE_SCOPE(event_name, ...) ((void)0)

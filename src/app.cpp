@@ -35,7 +35,7 @@ App::App(AppConfig cfg)
         }
         return std::move(cfg);
       }()),
-      state_(cfg_.sim_config.seed), simulation_(cfg_.sim_config), evolution_(cfg_.sim_config),
+      state_(cfg_.sim_config.seed), evolution_(cfg_.sim_config),
       logger_(cfg_.sim_config.output_dir, cfg_.sim_config.seed, cfg_.run_name_override.value_or(cfg_.experiment_name)) {
   const auto errors = validate_config(cfg_.sim_config);
   if (!errors.empty()) {
@@ -47,7 +47,7 @@ App::App(AppConfig cfg)
 
   state_.ui.speed_multiplier = cfg_.speed_multiplier;
 
-  simulation_.initialize(state_);
+  simulation::initialize(state_, cfg_.sim_config);
   evolution_.initialize(state_, SENSOR_COUNT, OUTPUT_COUNT);
   evolution_.seed_initial_population(state_);
   state_.runtime.gpu_enabled = cfg_.enable_gpu;
@@ -65,7 +65,7 @@ App::App(AppConfig cfg)
 
   if (state_.runtime.gpu_enabled) {
     evolution_.enable_gpu(state_, true);
-    simulation_.enable_gpu(state_, true);
+    simulation::enable_gpu(state_, true, cfg_.sim_config);
     spdlog::info("GPU acceleration enabled");
   }
 
@@ -113,10 +113,6 @@ void App::record_and_log() {
 }
 
 bool App::run() {
-  if (!cfg_.headless && std::getenv("DISPLAY") == nullptr && std::getenv("WAYLAND_DISPLAY") == nullptr) {
-    spdlog::error("No display server found. GUI mode requires a display.");
-    return false;
-  }
   if (!cfg_.headless && !visualization_) {
     spdlog::error("Visualization requested but not initialized");
     return true;
@@ -146,7 +142,7 @@ bool App::run() {
 
       metrics::begin_step(state_);
 
-      simulation_.step(state_, evolution_);
+      simulation::step(state_, evolution_, cfg_.sim_config);
       ++state_.runtime.step;
 
       metrics::finalize_step(state_);

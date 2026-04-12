@@ -5,7 +5,7 @@
 #include "core/logger.hpp"
 #include "core/metrics.hpp"
 #include "evolution/evolution_manager.hpp"
-#include "simulation/manager.hpp"
+#include "simulation/simulation.hpp"
 #include "visualization/visualization_manager.hpp"
 
 #include <csignal>
@@ -22,7 +22,6 @@ public:
 private:
   AppConfig cfg_;
   AppState state_;
-  SimulationManager simulation_;
   EvolutionManager evolution_;
   Logger logger_;
   std::unique_ptr<VisualizationManager> visualization_;

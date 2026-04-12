@@ -1,5 +1,5 @@
 set(MOONAI_SIMULATION_SOURCES
-    manager.cpp
+    simulation.cpp
     common.cpp
     cpu.cpp
     gpu.cpp

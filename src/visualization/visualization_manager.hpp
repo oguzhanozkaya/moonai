@@ -33,7 +33,7 @@ public:
   }
 
 private:
-  static constexpr unsigned int kGuiMaxFps = 360;
+  static constexpr unsigned int kGuiMaxFps = 120;
 
   void handle_mouse_click(float world_x, float world_y);
   void update_camera();

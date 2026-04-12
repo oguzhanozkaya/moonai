@@ -6,6 +6,7 @@
 #include "evolution/mutation.hpp"
 #include "evolution/network_cache.hpp"
 #include "evolution/species.hpp"
+#include "gpu/gpu_batch.hpp"
 #include "gpu/gpu_network_cache.hpp"
 
 #include <cstddef>
@@ -129,6 +130,8 @@ struct AppState {
 
   MetricsState metrics;
   RuntimeState runtime;
+
+  std::unique_ptr<gpu::GpuBatch> gpu_batch;
 };
 
 } // namespace moonai

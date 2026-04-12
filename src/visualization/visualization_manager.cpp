@@ -73,7 +73,6 @@ void VisualizationManager::render(FrameSnapshot frame) {
   window_->clear(sf::Color::Black);
   window_->setView(camera_view_);
 
-  // Draw world
   {
     MOONAI_PROFILE_SCOPE("render_world");
     renderer_.draw_background(*window_, frame_.world_width, frame_.world_height);
@@ -82,22 +81,18 @@ void VisualizationManager::render(FrameSnapshot frame) {
     renderer_.draw_food(*window_, frame_.foods);
   }
 
-  // Draw all agents using ECS
   {
     MOONAI_PROFILE_SCOPE("render_agents");
     renderer_.draw_predators(*window_, frame_.predators, ui_state_.selected_agent_id);
     renderer_.draw_prey(*window_, frame_.prey, ui_state_.selected_agent_id);
   }
 
-  // Draw vision/sensor lines for selected entity (automatically shown when
-  // agent is clicked)
   if (frame_.has_selected_vision && frame_.selected_agent_id == ui_state_.selected_agent_id) {
     MOONAI_PROFILE_SCOPE("render_sensor_lines");
     Renderer::draw_vision_range(*window_, frame_.selected_position, frame_.selected_vision_range);
     Renderer::draw_sensor_lines(*window_, frame_.sensor_lines);
   }
 
-  // Update FPS counter using exponential moving average
   update_fps(frame_clock_.restart().asSeconds());
   frame_.overlay_stats.fps = current_fps_;
 
@@ -107,7 +102,6 @@ void VisualizationManager::render(FrameSnapshot frame) {
     last_chart_step_ = frame_.overlay_stats.step;
   }
 
-  // Draw UI overlay (with selected genome for NN topology panel)
   {
     MOONAI_PROFILE_SCOPE("render_ui");
     overlay_.set_activations(frame_.selected_node_activations);
@@ -156,7 +150,7 @@ void VisualizationManager::handle_events() {
         case sf::Keyboard::Key::Equal: // + key
         case sf::Keyboard::Key::Up:
         case sf::Keyboard::Key::Add:
-          ui_state_.speed_multiplier = std::min(ui_state_.speed_multiplier * 2, 64);
+          ui_state_.speed_multiplier = std::min(ui_state_.speed_multiplier * 2, 1024);
           break;
 
         case sf::Keyboard::Key::Hyphen: // - key
@@ -189,7 +183,6 @@ void VisualizationManager::handle_events() {
       }
     }
 
-    // Mouse wheel for zoom
     if (const auto *scroll = event->getIf<sf::Event::MouseWheelScrolled>()) {
       float delta = scroll->delta;
       float factor = (delta > 0) ? 0.9f : 1.1f;
@@ -198,7 +191,6 @@ void VisualizationManager::handle_events() {
       update_camera();
     }
 
-    // Mouse button pressed (drag start / click select)
     if (const auto *btn = event->getIf<sf::Event::MouseButtonPressed>()) {
       if (btn->button == sf::Mouse::Button::Middle || btn->button == sf::Mouse::Button::Right) {
         dragging_ = true;
@@ -207,15 +199,12 @@ void VisualizationManager::handle_events() {
       }
     }
 
-    // Mouse button released
     if (const auto *btn = event->getIf<sf::Event::MouseButtonReleased>()) {
       if (btn->button == sf::Mouse::Button::Middle || btn->button == sf::Mouse::Button::Right) {
         dragging_ = false;
       }
-      // Left click = select agent; store coords, apply in render() with sim
-      // access
+
       if (btn->button == sf::Mouse::Button::Left && window_) {
-        // Ignore clicks in the left column UI area
         if (btn->position.x >= static_cast<int>(ui_side_margin() + 10.0f)) {
           auto world_pos = window_->mapPixelToCoords(btn->position, camera_view_);
           pending_click_ = true;
@@ -225,7 +214,6 @@ void VisualizationManager::handle_events() {
       }
     }
 
-    // Mouse moved (for dragging)
     if (const auto *moved = event->getIf<sf::Event::MouseMoved>()) {
       if (dragging_ && window_) {
         sf::Vector2f current(static_cast<float>(moved->position.x), static_cast<float>(moved->position.y));
@@ -237,7 +225,6 @@ void VisualizationManager::handle_events() {
       }
     }
 
-    // Window resized
     if (const auto *resized = event->getIf<sf::Event::Resized>()) {
       window_width_ = resized->size.x;
       window_height_ = resized->size.y;
@@ -247,8 +234,7 @@ void VisualizationManager::handle_events() {
 }
 
 void VisualizationManager::handle_mouse_click(float world_x, float world_y) {
-  // Find closest entity to click position
-  float best_dist = 20.0f * zoom_level_; // click threshold in world units
+  float best_dist = 60.0f * zoom_level_;
   uint32_t best_agent_id = 0;
 
   for (const auto &agent : frame_.predators) {
