@@ -389,7 +389,7 @@ The profiler executable is available but not built by default (set `MOONAI_BUILD
 ### Running the Profiler
 
 ```bash
-just profile-run                                     # Run with defaults (600 frames, 6 seeds)
+just profile-run                                     # Run with defaults (300 frames, 6 seeds)
 just profile-run --frames 300                        # Custom frame count
 just profile-run --name mytest --output-dir results  # Custom name and output
 just profile-run --frames 300 --no-gpu               # Custom frame count, disable GPU
@@ -399,7 +399,7 @@ just profile-run --frames 300 --no-gpu               # Custom frame count, disab
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--frames N` | 600 | Number of frames to capture per run |
+| `--frames N` | 300 | Number of frames to capture per run |
 | `--name <name>` | profile | Experiment name (used in output filename) |
 | `--output-dir <path>` | output/profiles | Output directory |
 | `--no-gpu` | false | Disable GPU acceleration |

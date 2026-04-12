@@ -64,8 +64,8 @@ private:
   float pending_click_x_ = 0.0f;
   float pending_click_y_ = 0.0f;
 
-  unsigned int window_width_ = 1600;
-  unsigned int window_height_ = 900;
+  unsigned int window_width_ = 1920;
+  unsigned int window_height_ = 1080;
 };
 
 } // namespace moonai
