@@ -10,7 +10,7 @@ namespace moonai {
 
 class Random {
 public:
-  explicit Random(std::uint64_t seed);
+  explicit Random(int seed);
 
   int next_int(int min, int max);
   float next_float(float min, float max);
@@ -21,12 +21,12 @@ public:
 
   std::vector<int> sample_indices(int total, int count);
 
-  std::uint64_t seed() const {
+  int seed() const {
     return seed_;
   }
 
 private:
-  std::uint64_t seed_;
+  int seed_;
   std::mt19937_64 engine_;
 };
 

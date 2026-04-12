@@ -16,7 +16,7 @@ struct MetricsSnapshot;
 
 class Logger {
 public:
-  Logger(const std::string &output_dir, std::uint64_t seed, const std::string &name = "");
+  Logger(const std::string &output_dir, int seed, const std::string &name = "");
   ~Logger();
 
   bool initialize(const SimulationConfig &config);
@@ -34,7 +34,7 @@ private:
   std::string base_dir_;
   std::string run_dir_;
   std::string name_;
-  std::uint64_t seed_;
+  int seed_;
   std::ofstream stats_file_;
   std::ofstream genomes_file_;
   std::ofstream species_file_;

@@ -65,7 +65,6 @@ App::App(AppConfig cfg)
 
   if (state_.runtime.gpu_enabled) {
     evolution_.enable_gpu(state_, true);
-    simulation::enable_gpu(state_, true, cfg_.sim_config);
     spdlog::info("GPU acceleration enabled");
   }
 

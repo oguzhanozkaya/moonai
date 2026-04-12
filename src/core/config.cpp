@@ -141,7 +141,7 @@ std::vector<ConfigError> apply_overrides(SimulationConfig &config,
         config.report_interval_steps = std::stoi(val);
       // uint64 fields
       else if (key == "seed")
-        config.seed = std::stoull(val);
+        config.seed = std::stoi(val);
       // Float fields
       else if (key == "predator_speed")
         config.predator_speed = std::stof(val);
@@ -221,7 +221,7 @@ CLIArgs parse_args(int argc, const char *argv[]) {
       args.verbose = true;
     } else if ((arg == "-s" || arg == "--seed") && i + 1 < argc) {
       try {
-        args.seed_override = std::stoull(argv[++i]);
+        args.seed_override = std::stoi(argv[++i]);
       } catch (const std::exception &) {
         std::fprintf(stderr, "Invalid seed value '%s'\n", argv[i]);
         args.help = true;

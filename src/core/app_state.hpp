@@ -111,7 +111,7 @@ struct MetricsState {
 };
 
 struct RuntimeState {
-  explicit RuntimeState(std::uint64_t seed) : rng(seed) {}
+  explicit RuntimeState(int seed) : rng(seed) {}
 
   Random rng;
   uint32_t next_agent_id = 1;
@@ -120,7 +120,7 @@ struct RuntimeState {
 };
 
 struct AppState {
-  explicit AppState(std::uint64_t seed) : runtime(seed) {}
+  explicit AppState(int seed) : runtime(seed) {}
 
   UiState ui;
 

@@ -2,7 +2,7 @@
 
 namespace moonai {
 
-Random::Random(std::uint64_t seed) : seed_(seed), engine_(seed) {}
+Random::Random(int seed) : seed_(seed), engine_(seed) {}
 
 int Random::next_int(int min, int max) {
   std::uniform_int_distribution<int> dist(min, max);

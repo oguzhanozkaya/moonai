@@ -25,17 +25,6 @@ void step(AppState &state, EvolutionManager &evolution, const SimulationConfig &
   common::run(state, evolution, config);
 }
 
-void enable_gpu(AppState &state, bool enable, const SimulationConfig &config) {
-  if (enable) {
-    gpu::ensure_capacity(state.gpu_batch, static_cast<std::size_t>(config.predator_count),
-                         static_cast<std::size_t>(config.prey_count), static_cast<std::size_t>(config.food_count));
-    state.runtime.gpu_enabled = true;
-  } else {
-    gpu::disable(state.gpu_batch);
-    state.runtime.gpu_enabled = false;
-  }
-}
-
 } // namespace simulation
 
 } // namespace moonai

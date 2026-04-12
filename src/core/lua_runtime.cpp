@@ -18,13 +18,6 @@ template <typename T> void lua_get(const sol::table &tbl, const char *key, T &fi
   }
 }
 
-void lua_get_uint64(const sol::table &tbl, const char *key, std::uint64_t &field) {
-  auto val = tbl[key];
-  if (val.valid()) {
-    field = static_cast<std::uint64_t>(val.get<double>());
-  }
-}
-
 SimulationConfig table_to_config(const sol::table &tbl) {
   SimulationConfig config;
 
@@ -54,7 +47,7 @@ SimulationConfig table_to_config(const sol::table &tbl) {
   lua_get(tbl, "c2_disjoint", config.c2_disjoint);
   lua_get(tbl, "c3_weight", config.c3_weight);
   lua_get(tbl, "species_update_interval_steps", config.species_update_interval_steps);
-  lua_get_uint64(tbl, "seed", config.seed);
+  lua_get(tbl, "seed", config.seed);
   lua_get(tbl, "output_dir", config.output_dir);
   lua_get(tbl, "report_interval_steps", config.report_interval_steps);
   lua_get(tbl, "mate_range", config.mate_range);
@@ -94,7 +87,7 @@ void inject_defaults(sol::state &lua) {
   t["c2_disjoint"] = d.c2_disjoint;
   t["c3_weight"] = d.c3_weight;
   t["species_update_interval_steps"] = d.species_update_interval_steps;
-  t["seed"] = static_cast<double>(d.seed);
+  t["seed"] = d.seed;
   t["output_dir"] = d.output_dir;
   t["report_interval_steps"] = d.report_interval_steps;
   t["mate_range"] = d.mate_range;

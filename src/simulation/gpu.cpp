@@ -202,8 +202,8 @@ void step(AppState &state, EvolutionManager &evolution, std::unique_ptr<gpu::Gpu
   const std::size_t prey_count = state.prey.size();
   const std::size_t food_count = state.food.size();
 
-  if (!batch || !batch->ok()) {
-    spdlog::error("GPU batch not initialized or in error state, falling back to CPU");
+  if (batch && !batch->ok()) {
+    spdlog::error("GPU batch in error state, falling back to CPU");
     cpu::step(state, evolution, config);
     return;
   }

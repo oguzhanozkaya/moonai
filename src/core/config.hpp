@@ -46,7 +46,7 @@ struct SimulationConfig {
   float c3_weight = 0.4f;
   int species_update_interval_steps = 60;
 
-  std::uint64_t seed = 67;
+  int seed = 67;
 
   std::string output_dir = "output";
   int report_interval_steps = 1000000;
@@ -90,7 +90,7 @@ std::vector<ConfigError> apply_overrides(SimulationConfig &config,
 
 struct CLIArgs {
   std::string config_path = "config.lua";
-  std::uint64_t seed_override = 0; // 0 = use config seed
+  int seed_override = 0; // 0 = use config seed
   bool headless = false;
   bool verbose = false;
   bool help = false;

@@ -13,7 +13,7 @@
 
 namespace moonai {
 
-Logger::Logger(const std::string &output_dir, std::uint64_t seed, const std::string &name)
+Logger::Logger(const std::string &output_dir, int seed, const std::string &name)
     : base_dir_(output_dir), name_(name), seed_(seed) {}
 
 Logger::~Logger() {

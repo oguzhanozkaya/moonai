@@ -332,7 +332,7 @@ The analysis code is structured as a small package under `analysis/moonai_analys
 - `genome.py` renders embedded representative-genome topology diagrams
 - `summary.py` prepares structured summary data for the report
 - `html_report.py` renders the final self-contained HTML document
-- `templates/report.html.j2` defines the HTML report layout
+- `templates/report.html` defines the HTML report layout
 
 ### Experiment conditions
 
@@ -406,7 +406,7 @@ The profiler package lives under `profiler/moonai_profiler/` and includes:
 - `io.py` for discovering and validating profile runs
 - `plots.py` for embedded timing charts
 - `html_report.py` for rendering
-- `templates/report.html.j2` for layout
+- `templates/report.html` for layout
 
 ## Development
 
