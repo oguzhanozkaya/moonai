@@ -258,8 +258,8 @@ std::vector<std::unique_ptr<ScopeNode>> Profiler::finish_run() {
 namespace {
 
 struct ProfilerArgs {
-  int frames = 600;
-  int speed_multiplier = 64;
+  int frames = 300;
+  int speed_multiplier = 128;
   std::vector<std::uint64_t> seeds = {61, 62, 63, 64, 65, 66};
   std::string output_dir = "output/profiles";
   std::string experiment_name = "profile";
@@ -278,7 +278,7 @@ void print_profiler_usage(const char *program_name) {
               "Usage: %s [OPTIONS]\n"
               "\n"
               "Options:\n"
-              "      --frames <n>          Number of frames per run (default: 600)\n"
+              "      --frames <n>          Number of frames per run (default: 300)\n"
               "      --output-dir <path>   Output directory for profiler JSON\n"
               "      --name <name>         Suite name in output file\n"
               "      --no-gpu              Disable CUDA GPU acceleration\n"
