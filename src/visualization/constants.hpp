@@ -29,27 +29,27 @@ constexpr uint8_t FOOD_B = 0x6D;
 // Visualization constants
 namespace visual {
 // Grid and background
-constexpr uint8_t GRID_R = 40;
-constexpr uint8_t GRID_G = 40;
-constexpr uint8_t GRID_B = 55;
+constexpr uint8_t GRID_R = 35;
+constexpr uint8_t GRID_G = 32;
+constexpr uint8_t GRID_B = 39;
 
-constexpr uint8_t BORDER_R = 100;
-constexpr uint8_t BORDER_G = 100;
-constexpr uint8_t BORDER_B = 140;
+constexpr uint8_t BORDER_R = 78;
+constexpr uint8_t BORDER_G = 74;
+constexpr uint8_t BORDER_B = 83;
 
 constexpr uint8_t BG_R = 0;
 constexpr uint8_t BG_G = 0;
 constexpr uint8_t BG_B = 0;
 
 // UI Panel
-constexpr uint8_t PANEL_BG_R = 0;
-constexpr uint8_t PANEL_BG_G = 0;
-constexpr uint8_t PANEL_BG_B = 0;
+constexpr uint8_t PANEL_BG_R = 16;
+constexpr uint8_t PANEL_BG_G = 13;
+constexpr uint8_t PANEL_BG_B = 20;
 constexpr uint8_t PANEL_ALPHA = 180;
 
-constexpr uint8_t PANEL_OUTLINE_R = 30;
-constexpr uint8_t PANEL_OUTLINE_G = 30;
-constexpr uint8_t PANEL_OUTLINE_B = 40;
+constexpr uint8_t PANEL_OUTLINE_R = 78;
+constexpr uint8_t PANEL_OUTLINE_G = 74;
+constexpr uint8_t PANEL_OUTLINE_B = 83;
 
 // Vision range
 constexpr uint8_t VISION_FILL_ALPHA = 15;

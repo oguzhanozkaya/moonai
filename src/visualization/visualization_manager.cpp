@@ -22,8 +22,7 @@ VisualizationManager::VisualizationManager(const SimulationConfig &config, UiSta
 VisualizationManager::~VisualizationManager() = default;
 
 bool VisualizationManager::initialize() {
-  window_ = std::make_unique<sf::RenderWindow>(sf::VideoMode({window_width_, window_height_}),
-                                               "MoonAI - Predator-Prey Evolution");
+  window_ = std::make_unique<sf::RenderWindow>(sf::VideoMode({window_width_, window_height_}), "MoonAI");
   window_->setFramerateLimit(VisualizationManager::kGuiMaxFps);
 
   // Set up camera to show the simulation world
