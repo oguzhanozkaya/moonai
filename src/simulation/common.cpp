@@ -7,7 +7,7 @@
 #include <cmath>
 #include <vector>
 
-namespace moonai::common {
+namespace moonai::simulation::common {
 
 namespace {
 
@@ -60,13 +60,7 @@ public:
 private:
   int cell_coord(float value, int limit) const {
     int coord = static_cast<int>(value / cell_size_);
-    if (coord < 0) {
-      return 0;
-    }
-    if (coord >= limit) {
-      return limit - 1;
-    }
-    return coord;
+    return clamp_cell(coord, limit);
   }
 
   int clamp_cell(int coord, int limit) const {
@@ -147,18 +141,14 @@ void reproduction(AppState &state, EvolutionManager &evolution, AgentRegistry &r
 } // namespace
 
 void run(AppState &state, EvolutionManager &evolution, const SimulationConfig &config) {
-  // Compact registries to remove dead entities
   state.predator.compact();
   state.prey.compact();
 
-  // Respawn food
   state.food.respawn_step(config, state.runtime.step, state.runtime.rng.seed());
 
-  // Reproduction for both species
   reproduction(state, evolution, state.predator, config);
   reproduction(state, evolution, state.prey, config);
 
-  // Refresh species if interval reached
   if (config.species_update_interval_steps > 0 && (state.runtime.step % config.species_update_interval_steps) == 0) {
     evolution.refresh_species(state);
   }

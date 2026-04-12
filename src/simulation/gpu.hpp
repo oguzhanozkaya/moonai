@@ -4,23 +4,19 @@
 #include "core/config.hpp"
 #include "gpu/gpu_batch.hpp"
 
-#include <cstddef>
 #include <memory>
 
 namespace moonai {
 
 class EvolutionManager;
 
+namespace simulation {
 namespace gpu {
 
-void step(AppState &state, EvolutionManager &evolution, std::unique_ptr<gpu::GpuBatch> &batch,
-          const SimulationConfig &config);
-
-void ensure_capacity(std::unique_ptr<gpu::GpuBatch> &batch, std::size_t predator_count, std::size_t prey_count,
-                     std::size_t food_count);
-
-void disable(std::unique_ptr<gpu::GpuBatch> &batch);
+void step(AppState &state, EvolutionManager &evolution, const SimulationConfig &config);
+void disable(std::unique_ptr<moonai::gpu::GpuBatch> &batch);
 
 } // namespace gpu
+} // namespace simulation
 
 } // namespace moonai

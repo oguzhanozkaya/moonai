@@ -6,11 +6,10 @@
 #include "simulation/cpu.hpp"
 
 #include <algorithm>
-#include <cmath>
 #include <cstring>
 #include <spdlog/spdlog.h>
 
-namespace moonai::gpu {
+namespace moonai::simulation::gpu {
 
 namespace {
 
@@ -28,7 +27,7 @@ inline std::size_t next_power_of_2(std::size_t n) {
   return n + 1;
 }
 
-void collect_step_events(AppState &state, gpu::GpuBatch &batch, const std::vector<uint8_t> &was_food_active) {
+void collect_step_events(AppState &state, moonai::gpu::GpuBatch &batch, const std::vector<uint8_t> &was_food_active) {
   MOONAI_PROFILE_SCOPE("collect_gpu_step_events");
 
   auto &predator_buffer = batch.predator_buffer();
@@ -66,7 +65,7 @@ void collect_step_events(AppState &state, gpu::GpuBatch &batch, const std::vecto
   }
 }
 
-void pack_state(AppState &state, gpu::GpuBatch &batch) {
+void pack_state(AppState &state, moonai::gpu::GpuBatch &batch) {
   MOONAI_PROFILE_SCOPE("gpu_pack_state");
 
   auto &predator_buffer = batch.predator_buffer();
@@ -111,7 +110,7 @@ void pack_state(AppState &state, gpu::GpuBatch &batch) {
   }
 }
 
-void apply_results(AppState &state, gpu::GpuBatch &batch) {
+void apply_results(AppState &state, moonai::gpu::GpuBatch &batch) {
   MOONAI_PROFILE_SCOPE("gpu_apply_results");
 
   auto &predator_buffer = batch.predator_buffer();
@@ -155,9 +154,7 @@ void apply_results(AppState &state, gpu::GpuBatch &batch) {
   }
 }
 
-} // namespace
-
-void ensure_capacity(std::unique_ptr<gpu::GpuBatch> &batch, std::size_t predator_count, std::size_t prey_count,
+void ensure_capacity(std::unique_ptr<moonai::gpu::GpuBatch> &batch, std::size_t predator_count, std::size_t prey_count,
                      std::size_t food_count) {
   MOONAI_PROFILE_SCOPE("gpu_ensure_capacity");
 
@@ -189,11 +186,12 @@ void ensure_capacity(std::unique_ptr<gpu::GpuBatch> &batch, std::size_t predator
           ? next_power_of_2(current_food_capacity == 0 ? food_count : std::max(food_count, current_food_capacity * 2))
           : current_food_capacity;
 
-  batch = std::make_unique<gpu::GpuBatch>(new_predator_capacity, new_prey_capacity, new_food_capacity);
+  batch = std::make_unique<moonai::gpu::GpuBatch>(new_predator_capacity, new_prey_capacity, new_food_capacity);
 }
 
-void step(AppState &state, EvolutionManager &evolution, std::unique_ptr<gpu::GpuBatch> &batch,
-          const SimulationConfig &config) {
+} // namespace
+
+void step(AppState &state, EvolutionManager &evolution, const SimulationConfig &config) {
   MOONAI_PROFILE_SCOPE("simulation_gpu");
 
   std::vector<uint8_t> was_food_active = state.food.active;
@@ -202,16 +200,16 @@ void step(AppState &state, EvolutionManager &evolution, std::unique_ptr<gpu::Gpu
   const std::size_t prey_count = state.prey.size();
   const std::size_t food_count = state.food.size();
 
-  if (batch && !batch->ok()) {
+  if (state.gpu_batch && !state.gpu_batch->ok()) {
     spdlog::error("GPU batch in error state, falling back to CPU");
     cpu::step(state, evolution, config);
     return;
   }
 
-  ensure_capacity(batch, predator_count, prey_count, food_count);
-  pack_state(state, *batch);
+  ensure_capacity(state.gpu_batch, predator_count, prey_count, food_count);
+  pack_state(state, *state.gpu_batch);
 
-  gpu::GpuStepParams params;
+  moonai::gpu::GpuStepParams params;
   params.world_width = static_cast<float>(config.grid_size);
   params.world_height = static_cast<float>(config.grid_size);
   params.energy_drain_per_step = config.energy_drain_per_step;
@@ -224,39 +222,39 @@ void step(AppState &state, EvolutionManager &evolution, std::unique_ptr<gpu::Gpu
   params.predator_speed = config.predator_speed;
   params.prey_speed = config.prey_speed;
 
-  batch->upload_async(predator_count, prey_count, food_count);
-  batch->launch_build_sensors_async(params, predator_count, prey_count, food_count);
+  state.gpu_batch->upload_async(predator_count, prey_count, food_count);
+  state.gpu_batch->launch_build_sensors_async(params, predator_count, prey_count, food_count);
 
   {
     MOONAI_PROFILE_SCOPE("gpu_launch_neural");
-    if (!evolution.launch_gpu_neural(state, *batch)) {
+    if (!evolution.launch_gpu_neural(state, *state.gpu_batch)) {
       MOONAI_PROFILE_SCOPE("cpu_fallback");
       spdlog::error("GPU neural inference failed, disabling GPU path and retrying on CPU");
       state.runtime.gpu_enabled = false;
-      disable(batch);
+      disable(state.gpu_batch);
       cpu::step(state, evolution, config);
       return;
     }
   }
 
-  batch->launch_post_inference_async(params, predator_count, prey_count, food_count);
-  batch->download_async(predator_count, prey_count, food_count);
-  batch->synchronize();
+  state.gpu_batch->launch_post_inference_async(params, predator_count, prey_count, food_count);
+  state.gpu_batch->download_async(predator_count, prey_count, food_count);
+  state.gpu_batch->synchronize();
 
-  if (!batch->ok()) {
+  if (!state.gpu_batch->ok()) {
     MOONAI_PROFILE_SCOPE("cpu_fallback");
     spdlog::error("GPU step failed, disabling GPU path and retrying on CPU");
     state.runtime.gpu_enabled = false;
-    disable(batch);
+    disable(state.gpu_batch);
     cpu::step(state, evolution, config);
     return;
   }
 
-  apply_results(state, *batch);
-  collect_step_events(state, *batch, was_food_active);
+  apply_results(state, *state.gpu_batch);
+  collect_step_events(state, *state.gpu_batch, was_food_active);
 }
 
-void disable(std::unique_ptr<gpu::GpuBatch> &batch) {
+void disable(std::unique_ptr<moonai::gpu::GpuBatch> &batch) {
   batch.reset();
   spdlog::info("GPU batch processing disabled");
 }

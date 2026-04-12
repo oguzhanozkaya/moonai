@@ -7,9 +7,7 @@
 
 #include <spdlog/spdlog.h>
 
-namespace moonai {
-
-namespace simulation {
+namespace moonai::simulation {
 
 void initialize(AppState &state, const SimulationConfig &config) {
   state.food.initialize(config, state.runtime.rng);
@@ -17,7 +15,7 @@ void initialize(AppState &state, const SimulationConfig &config) {
 
 void step(AppState &state, EvolutionManager &evolution, const SimulationConfig &config) {
   if (state.runtime.gpu_enabled) {
-    gpu::step(state, evolution, state.gpu_batch, config);
+    gpu::step(state, evolution, config);
   } else {
     cpu::step(state, evolution, config);
   }
@@ -25,6 +23,4 @@ void step(AppState &state, EvolutionManager &evolution, const SimulationConfig &
   common::run(state, evolution, config);
 }
 
-} // namespace simulation
-
-} // namespace moonai
+} // namespace moonai::simulation

@@ -10,7 +10,7 @@
 #include <limits>
 #include <vector>
 
-namespace moonai::cpu {
+namespace moonai::simulation::cpu {
 
 namespace {
 
