@@ -8,6 +8,7 @@ add_library(moonai_visualization STATIC
 target_include_directories(moonai_visualization PUBLIC ${CMAKE_SOURCE_DIR}/src)
 
 target_link_libraries(moonai_visualization PUBLIC
+    moonai_build_config
     moonai_core
     moonai_evolution
     moonai_simulation
@@ -25,6 +26,7 @@ if(MOONAI_BUILD_PROFILER)
     )
     target_include_directories(moonai_visualization_profiler PUBLIC ${CMAKE_SOURCE_DIR}/src)
     target_link_libraries(moonai_visualization_profiler PUBLIC
+        moonai_build_config
         moonai_core_profiler
         moonai_evolution_profiler
         moonai_simulation_profiler

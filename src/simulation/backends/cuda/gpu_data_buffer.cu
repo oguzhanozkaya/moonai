@@ -1,5 +1,5 @@
-#include "gpu/cuda_utils.cuh"
-#include "gpu/gpu_data_buffer.hpp"
+#include "simulation/backends/cuda/cuda_utils.cuh"
+#include "simulation/backends/cuda/gpu_data_buffer.hpp"
 
 namespace moonai::gpu {
 

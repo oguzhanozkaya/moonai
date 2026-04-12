@@ -1,7 +1,7 @@
 #pragma once
 
-#include "gpu/gpu_data_buffer.hpp"
-#include "gpu/gpu_types.hpp"
+#include "simulation/backends/cuda/gpu_data_buffer.hpp"
+#include "simulation/backends/cuda/gpu_types.hpp"
 
 #include <cstddef>
 

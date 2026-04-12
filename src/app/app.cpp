@@ -1,9 +1,11 @@
-#include "app.hpp"
+#include "app/app.hpp"
 
-#include "core/metrics.hpp"
 #include "core/profiler_macros.hpp"
 #include "core/types.hpp"
+#include "data/metrics.hpp"
+#include "simulation/simulation.hpp"
 #include "visualization/frame_snapshot.hpp"
+#include "visualization/visualization_manager.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -50,8 +52,12 @@ App::App(AppConfig cfg)
   simulation::initialize(state_, cfg_.sim_config);
   evolution_.initialize(state_, SENSOR_COUNT, OUTPUT_COUNT);
   evolution_.seed_initial_population(state_);
-  state_.runtime.gpu_enabled = cfg_.enable_gpu;
+  state_.runtime.gpu_enabled = cfg_.enable_gpu && AppConfig::cuda_compiled;
   metrics::refresh_live(state_);
+
+  if (cfg_.enable_gpu && !AppConfig::cuda_compiled) {
+    spdlog::warn("GPU requested, but this build was compiled without CUDA support; using CPU path");
+  }
 
   logger_.initialize(cfg_.sim_config);
 
@@ -69,6 +75,45 @@ App::App(AppConfig cfg)
   }
 
   register_signal_handlers();
+}
+
+bool App::step() {
+  metrics::begin_step(state_);
+
+  const auto run_step_once = [&]() {
+    if (!simulation::prepare_step(state_, cfg_.sim_config)) {
+      return false;
+    }
+    if (!evolution_.run_inference(state_)) {
+      return false;
+    }
+    if (!simulation::resolve_step(state_, cfg_.sim_config)) {
+      return false;
+    }
+
+    simulation::post_step(state_, cfg_.sim_config);
+    evolution_.post_step(state_);
+    return true;
+  };
+
+  const bool attempted_gpu = state_.runtime.gpu_enabled;
+  if (!run_step_once()) {
+    if (!attempted_gpu || state_.runtime.gpu_enabled) {
+      return false;
+    }
+
+    evolution_.enable_gpu(state_, false);
+
+    spdlog::warn("GPU step failed, retrying on CPU");
+    metrics::begin_step(state_);
+    if (!run_step_once()) {
+      return false;
+    }
+  }
+
+  ++state_.runtime.step;
+  metrics::finalize_step(state_);
+  return true;
 }
 
 void App::record_and_log() {
@@ -118,6 +163,7 @@ bool App::run() {
   }
 
   bool completed = true;
+  bool failed = false;
   while (cfg_.sim_config.max_steps == 0 || state_.runtime.step < cfg_.sim_config.max_steps) {
     MOONAI_PROFILE_SCOPE("frame_total");
 
@@ -139,16 +185,18 @@ bool App::run() {
     for (int i = 0; i < steps_to_run; ++i) {
       MOONAI_PROFILE_SCOPE("step");
 
-      metrics::begin_step(state_);
-
-      simulation::step(state_, evolution_, cfg_.sim_config);
-      ++state_.runtime.step;
-
-      metrics::finalize_step(state_);
+      if (!step()) {
+        failed = true;
+        break;
+      }
 
       if (state_.runtime.step % cfg_.sim_config.report_interval_steps == 0) {
         record_and_log();
       }
+    }
+
+    if (failed) {
+      break;
     }
 
     if (!cfg_.headless) {
@@ -161,6 +209,11 @@ bool App::run() {
   }
 
   logger_.flush();
+
+  if (failed) {
+    spdlog::error("Simulation step failed");
+    return false;
+  }
 
   if (!completed) {
     spdlog::info("Simulation stopped by user (window closed)");

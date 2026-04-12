@@ -5,12 +5,11 @@
 
 namespace moonai {
 
-class EvolutionManager;
-
 namespace simulation {
 namespace cpu {
 
-void step(AppState &state, EvolutionManager &evolution, const SimulationConfig &config);
+bool prepare_step(AppState &state, const SimulationConfig &config);
+bool resolve_step(AppState &state, const SimulationConfig &config);
 
 } // namespace cpu
 } // namespace simulation

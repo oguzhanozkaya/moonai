@@ -1,6 +1,6 @@
 #include "core/profiler_macros.hpp"
-#include "gpu/cuda_utils.cuh"
-#include "gpu/gpu_batch.hpp"
+#include "simulation/backends/cuda/cuda_utils.cuh"
+#include "simulation/backends/cuda/gpu_batch.hpp"
 
 #include <thrust/execution_policy.h>
 #include <thrust/scan.h>

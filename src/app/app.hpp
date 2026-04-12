@@ -2,10 +2,8 @@
 
 #include "core/app_state.hpp"
 #include "core/config.hpp"
-#include "core/logger.hpp"
-#include "core/metrics.hpp"
+#include "data/logger.hpp"
 #include "evolution/evolution_manager.hpp"
-#include "simulation/simulation.hpp"
 #include "visualization/visualization_manager.hpp"
 
 #include <csignal>
@@ -31,7 +29,7 @@ private:
   static void register_signal_handlers();
   static std::uint64_t generate_seed();
 
-  void step();
+  bool step();
   void record_and_log();
   bool should_continue() const;
 };

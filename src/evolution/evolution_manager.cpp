@@ -3,15 +3,24 @@
 #include "core/profiler_macros.hpp"
 #include "core/types.hpp"
 #include "evolution/crossover.hpp"
-#include "evolution/evolution_manager.hpp"
 #include "evolution/mutation.hpp"
-#include "gpu/gpu_batch.hpp"
-#include "gpu/gpu_network_cache.hpp"
+
+#ifdef MOONAI_ENABLE_CUDA
+#include "evolution/backends/cuda/gpu_network_cache.hpp"
+#include "simulation/backends/cuda/gpu_batch.hpp"
+#endif
 
 #include <algorithm>
+#include <cmath>
 #include <spdlog/spdlog.h>
 
 namespace moonai {
+
+namespace {
+
+void invalidate_gpu_cache(AgentRegistry &registry);
+
+} // namespace
 
 EvolutionManager::EvolutionManager(const SimulationConfig &config) : config_(config) {}
 
@@ -23,9 +32,7 @@ void EvolutionManager::initialize_population(AgentRegistry &registry) const {
   registry.species.clear();
   registry.genomes.clear();
   registry.network_cache.clear();
-  if (registry.gpu_network_cache) {
-    registry.gpu_network_cache->invalidate();
-  }
+  invalidate_gpu_cache(registry);
 }
 
 void EvolutionManager::initialize(AppState &state, int num_inputs, int num_outputs) {
@@ -39,6 +46,99 @@ void EvolutionManager::initialize(AppState &state, int num_inputs, int num_outpu
 
 using moonai::OUTPUT_COUNT;
 using moonai::SENSOR_COUNT;
+
+namespace {
+
+void invalidate_gpu_cache(AgentRegistry &registry) {
+#ifdef MOONAI_ENABLE_CUDA
+  if (registry.gpu_network_cache) {
+    registry.gpu_network_cache->invalidate();
+  }
+#else
+  (void)registry;
+#endif
+}
+
+class DenseReproductionGrid {
+public:
+  DenseReproductionGrid(float world_width, float world_height, float cell_size, std::size_t entity_count)
+      : cell_size_(std::max(cell_size, 1.0f)),
+        cols_(std::max(1, static_cast<int>(std::ceil(world_width / cell_size_)))),
+        rows_(std::max(1, static_cast<int>(std::ceil(world_height / cell_size_)))),
+        counts_(static_cast<std::size_t>(cols_ * rows_), 0), offsets_(static_cast<std::size_t>(cols_ * rows_) + 1, 0),
+        write_offsets_(static_cast<std::size_t>(cols_ * rows_), 0), entries_(entity_count, INVALID_ENTITY) {}
+
+  void build(const AgentRegistry &registry, std::size_t entity_count) {
+    std::fill(counts_.begin(), counts_.end(), 0);
+    std::fill(offsets_.begin(), offsets_.end(), 0);
+
+    for (uint32_t idx = 0; idx < entity_count; ++idx) {
+      const int cell = cell_index(registry.pos_x[idx], registry.pos_y[idx]);
+      counts_[static_cast<std::size_t>(cell)] += 1;
+    }
+
+    for (std::size_t cell = 0; cell < counts_.size(); ++cell) {
+      offsets_[cell + 1] = offsets_[cell] + counts_[cell];
+    }
+
+    std::copy(offsets_.begin(), offsets_.end() - 1, write_offsets_.begin());
+    for (uint32_t idx = 0; idx < entity_count; ++idx) {
+      const int cell = cell_index(registry.pos_x[idx], registry.pos_y[idx]);
+      const std::size_t slot = static_cast<std::size_t>(write_offsets_[static_cast<std::size_t>(cell)]++);
+      entries_[slot] = idx;
+    }
+  }
+
+  template <typename Callback> void for_each_candidate(Vec2 center, float radius, Callback &&callback) const {
+    const int cells_to_check = std::max(1, static_cast<int>(std::ceil(radius / cell_size_)));
+    const int base_x = cell_coord(center.x, cols_);
+    const int base_y = cell_coord(center.y, rows_);
+
+    for (int dy = -cells_to_check; dy <= cells_to_check; ++dy) {
+      for (int dx = -cells_to_check; dx <= cells_to_check; ++dx) {
+        const int cell = flat_index(clamp_cell(base_x + dx, cols_), clamp_cell(base_y + dy, rows_));
+        for (int slot = offsets_[static_cast<std::size_t>(cell)]; slot < offsets_[static_cast<std::size_t>(cell) + 1];
+             ++slot) {
+          callback(entries_[static_cast<std::size_t>(slot)]);
+        }
+      }
+    }
+  }
+
+private:
+  int cell_coord(float value, int limit) const {
+    int coord = static_cast<int>(value / cell_size_);
+    return clamp_cell(coord, limit);
+  }
+
+  int clamp_cell(int coord, int limit) const {
+    if (coord < 0) {
+      return 0;
+    }
+    if (coord >= limit) {
+      return limit - 1;
+    }
+    return coord;
+  }
+
+  int flat_index(int x, int y) const {
+    return y * cols_ + x;
+  }
+
+  int cell_index(float x, float y) const {
+    return flat_index(cell_coord(x, cols_), cell_coord(y, rows_));
+  }
+
+  float cell_size_;
+  int cols_;
+  int rows_;
+  std::vector<int> counts_;
+  std::vector<int> offsets_;
+  std::vector<int> write_offsets_;
+  std::vector<uint32_t> entries_;
+};
+
+} // namespace
 
 void EvolutionManager::compute_actions_for_population(AgentRegistry &registry, const std::vector<float> &sensors,
                                                       std::vector<float> &decisions_out) const {
@@ -54,12 +154,35 @@ void EvolutionManager::compute_actions_for_population(AgentRegistry &registry, c
   }
 }
 
-void EvolutionManager::compute_actions(AppState &state, const std::vector<float> &predator_sensors,
-                                       const std::vector<float> &prey_sensors, std::vector<float> &predator_decisions,
-                                       std::vector<float> &prey_decisions) {
-  MOONAI_PROFILE_SCOPE("evolution_compute_actions");
-  compute_actions_for_population(state.predator, predator_sensors, predator_decisions);
-  compute_actions_for_population(state.prey, prey_sensors, prey_decisions);
+bool EvolutionManager::run_inference(AppState &state) {
+  MOONAI_PROFILE_SCOPE("evolution_run_inference");
+
+#ifdef MOONAI_ENABLE_CUDA
+  if (state.runtime.gpu_enabled) {
+    if (!state.gpu_batch) {
+      spdlog::error("GPU batch is not initialized for neural inference");
+      enable_gpu(state, false);
+      return false;
+    }
+
+    if (!launch_gpu_neural(state, *state.gpu_batch)) {
+      enable_gpu(state, false);
+      return false;
+    }
+
+    return true;
+  }
+#else
+  if (state.runtime.gpu_enabled) {
+    spdlog::warn("GPU path requested, but CUDA support is not compiled in; using CPU inference");
+    state.runtime.gpu_enabled = false;
+  }
+#endif
+
+  compute_actions_for_population(state.predator, state.step_buffers.predator_sensors,
+                                 state.step_buffers.predator_decisions);
+  compute_actions_for_population(state.prey, state.step_buffers.prey_sensors, state.step_buffers.prey_decisions);
+  return true;
 }
 
 Genome EvolutionManager::create_initial_genome(AgentRegistry &registry, Random &rng) const {
@@ -145,12 +268,8 @@ void EvolutionManager::seed_initial_population(AppState &state) {
     seed_prey();
   }
 
-  if (state.predator.gpu_network_cache) {
-    state.predator.gpu_network_cache->invalidate();
-  }
-  if (state.prey.gpu_network_cache) {
-    state.prey.gpu_network_cache->invalidate();
-  }
+  invalidate_gpu_cache(state.predator);
+  invalidate_gpu_cache(state.prey);
 }
 
 uint32_t EvolutionManager::create_offspring(AppState &state, AgentRegistry &registry, uint32_t parent_a,
@@ -185,9 +304,7 @@ uint32_t EvolutionManager::create_offspring(AppState &state, AgentRegistry &regi
   registry.energy[parent_a] -= config_.reproduction_energy_cost;
   registry.energy[parent_b] -= config_.reproduction_energy_cost;
 
-  if (registry.gpu_network_cache) {
-    registry.gpu_network_cache->invalidate();
-  }
+  invalidate_gpu_cache(registry);
 
   return idx;
 }
@@ -248,6 +365,67 @@ void EvolutionManager::refresh_species(AppState &state) {
   refresh_population_species(state.prey);
 }
 
+void EvolutionManager::reproduce_population(AppState &state, AgentRegistry &registry) {
+  std::vector<uint8_t> used(registry.size(), 0);
+
+  DenseReproductionGrid grid(static_cast<float>(config_.grid_size), static_cast<float>(config_.grid_size),
+                             config_.mate_range, registry.size());
+  grid.build(registry, registry.size());
+  const float world_size = static_cast<float>(config_.grid_size);
+  const uint32_t entity_count = static_cast<uint32_t>(registry.size());
+
+  for (uint32_t idx = 0; idx < entity_count; ++idx) {
+    if (registry.energy[idx] < config_.reproduction_energy_threshold || used[idx] != 0) {
+      continue;
+    }
+
+    const Vec2 pos{registry.pos_x[idx], registry.pos_y[idx]};
+    uint32_t best_mate = INVALID_ENTITY;
+    float best_dist_sq = config_.mate_range * config_.mate_range;
+
+    grid.for_each_candidate(pos, config_.mate_range, [&](uint32_t mate_id) {
+      if (mate_id == idx || used[mate_id] != 0 || registry.energy[mate_id] < config_.reproduction_energy_threshold) {
+        return;
+      }
+
+      const Vec2 mate_pos{registry.pos_x[mate_id], registry.pos_y[mate_id]};
+      const Vec2 diff{mate_pos.x - pos.x, mate_pos.y - pos.y};
+      const float dist_sq = diff.x * diff.x + diff.y * diff.y;
+      if (dist_sq < best_dist_sq) {
+        best_dist_sq = dist_sq;
+        best_mate = mate_id;
+      }
+    });
+
+    if (best_mate == INVALID_ENTITY) {
+      continue;
+    }
+
+    const Vec2 mate_pos{registry.pos_x[best_mate], registry.pos_y[best_mate]};
+    const Vec2 mid_pos{(pos.x + mate_pos.x) * 0.5f, (pos.y + mate_pos.y) * 0.5f};
+    const float clamped_x = std::clamp(mid_pos.x, 0.0f, world_size);
+    const float clamped_y = std::clamp(mid_pos.y, 0.0f, world_size);
+    const uint32_t child = create_offspring(state, registry, idx, best_mate, {clamped_x, clamped_y});
+    if (child != INVALID_ENTITY) {
+      ++state.metrics.step_delta.births;
+    }
+    used[idx] = 1;
+    used[best_mate] = 1;
+  }
+}
+
+void EvolutionManager::post_step(AppState &state) {
+  MOONAI_PROFILE_SCOPE("evolution_post_step");
+
+  reproduce_population(state, state.predator);
+  reproduce_population(state, state.prey);
+
+  if (config_.species_update_interval_steps > 0 && (state.runtime.step % config_.species_update_interval_steps) == 0) {
+    refresh_species(state);
+  }
+}
+
+#ifdef MOONAI_ENABLE_CUDA
 namespace {
 
 bool launch_population_gpu_neural(AgentRegistry &registry, gpu::GpuNetworkCache &gpu_cache,
@@ -280,8 +458,10 @@ bool launch_population_gpu_neural(AgentRegistry &registry, gpu::GpuNetworkCache 
 }
 
 } // namespace
+#endif
 
 void EvolutionManager::enable_gpu(AppState &state, bool use_gpu) {
+#ifdef MOONAI_ENABLE_CUDA
   if (use_gpu) {
     if (!state.predator.gpu_network_cache) {
       state.predator.gpu_network_cache = std::make_unique<gpu::GpuNetworkCache>();
@@ -296,11 +476,19 @@ void EvolutionManager::enable_gpu(AppState &state, bool use_gpu) {
   } else {
     state.predator.gpu_network_cache.reset();
     state.prey.gpu_network_cache.reset();
+    state.gpu_batch.reset();
     state.runtime.gpu_enabled = false;
     spdlog::info("GPU neural inference disabled");
   }
+#else
+  state.runtime.gpu_enabled = false;
+  if (use_gpu) {
+    spdlog::warn("GPU requested, but this build was compiled without CUDA support");
+  }
+#endif
 }
 
+#ifdef MOONAI_ENABLE_CUDA
 bool EvolutionManager::launch_gpu_neural(AppState &state, gpu::GpuBatch &gpu_batch) {
   MOONAI_PROFILE_SCOPE("gpu_neural", gpu_batch.stream());
 
@@ -323,5 +511,6 @@ bool EvolutionManager::launch_gpu_neural(AppState &state, gpu::GpuBatch &gpu_bat
 
   return true;
 }
+#endif
 
 } // namespace moonai

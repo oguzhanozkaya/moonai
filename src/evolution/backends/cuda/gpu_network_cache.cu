@@ -1,6 +1,6 @@
 #include "evolution/network_cache.hpp"
 #include "evolution/neural_network.hpp"
-#include "gpu/gpu_network_cache.hpp"
+#include "evolution/backends/cuda/gpu_network_cache.hpp"
 #include <cmath>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>

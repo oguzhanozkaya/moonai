@@ -56,7 +56,8 @@ jobs:
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
-            -DMOONAI_BUILD_TESTS=ON
+            -DMOONAI_BUILD_TESTS=ON \
+            -DMOONAI_CUDA=OFF
 
       - name: Configure (Windows)
         if: runner.os == 'Windows'
@@ -64,7 +65,8 @@ jobs:
           cmake -B build `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
-            -DMOONAI_BUILD_TESTS=ON
+            -DMOONAI_BUILD_TESTS=ON `
+            -DMOONAI_CUDA=OFF
 
       - name: Build (Linux)
         if: runner.os == 'Linux'

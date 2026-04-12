@@ -1,9 +1,6 @@
 #include "simulation/gpu.hpp"
 
-#include "core/metrics.hpp"
 #include "core/profiler_macros.hpp"
-#include "evolution/evolution_manager.hpp"
-#include "simulation/cpu.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -189,26 +186,7 @@ void ensure_capacity(std::unique_ptr<moonai::gpu::GpuBatch> &batch, std::size_t 
   batch = std::make_unique<moonai::gpu::GpuBatch>(new_predator_capacity, new_prey_capacity, new_food_capacity);
 }
 
-} // namespace
-
-void step(AppState &state, EvolutionManager &evolution, const SimulationConfig &config) {
-  MOONAI_PROFILE_SCOPE("simulation_gpu");
-
-  std::vector<uint8_t> was_food_active = state.food.active;
-
-  const std::size_t predator_count = state.predator.size();
-  const std::size_t prey_count = state.prey.size();
-  const std::size_t food_count = state.food.size();
-
-  if (state.gpu_batch && !state.gpu_batch->ok()) {
-    spdlog::error("GPU batch in error state, falling back to CPU");
-    cpu::step(state, evolution, config);
-    return;
-  }
-
-  ensure_capacity(state.gpu_batch, predator_count, prey_count, food_count);
-  pack_state(state, *state.gpu_batch);
-
+moonai::gpu::GpuStepParams build_step_params(const SimulationConfig &config) {
   moonai::gpu::GpuStepParams params;
   params.world_width = static_cast<float>(config.grid_size);
   params.world_height = static_cast<float>(config.grid_size);
@@ -221,42 +199,67 @@ void step(AppState &state, EvolutionManager &evolution, const SimulationConfig &
   params.energy_gain_from_kill = static_cast<float>(config.energy_gain_from_kill);
   params.predator_speed = config.predator_speed;
   params.prey_speed = config.prey_speed;
+  return params;
+}
+
+} // namespace
+
+bool prepare_step(AppState &state, const SimulationConfig &config) {
+  MOONAI_PROFILE_SCOPE("simulation_gpu");
+
+  state.step_buffers.was_food_active = state.food.active;
+
+  const std::size_t predator_count = state.predator.size();
+  const std::size_t prey_count = state.prey.size();
+  const std::size_t food_count = state.food.size();
+
+  if (state.gpu_batch && !state.gpu_batch->ok()) {
+    spdlog::error("GPU batch in error state, disabling GPU path");
+    state.runtime.gpu_enabled = false;
+    state.gpu_batch.reset();
+    return false;
+  }
+
+  ensure_capacity(state.gpu_batch, predator_count, prey_count, food_count);
+  pack_state(state, *state.gpu_batch);
+
+  const moonai::gpu::GpuStepParams params = build_step_params(config);
 
   state.gpu_batch->upload_async(predator_count, prey_count, food_count);
   state.gpu_batch->launch_build_sensors_async(params, predator_count, prey_count, food_count);
 
-  {
-    MOONAI_PROFILE_SCOPE("gpu_launch_neural");
-    if (!evolution.launch_gpu_neural(state, *state.gpu_batch)) {
-      MOONAI_PROFILE_SCOPE("cpu_fallback");
-      spdlog::error("GPU neural inference failed, disabling GPU path and retrying on CPU");
-      state.runtime.gpu_enabled = false;
-      disable(state.gpu_batch);
-      cpu::step(state, evolution, config);
-      return;
-    }
+  return true;
+}
+
+bool resolve_step(AppState &state, const SimulationConfig &config) {
+  MOONAI_PROFILE_SCOPE("simulation_gpu_resolve");
+
+  if (!state.gpu_batch) {
+    spdlog::error("GPU batch is not initialized for resolve step");
+    state.runtime.gpu_enabled = false;
+    return false;
   }
+
+  const std::size_t predator_count = state.predator.size();
+  const std::size_t prey_count = state.prey.size();
+  const std::size_t food_count = state.food.size();
+  const moonai::gpu::GpuStepParams params = build_step_params(config);
 
   state.gpu_batch->launch_post_inference_async(params, predator_count, prey_count, food_count);
   state.gpu_batch->download_async(predator_count, prey_count, food_count);
   state.gpu_batch->synchronize();
 
   if (!state.gpu_batch->ok()) {
-    MOONAI_PROFILE_SCOPE("cpu_fallback");
-    spdlog::error("GPU step failed, disabling GPU path and retrying on CPU");
+    spdlog::error("GPU step failed, disabling GPU path");
     state.runtime.gpu_enabled = false;
-    disable(state.gpu_batch);
-    cpu::step(state, evolution, config);
-    return;
+    state.gpu_batch.reset();
+    return false;
   }
 
   apply_results(state, *state.gpu_batch);
-  collect_step_events(state, *state.gpu_batch, was_food_active);
+  collect_step_events(state, *state.gpu_batch, state.step_buffers.was_food_active);
+
+  return true;
 }
 
-void disable(std::unique_ptr<moonai::gpu::GpuBatch> &batch) {
-  batch.reset();
-  spdlog::info("GPU batch processing disabled");
-}
-
-} // namespace moonai::gpu
+} // namespace moonai::simulation::gpu

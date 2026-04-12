@@ -4,7 +4,7 @@
 #include <cstdlib>
 #include <cuda_runtime.h>
 
-#include "gpu/gpu_types.hpp"
+#include "simulation/backends/cuda/gpu_types.hpp"
 
 // Log the CUDA error but continue
 #define CUDA_CHECK(call)                                                                                               \

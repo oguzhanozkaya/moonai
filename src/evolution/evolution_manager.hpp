@@ -12,10 +12,12 @@ namespace moonai {
 
 struct AppState;
 struct AgentRegistry;
+#ifdef MOONAI_ENABLE_CUDA
 namespace gpu {
 class GpuBatch;
 class GpuNetworkCache;
 } // namespace gpu
+#endif
 
 class EvolutionManager {
 public:
@@ -26,27 +28,26 @@ public:
 
   void seed_initial_population(AppState &state);
 
-  uint32_t create_offspring(AppState &state, AgentRegistry &registry, uint32_t parent_a, uint32_t parent_b,
-                            Vec2 spawn_position);
+  bool run_inference(AppState &state);
+  void post_step(AppState &state);
   void refresh_species(AppState &state);
 
-  void compute_actions(AppState &state, const std::vector<float> &predator_sensors,
-                       const std::vector<float> &prey_sensors, std::vector<float> &predator_decisions,
-                       std::vector<float> &prey_decisions);
-
   void enable_gpu(AppState &state, bool use_gpu);
-
-  // GPU neural inference (called by SimulationManager during GPU step)
-  bool launch_gpu_neural(AppState &state, gpu::GpuBatch &gpu_batch);
 
 private:
   Genome create_initial_genome(AgentRegistry &registry, Random &rng) const;
   Genome create_child_genome(AgentRegistry &registry, Random &rng, const Genome &parent_a,
                              const Genome &parent_b) const;
+  uint32_t create_offspring(AppState &state, AgentRegistry &registry, uint32_t parent_a, uint32_t parent_b,
+                            Vec2 spawn_position);
   void initialize_population(AgentRegistry &registry) const;
   void compute_actions_for_population(AgentRegistry &registry, const std::vector<float> &sensors,
                                       std::vector<float> &decisions_out) const;
   void refresh_population_species(AgentRegistry &registry) const;
+#ifdef MOONAI_ENABLE_CUDA
+  bool launch_gpu_neural(AppState &state, gpu::GpuBatch &gpu_batch);
+#endif
+  void reproduce_population(AppState &state, AgentRegistry &registry);
 
   const SimulationConfig &config_;
   int num_inputs_ = 0;

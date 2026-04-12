@@ -1,11 +1,8 @@
 #include "simulation/simulation.hpp"
 
-#include "evolution/evolution_manager.hpp"
 #include "simulation/common.hpp"
 #include "simulation/cpu.hpp"
 #include "simulation/gpu.hpp"
-
-#include <spdlog/spdlog.h>
 
 namespace moonai::simulation {
 
@@ -13,14 +10,28 @@ void initialize(AppState &state, const SimulationConfig &config) {
   state.food.initialize(config, state.runtime.rng);
 }
 
-void step(AppState &state, EvolutionManager &evolution, const SimulationConfig &config) {
+bool prepare_step(AppState &state, const SimulationConfig &config) {
+#ifdef MOONAI_ENABLE_CUDA
   if (state.runtime.gpu_enabled) {
-    gpu::step(state, evolution, config);
-  } else {
-    cpu::step(state, evolution, config);
+    return gpu::prepare_step(state, config);
   }
+#endif
 
-  common::run(state, evolution, config);
+  return cpu::prepare_step(state, config);
+}
+
+bool resolve_step(AppState &state, const SimulationConfig &config) {
+#ifdef MOONAI_ENABLE_CUDA
+  if (state.runtime.gpu_enabled) {
+    return gpu::resolve_step(state, config);
+  }
+#endif
+
+  return cpu::resolve_step(state, config);
+}
+
+void post_step(AppState &state, const SimulationConfig &config) {
+  common::post_step(state, config);
 }
 
 } // namespace moonai::simulation

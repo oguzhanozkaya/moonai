@@ -6,8 +6,11 @@
 #include "evolution/mutation.hpp"
 #include "evolution/network_cache.hpp"
 #include "evolution/species.hpp"
-#include "gpu/gpu_batch.hpp"
-#include "gpu/gpu_network_cache.hpp"
+
+#ifdef MOONAI_ENABLE_CUDA
+#include "evolution/backends/cuda/gpu_network_cache.hpp"
+#include "simulation/backends/cuda/gpu_batch.hpp"
+#endif
 
 #include <cstddef>
 #include <cstdint>
@@ -52,7 +55,9 @@ struct AgentRegistry {
   std::vector<Species> species;
   std::vector<Genome> genomes;
   NetworkCache network_cache;
+#ifdef MOONAI_ENABLE_CUDA
   std::unique_ptr<gpu::GpuNetworkCache> gpu_network_cache;
+#endif
 
   uint32_t create();
   bool valid(uint32_t entity) const;
@@ -119,6 +124,17 @@ struct RuntimeState {
   bool gpu_enabled = false;
 };
 
+struct StepBuffers {
+  std::vector<uint8_t> was_food_active;
+  std::vector<float> predator_sensors;
+  std::vector<float> prey_sensors;
+  std::vector<float> predator_decisions;
+  std::vector<float> prey_decisions;
+  std::vector<int> food_consumed_by;
+  std::vector<int> killed_by;
+  std::vector<uint32_t> kill_counts;
+};
+
 struct AppState {
   explicit AppState(int seed) : runtime(seed) {}
 
@@ -130,8 +146,11 @@ struct AppState {
 
   MetricsState metrics;
   RuntimeState runtime;
+  StepBuffers step_buffers;
 
+#ifdef MOONAI_ENABLE_CUDA
   std::unique_ptr<gpu::GpuBatch> gpu_batch;
+#endif
 };
 
 } // namespace moonai

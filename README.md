@@ -32,7 +32,7 @@ The platform enables researchers to:
 ## Key Features
 
 - **Entity-Component-System Architecture** - Data-oriented design with sparse-set ECS, cache-friendly SoA memory layouts, and 5-10x performance improvement
-- **Clean GPU Abstraction** - ECS data efficiently packed into GPU buffers; kernels consume contiguous buffers (decoupled architecture)
+- **Domain-Owned CUDA Backends** - CUDA code lives with the subsystem it accelerates (`simulation/backends/cuda` and `evolution/backends/cuda`), while CPU-only builds compile the CUDA path out cleanly
 - **NEAT Implementation** - Evolves both topology and weights of neural networks simultaneously
 - **Real-Time Visualization** - SFML-based rendering with interactive controls and live NN activation display
 - **GPU Acceleration** - CUDA backend for sensing, neural inference, and simulation systems on GPU at large populations; available in both visual and headless modes with runtime CPU fallback
@@ -43,13 +43,13 @@ The platform enables researchers to:
 
 ## Architecture
 
-MoonAI uses a **hybrid ECS/OOP architecture** optimized for evolutionary simulation:
+MoonAI uses a **hybrid ECS/OOP architecture** optimized for evolutionary simulation, with a thin application layer orchestrating simulation, evolution, data export, and visualization.
 
 ### Core Philosophy
 
 - **ECS for Simulation**: Agent state, physics, and interactions use data-oriented ECS for cache efficiency and GPU compatibility
 - **OOP for Evolution**: NEAT algorithms (Genome, NeuralNetwork) remain object-oriented due to complex graph mutations and variable topology
-- **Clean Boundaries**: Well-defined interfaces between ECS simulation core and OOP evolution systems
+- **Clean Boundaries**: `app` orchestrates module-level phases, while `simulation`, `evolution`, `data`, and `visualization` own their internal flow
 
 ### Why ECS?
 
@@ -70,29 +70,34 @@ ECS solves these with:
 │                    Visualization (SFML)                   │
 │              Renders agents, grid, UI overlays            │
 └──────────────────────────┬────────────────────────────────┘
-                           │ Queries ECS Components
+                           │ Reads runtime state
 ┌──────────────────────────┴────────────────────────────────┐
-│              ECS Simulation Core (Data-Oriented)          │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐  │
-│  │  Registry   │ │  Systems    │ │  GpuDataBuffer      │  │
-│  │ (Components)│ │ (Logic)     │ │ (Buffer Abstraction)│  │
-│  └──────┬──────┘ └──────┬──────┘ └──────────┬──────────┘  │
-│         └───────────────┴───────────────────┘             │
-└──────────────────────────┬────────────────────────────────┘
-                           │ Genome References
-┌──────────────────────────┴────────────────────────────────┐
-│                    Evolution Core (NEAT)                  │
-│     Genome, NN, Species, Mutation, Crossover (OOP)        │
-└───────────────────────────────────────────────────────────┘
+│                  App / Orchestration Layer                │
+│   Runs the top-level step flow, logging, and lifecycle    │
+└───────────────┬───────────────────┬───────────────────────┘
+                │                   │
+┌───────────────┴──────────────┐  ┌─┴───────────────────────┐
+│   ECS Simulation Core        │  │   Evolution Core (NEAT) │
+│ Registry, systems, CUDA sim  │  │ Genome, NN, species,    │
+│ backend under simulation/    │  │ CUDA inference backend  │
+└───────────────┬──────────────┘  └─┬───────────────────────┘
+                │                   │
+                └──────────┬────────┘
+                           │
+                ┌──────────┴──────────┐
+                │    Data / Reporting  │
+                │ Metrics, CSV, JSON   │
+                └──────────────────────┘
 ```
 
 | Subsystem | Pattern | Library | Description |
 |-----------|---------|---------|-------------|
-| `src/core/` | OOP | `moonai_core` | Shared types (`Vec2`, `Entity`), Lua config loader (sol2), seeded RNG |
-| `src/simulation/` | **ECS** | `moonai_simulation` | Sparse-set registry, SoA components, systems (movement, sensors, combat, energy), spatial grid |
-| `src/evolution/` | OOP | `moonai_evolution` | NEAT genome, neural network, NetworkCache, speciation, mutation, crossover |
-| `src/visualization/` | OOP | `moonai_visualization` | SFML window, renderer, UI overlay (queries ECS registry directly) |
-| `src/gpu/` | Mixed | `moonai_gpu` | CUDA kernels, GpuDataBuffer abstraction, ECS-to-GPU packing |
+| `src/core/` | OOP | `moonai_core` | Foundation code: shared types, config, Lua runtime, deterministic helpers, seeded RNG |
+| `src/app/` | OOP | `moonai_app` | Application orchestration, main loop, runtime lifecycle, top-level step flow |
+| `src/data/` | OOP | `moonai_data` | Metrics aggregation, CSV/JSON logging, report snapshots |
+| `src/simulation/` | **ECS** | `moonai_simulation` | Sparse-set registry, SoA components, movement/sensing/combat/energy systems, spatial grid, and simulation CUDA backend |
+| `src/evolution/` | OOP | `moonai_evolution` | NEAT genome, neural network, NetworkCache, speciation, mutation, crossover, and neural inference CUDA backend |
+| `src/visualization/` | OOP | `moonai_visualization` | SFML window, renderer, and UI overlay |
 
 ### Performance
 
@@ -114,7 +119,7 @@ MoonAI achieves high performance through data-oriented ECS architecture:
 | vcpkg | latest | Yes |
 | just | any | Recommended |
 | SFML | 3.x | Yes (via vcpkg) |
-| CUDA Toolkit | 11.0+ | Optional (auto-detected) |
+| CUDA Toolkit | 11.0+ | Optional (`MOONAI_CUDA=AUTO` detects it, `MOONAI_CUDA=OFF` forces CPU-only) |
 | Python | 3.10+ with uv | For analysis only |
 
 ## Quick Start
@@ -147,6 +152,16 @@ cmake --preset linux-debug
 cmake --build build/linux-debug --parallel
 ```
 
+Force a CPU-only build:
+```bash
+cmake -B build/linux-debug-cpu \
+  -G Ninja \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+  -DMOONAI_CUDA=OFF
+cmake --build build/linux-debug-cpu --parallel
+```
+
 Run `just --list` to see all available commands.
 
 ### 4. Run the simulation
@@ -157,22 +172,24 @@ just run
 
 ## Build
 
-There is one build type — it always bundles SFML visualization and auto-detects CUDA:
+There is one build type — it always bundles SFML visualization. CUDA support is controlled at configure time:
 
 | Command | Description |
 |---------|-------------|
 | `just build` | Debug build |
 | `just release` | Optimized release build |
 
-CUDA is compiled in automatically when `nvcc` is found. On machines without the CUDA Toolkit, the build succeeds and uses the CPU path.
-Official GitHub releases are CPU-only; CUDA support is available from source builds on CUDA-capable machines.
+`MOONAI_CUDA=AUTO` is the default and enables CUDA when `nvcc` is available. `MOONAI_CUDA=ON` requires CUDA and fails configure if it is unavailable. `MOONAI_CUDA=OFF` builds a CPU-only binary and compiles CUDA-specific code paths out entirely.
+
+Official GitHub CI and release binaries use `MOONAI_CUDA=OFF`. CUDA support is available from source builds on CUDA-capable machines.
 
 ### CMake Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
+| `MOONAI_CUDA` | `AUTO` | `AUTO` detects CUDA, `ON` requires it, `OFF` forces CPU-only and compiles out CUDA paths |
 | `MOONAI_BUILD_TESTS` | `ON` | Build unit tests |
-| `MOONAI_BUILD_PROFILER` | `OFF` | Build profiler executable (requires CUDA)
+| `MOONAI_BUILD_PROFILER` | `OFF` | Build profiler executable |
 
 ### Visualization Controls
 
@@ -464,14 +481,16 @@ moonai/
 ├── .clang-format               # LLVM code style configuration
 ├── .clang-tidy                 # Static analysis configuration
 ├── src/
-│   ├── main.cpp                # Entry point: CLI parsing, init, main loop, shutdown
+│   ├── main.cpp                # Entry point: CLI parsing and app startup
 │   ├── profiler_main.cpp       # Profiler executable entry point
-│   ├── app.hpp/cpp             # Application orchestration layer
-│   ├── core/                   # Shared types, config, Lua runtime, seeded RNG, CSV/JSON logging
+│   ├── app/                    # Application orchestration layer
+│   ├── core/                   # Foundation code: types, config, Lua runtime, RNG
+│   ├── data/                   # Metrics aggregation and CSV/JSON logging
 │   ├── simulation/             # ECS-based simulation core
+│   │   └── backends/cuda/      # CUDA backend for simulation systems
 │   ├── evolution/              # NEAT evolution implementation
-│   ├── visualization/          # SFML rendering and UI
-│   └── gpu/                    # CUDA GPU acceleration
+│   │   └── backends/cuda/      # CUDA backend for neural inference/cache
+│   └── visualization/          # SFML rendering and UI
 ├── tests/                      # Google Test unit tests
 ├── analysis/                   # Python simulation analysis package
 ├── profiler/                   # Python profiler analysis package

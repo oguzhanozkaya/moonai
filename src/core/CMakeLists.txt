@@ -1,9 +1,7 @@
 set(MOONAI_CORE_SOURCES
     app_state.cpp
     config.cpp
-    logger.cpp
     lua_runtime.cpp
-    metrics.cpp
     random.cpp
 )
 
@@ -12,6 +10,7 @@ add_library(moonai_core STATIC ${MOONAI_CORE_SOURCES})
 target_include_directories(moonai_core PUBLIC ${CMAKE_SOURCE_DIR}/src)
 
 target_link_libraries(moonai_core PUBLIC
+    moonai_build_config
     nlohmann_json::nlohmann_json
     spdlog::spdlog
     sol2::sol2
@@ -24,6 +23,7 @@ if(MOONAI_BUILD_PROFILER)
     add_library(moonai_core_profiler STATIC ${MOONAI_CORE_SOURCES})
     target_include_directories(moonai_core_profiler PUBLIC ${CMAKE_SOURCE_DIR}/src)
     target_link_libraries(moonai_core_profiler PUBLIC
+        moonai_build_config
         nlohmann_json::nlohmann_json
         spdlog::spdlog
         sol2::sol2
