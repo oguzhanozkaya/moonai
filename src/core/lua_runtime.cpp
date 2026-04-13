@@ -43,6 +43,7 @@ SimulationConfig table_to_config(const sol::table &tbl) {
   lua_get(tbl, "max_hidden_nodes", config.max_hidden_nodes);
   lua_get(tbl, "max_steps", config.max_steps);
   lua_get(tbl, "compatibility_threshold", config.compatibility_threshold);
+  lua_get(tbl, "compatibility_min_normalization", config.compatibility_min_normalization);
   lua_get(tbl, "c1_excess", config.c1_excess);
   lua_get(tbl, "c2_disjoint", config.c2_disjoint);
   lua_get(tbl, "c3_weight", config.c3_weight);
@@ -83,6 +84,7 @@ void inject_defaults(sol::state &lua) {
   t["max_hidden_nodes"] = d.max_hidden_nodes;
   t["max_steps"] = d.max_steps;
   t["compatibility_threshold"] = d.compatibility_threshold;
+  t["compatibility_min_normalization"] = d.compatibility_min_normalization;
   t["c1_excess"] = d.c1_excess;
   t["c2_disjoint"] = d.c2_disjoint;
   t["c3_weight"] = d.c3_weight;

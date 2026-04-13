@@ -8,19 +8,19 @@
 namespace moonai {
 
 struct SimulationConfig {
-  int grid_size = 3000;
+  int grid_size = 6000;
 
-  int predator_count = 600;
-  int prey_count = 11400;
-  int food_count = 30000;
+  int predator_count = 2400;
+  int prey_count = 27600;
+  int food_count = 60000;
 
   float predator_speed = 0.6f;
   float prey_speed = 0.66f;
-  float vision_range = 12.0f;
+  float vision_range = 24.0f;
   float interaction_range = 1.0f;
   float mate_range = 30.0f;
 
-  float food_respawn_rate = 0.003f;
+  float food_respawn_rate = 0.00096f;
   float energy_drain_per_step = 0.036f;
   float energy_gain_from_kill = 72.0f;
   float energy_gain_from_food = 60.0f;
@@ -39,11 +39,12 @@ struct SimulationConfig {
   int max_hidden_nodes = 1200;
   int max_steps = 0;
 
-  float compatibility_threshold = 3.0f;
+  float compatibility_threshold = 9.0f;
+  float compatibility_min_normalization = 36.0f;
   float c1_excess = 1.0f;
   float c2_disjoint = 1.0f;
   float c3_weight = 0.4f;
-  int species_update_interval_steps = 60;
+  int species_update_interval_steps = 1000;
 
   int seed = 67;
 

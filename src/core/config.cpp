@@ -31,6 +31,7 @@ nlohmann::json config_to_json(const SimulationConfig &config) {
   j["max_hidden_nodes"] = config.max_hidden_nodes;
   j["max_steps"] = config.max_steps;
   j["compatibility_threshold"] = config.compatibility_threshold;
+  j["compatibility_min_normalization"] = config.compatibility_min_normalization;
   j["c1_excess"] = config.c1_excess;
   j["c2_disjoint"] = config.c2_disjoint;
   j["c3_weight"] = config.c3_weight;
@@ -100,6 +101,7 @@ std::vector<ConfigError> validate_config(const SimulationConfig &config) {
 
   // Speciation
   check(config.compatibility_threshold > 0.0f, "compatibility_threshold", "must be > 0");
+  check(config.compatibility_min_normalization >= 1.0f, "compatibility_min_normalization", "must be >= 1");
   check(config.species_update_interval_steps >= 1, "species_update_interval_steps", "must be >= 1");
 
   // Simulation

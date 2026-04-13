@@ -268,7 +268,7 @@ void EvolutionManager::refresh_population_species(AgentRegistry &registry) const
 
     for (auto &entry : species) {
       if (entry.is_compatible(genome, config_.compatibility_threshold, config_.c1_excess, config_.c2_disjoint,
-                              config_.c3_weight)) {
+                              config_.c3_weight, config_.compatibility_min_normalization)) {
         entry.add_member(idx, genome);
         assigned_species_id = entry.id();
         break;
@@ -292,13 +292,6 @@ void EvolutionManager::refresh_population_species(AgentRegistry &registry) const
   species.erase(
       std::remove_if(species.begin(), species.end(), [](const Species &entry) { return entry.members().empty(); }),
       species.end());
-
-  for (auto &entry : species) {
-    const uint32_t representative_idx = entry.members().front().entity;
-    if (representative_idx < registry.genomes.size()) {
-      entry.set_representative(registry.genomes[representative_idx]);
-    }
-  }
 }
 
 void EvolutionManager::refresh_species(AppState &state) {
