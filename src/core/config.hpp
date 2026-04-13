@@ -12,7 +12,7 @@ struct SimulationConfig {
 
   int predator_count = 600;
   int prey_count = 11400;
-  int food_count = 30000;
+  int food_count = 24000;
 
   float predator_speed = 0.6f;
   float prey_speed = 0.66f;
@@ -30,13 +30,13 @@ struct SimulationConfig {
   float offspring_initial_energy = 100.0f;
   float birth_spawn_radius = 30.0f;
 
-  float mutation_rate = 0.3f;
+  float mutation_rate = 0.6f;
   float crossover_rate = 0.75f;
   float weight_mutation_power = 0.5f;
   float add_node_rate = 0.09f;
-  float add_connection_rate = 0.12f;
+  float add_connection_rate = 0.6f;
   float delete_connection_rate = 0.02f;
-  int max_hidden_nodes = 100;
+  int max_hidden_nodes = 1200;
   int max_steps = 0;
 
   float compatibility_threshold = 3.0f;
@@ -48,7 +48,7 @@ struct SimulationConfig {
   int seed = 67;
 
   std::string output_dir = "output";
-  int report_interval_steps = 1000000;
+  int report_interval_steps = 1000;
 };
 
 struct ConfigError {

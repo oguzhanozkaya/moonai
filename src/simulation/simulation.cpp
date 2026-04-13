@@ -34,7 +34,7 @@ void collect_step_events(AppState &state, Batch &batch, const std::vector<uint8_
       state.predator.consumption[predator_idx] += static_cast<int>(predator_buffer.host_kill_counts()[predator_idx]);
     }
     if (state.predator.alive[predator_idx] == 0) {
-      ++state.metrics.step_delta.deaths;
+      ++state.metrics.step_delta.predator_deaths;
     }
   }
 
@@ -45,7 +45,7 @@ void collect_step_events(AppState &state, Batch &batch, const std::vector<uint8_
       ++state.metrics.step_delta.kills;
     }
     if (state.prey.alive[prey_idx] == 0) {
-      ++state.metrics.step_delta.deaths;
+      ++state.metrics.step_delta.prey_deaths;
     }
   }
 }

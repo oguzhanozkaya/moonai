@@ -189,6 +189,7 @@ void EvolutionManager::seed_initial_population(AppState &state) {
     state.predator.species_id[idx] = 0;
     state.predator.entity_id[idx] = state.runtime.next_agent_id++;
     state.predator.consumption[idx] = 0;
+    state.predator.generation[idx] = 0;
   };
 
   auto seed_prey = [&] {
@@ -210,6 +211,7 @@ void EvolutionManager::seed_initial_population(AppState &state) {
     state.prey.species_id[idx] = 0;
     state.prey.entity_id[idx] = state.runtime.next_agent_id++;
     state.prey.consumption[idx] = 0;
+    state.prey.generation[idx] = 0;
   };
 
   for (int i = 0; i < config_.predator_count; ++i) {
@@ -245,6 +247,7 @@ uint32_t EvolutionManager::create_offspring(AppState &state, AgentRegistry &regi
   registry.species_id[idx] = registry.species_id[parent_a];
   registry.entity_id[idx] = state.runtime.next_agent_id++;
   registry.consumption[idx] = 0;
+  registry.generation[idx] = std::max(registry.generation[parent_a], registry.generation[parent_b]) + 1;
 
   if (idx >= registry.genomes.size()) {
     registry.genomes.resize(idx + 1);
@@ -363,7 +366,11 @@ void EvolutionManager::reproduce_population(AppState &state, AgentRegistry &regi
     const float clamped_y = std::clamp(mid_pos.y, 0.0f, world_size);
     const uint32_t child = create_offspring(state, registry, idx, best_mate, {clamped_x, clamped_y});
     if (child != INVALID_ENTITY) {
-      ++state.metrics.step_delta.births;
+      if (&registry == &state.predator) {
+        ++state.metrics.step_delta.predator_births;
+      } else {
+        ++state.metrics.step_delta.prey_births;
+      }
     }
     used[idx] = 1;
     used[best_mate] = 1;

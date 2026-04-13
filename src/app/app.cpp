@@ -130,11 +130,12 @@ void App::record_and_log() {
   logger_.log_species(state_.metrics.last_report.step, state_.prey.species, "prey");
   logger_.flush();
 
-  spdlog::info("Step {:6d}: predators={} prey={} births={} deaths={} "
+  spdlog::info("Step {:6d}: predators={} prey={} pred_births={} prey_births={} pred_deaths={} prey_deaths={} "
                "pred_species={} prey_species={}",
                state_.metrics.last_report.step, state_.metrics.last_report.predator_count,
-               state_.metrics.last_report.prey_count, state_.metrics.last_report.births,
-               state_.metrics.last_report.deaths, state_.metrics.last_report.predator_species,
+               state_.metrics.last_report.prey_count, state_.metrics.last_report.predator_births,
+               state_.metrics.last_report.prey_births, state_.metrics.last_report.predator_deaths,
+               state_.metrics.last_report.prey_deaths, state_.metrics.last_report.predator_species,
                state_.metrics.last_report.prey_species);
 }
 

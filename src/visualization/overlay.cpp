@@ -103,6 +103,14 @@ void UIOverlay::push_population(int predators, int prey, int food) {
   // No limit - unlimited growth as requested
 }
 
+void UIOverlay::push_complexity(float predator_complexity, float prey_complexity) {
+  complexity_history_.push_back(std::make_tuple(predator_complexity, prey_complexity));
+}
+
+void UIOverlay::push_energy(float predator_energy, float prey_energy) {
+  energy_history_.push_back(std::make_tuple(predator_energy, prey_energy));
+}
+
 void UIOverlay::draw_left_column(sf::RenderTarget &target, const OverlayStats &stats) {
   constexpr float PANEL_WIDTH = 300.0f;
   constexpr float MARGIN = 25.0f;
@@ -122,13 +130,21 @@ void UIOverlay::draw_right_column(sf::RenderTarget &target, const OverlayStats &
   float x = target.getDefaultView().getSize().x - PANEL_WIDTH - MARGIN;
   float y = MARGIN;
 
-  // Stats widget: Population counts, species, and events
-  draw_stats_widget(target, stats, x, y, PANEL_WIDTH, 188.0f);
-  y += 188.0f + MARGIN;
+  // Stats widget: Population counts, species, energy, complexity, events, and generation
+  draw_stats_widget(target, stats, x, y, PANEL_WIDTH, 350.0f);
+  y += 350.0f + MARGIN;
 
   // Population chart
   draw_population_chart(target, x, y, PANEL_WIDTH, 180.0f);
   y += 180.0f + MARGIN;
+
+  // Complexity chart
+  draw_complexity_chart(target, x, y, PANEL_WIDTH, 120.0f);
+  y += 120.0f + MARGIN;
+
+  // Energy chart
+  draw_energy_chart(target, x, y, PANEL_WIDTH, 120.0f);
+  y += 120.0f + MARGIN;
 
   // Energy distribution
   draw_energy_distribution(target, stats, x, y, PANEL_WIDTH, 55.0f);
@@ -200,6 +216,24 @@ void UIOverlay::draw_stats_widget(sf::RenderTarget &target, const OverlayStats &
   draw_text(target, buf, tx, ty, 13, sf::Color::White);
   ty += line_h;
 
+  std::snprintf(buf, sizeof(buf), "Pred Energy: %.1f", stats.avg_predator_energy);
+  draw_text(target, buf, tx, ty, 13,
+            sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G, chart_colors::PREDATOR_B));
+  ty += line_h;
+
+  std::snprintf(buf, sizeof(buf), "Prey Energy: %.1f", stats.avg_prey_energy);
+  draw_text(target, buf, tx, ty, 13, sf::Color(chart_colors::PREY_R, chart_colors::PREY_G, chart_colors::PREY_B));
+  ty += line_h;
+
+  std::snprintf(buf, sizeof(buf), "Pred Complx: %.1f", stats.avg_predator_complexity);
+  draw_text(target, buf, tx, ty, 13,
+            sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G, chart_colors::PREDATOR_B));
+  ty += line_h;
+
+  std::snprintf(buf, sizeof(buf), "Prey Complx: %.1f", stats.avg_prey_complexity);
+  draw_text(target, buf, tx, ty, 13, sf::Color(chart_colors::PREY_R, chart_colors::PREY_G, chart_colors::PREY_B));
+  ty += line_h;
+
   std::snprintf(buf, sizeof(buf), "Kills: %d", stats.total_kills);
   draw_text(target, buf, tx, ty, 13, sf::Color(ui::EVENT_KILL_R, ui::EVENT_KILL_G, ui::EVENT_KILL_B));
   ty += line_h;
@@ -208,12 +242,32 @@ void UIOverlay::draw_stats_widget(sf::RenderTarget &target, const OverlayStats &
   draw_text(target, buf, tx, ty, 13, sf::Color(ui::EVENT_FOOD_R, ui::EVENT_FOOD_G, ui::EVENT_FOOD_B));
   ty += line_h;
 
-  std::snprintf(buf, sizeof(buf), "Births: %d", stats.total_births);
-  draw_text(target, buf, tx, ty, 13, sf::Color(ui::EVENT_BIRTH_R, ui::EVENT_BIRTH_G, ui::EVENT_BIRTH_B));
+  std::snprintf(buf, sizeof(buf), "Pred Births: %d", stats.total_predator_births);
+  draw_text(target, buf, tx, ty, 13,
+            sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G, chart_colors::PREDATOR_B));
   ty += line_h;
 
-  std::snprintf(buf, sizeof(buf), "Deaths: %d", stats.total_deaths);
-  draw_text(target, buf, tx, ty, 13, sf::Color(ui::EVENT_DEATH_R, ui::EVENT_DEATH_G, ui::EVENT_DEATH_B));
+  std::snprintf(buf, sizeof(buf), "Prey Births: %d", stats.total_prey_births);
+  draw_text(target, buf, tx, ty, 13, sf::Color(chart_colors::PREY_R, chart_colors::PREY_G, chart_colors::PREY_B));
+  ty += line_h;
+
+  std::snprintf(buf, sizeof(buf), "Pred Deaths: %d", stats.total_predator_deaths);
+  draw_text(target, buf, tx, ty, 13,
+            sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G, chart_colors::PREDATOR_B));
+  ty += line_h;
+
+  std::snprintf(buf, sizeof(buf), "Prey Deaths: %d", stats.total_prey_deaths);
+  draw_text(target, buf, tx, ty, 13, sf::Color(chart_colors::PREY_R, chart_colors::PREY_G, chart_colors::PREY_B));
+  ty += line_h;
+
+  std::snprintf(buf, sizeof(buf), "Pred Gen: max=%d avg=%.1f", stats.max_predator_generation,
+                stats.avg_predator_generation);
+  draw_text(target, buf, tx, ty, 13,
+            sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G, chart_colors::PREDATOR_B));
+  ty += line_h;
+
+  std::snprintf(buf, sizeof(buf), "Prey Gen: max=%d avg=%.1f", stats.max_prey_generation, stats.avg_prey_generation);
+  draw_text(target, buf, tx, ty, 13, sf::Color(chart_colors::PREY_R, chart_colors::PREY_G, chart_colors::PREY_B));
 }
 
 void UIOverlay::draw_population_chart(sf::RenderTarget &target, float x, float y, float w, float h) {
@@ -277,6 +331,106 @@ void UIOverlay::draw_population_chart(sf::RenderTarget &target, float x, float y
             sf::Color(chart_colors::PREY_R, chart_colors::PREY_G, chart_colors::PREY_B));
   draw_text(target, "Food", x + w - 30.0f, y + 4.0f, 10,
             sf::Color(chart_colors::FOOD_R, chart_colors::FOOD_G, chart_colors::FOOD_B));
+}
+
+void UIOverlay::draw_complexity_chart(sf::RenderTarget &target, float x, float y, float w, float h) {
+  if (!font_loaded_ || complexity_history_.size() < 2)
+    return;
+
+  draw_panel(target, x, y, w, h);
+  draw_text(target, "Complexity", x + 4.0f, y + 2.0f, 11, sf::Color(180, 180, 200));
+
+  float inner_x = x + 4.0f;
+  float inner_y = y + 20.0f;
+  float inner_w = w - 8.0f;
+  float inner_h = h - 28.0f;
+
+  // Find max complexity for scaling
+  float max_complexity = 10.0f;
+  for (const auto &t : complexity_history_) {
+    max_complexity = std::max(max_complexity, std::max(std::get<0>(t), std::get<1>(t)));
+  }
+
+  size_t total_points = complexity_history_.size();
+
+  auto map_point = [&](size_t idx, float val) -> sf::Vector2f {
+    float px = inner_x + (static_cast<float>(idx) / (total_points - 1)) * inner_w;
+    float py = inner_y + inner_h * (1.0f - val / max_complexity);
+    return {px, py};
+  };
+
+  // Draw predator complexity line (orange)
+  sf::VertexArray pred_line(sf::PrimitiveType::LineStrip, total_points);
+  for (size_t i = 0; i < total_points; ++i) {
+    pred_line[static_cast<int>(i)].position = map_point(i, std::get<0>(complexity_history_[i]));
+    pred_line[static_cast<int>(i)].color =
+        sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G, chart_colors::PREDATOR_B);
+  }
+  target.draw(pred_line);
+
+  // Draw prey complexity line (cyan)
+  sf::VertexArray prey_line(sf::PrimitiveType::LineStrip, total_points);
+  for (size_t i = 0; i < total_points; ++i) {
+    prey_line[static_cast<int>(i)].position = map_point(i, std::get<1>(complexity_history_[i]));
+    prey_line[static_cast<int>(i)].color = sf::Color(chart_colors::PREY_R, chart_colors::PREY_G, chart_colors::PREY_B);
+  }
+  target.draw(prey_line);
+
+  // Legend
+  draw_text(target, "Pred", x + w - 80.0f, y + 4.0f, 10,
+            sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G, chart_colors::PREDATOR_B));
+  draw_text(target, "Prey", x + w - 40.0f, y + 4.0f, 10,
+            sf::Color(chart_colors::PREY_R, chart_colors::PREY_G, chart_colors::PREY_B));
+}
+
+void UIOverlay::draw_energy_chart(sf::RenderTarget &target, float x, float y, float w, float h) {
+  if (!font_loaded_ || energy_history_.size() < 2)
+    return;
+
+  draw_panel(target, x, y, w, h);
+  draw_text(target, "Energy", x + 4.0f, y + 2.0f, 11, sf::Color(180, 180, 200));
+
+  float inner_x = x + 4.0f;
+  float inner_y = y + 20.0f;
+  float inner_w = w - 8.0f;
+  float inner_h = h - 28.0f;
+
+  // Find max energy for scaling
+  float max_energy = 100.0f;
+  for (const auto &t : energy_history_) {
+    max_energy = std::max(max_energy, std::max(std::get<0>(t), std::get<1>(t)));
+  }
+
+  size_t total_points = energy_history_.size();
+
+  auto map_point = [&](size_t idx, float val) -> sf::Vector2f {
+    float px = inner_x + (static_cast<float>(idx) / (total_points - 1)) * inner_w;
+    float py = inner_y + inner_h * (1.0f - val / max_energy);
+    return {px, py};
+  };
+
+  // Draw predator energy line (orange)
+  sf::VertexArray pred_line(sf::PrimitiveType::LineStrip, total_points);
+  for (size_t i = 0; i < total_points; ++i) {
+    pred_line[static_cast<int>(i)].position = map_point(i, std::get<0>(energy_history_[i]));
+    pred_line[static_cast<int>(i)].color =
+        sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G, chart_colors::PREDATOR_B);
+  }
+  target.draw(pred_line);
+
+  // Draw prey energy line (cyan)
+  sf::VertexArray prey_line(sf::PrimitiveType::LineStrip, total_points);
+  for (size_t i = 0; i < total_points; ++i) {
+    prey_line[static_cast<int>(i)].position = map_point(i, std::get<1>(energy_history_[i]));
+    prey_line[static_cast<int>(i)].color = sf::Color(chart_colors::PREY_R, chart_colors::PREY_G, chart_colors::PREY_B);
+  }
+  target.draw(prey_line);
+
+  // Legend
+  draw_text(target, "Pred", x + w - 80.0f, y + 4.0f, 10,
+            sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G, chart_colors::PREDATOR_B));
+  draw_text(target, "Prey", x + w - 40.0f, y + 4.0f, 10,
+            sf::Color(chart_colors::PREY_R, chart_colors::PREY_G, chart_colors::PREY_B));
 }
 
 void UIOverlay::draw_energy_distribution(sf::RenderTarget &target, const OverlayStats &stats, float x, float y, float w,

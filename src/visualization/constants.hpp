@@ -45,11 +45,11 @@ constexpr uint8_t BG_B = 0;
 constexpr uint8_t PANEL_BG_R = 16;
 constexpr uint8_t PANEL_BG_G = 13;
 constexpr uint8_t PANEL_BG_B = 20;
-constexpr uint8_t PANEL_ALPHA = 180;
+constexpr uint8_t PANEL_ALPHA = 120;
 
-constexpr uint8_t PANEL_OUTLINE_R = 78;
-constexpr uint8_t PANEL_OUTLINE_G = 74;
-constexpr uint8_t PANEL_OUTLINE_B = 83;
+constexpr uint8_t PANEL_OUTLINE_R = 35;
+constexpr uint8_t PANEL_OUTLINE_G = 32;
+constexpr uint8_t PANEL_OUTLINE_B = 39;
 
 // Vision range
 constexpr uint8_t VISION_FILL_ALPHA = 15;

@@ -25,6 +25,10 @@ struct OverlayStats {
   int active_food = 0;
   int predator_species = 0;
   int prey_species = 0;
+  float avg_predator_complexity = 0.0f;
+  float avg_prey_complexity = 0.0f;
+  float avg_predator_energy = 0.0f;
+  float avg_prey_energy = 0.0f;
   float fps = 0.0f;
   int speed_multiplier = 1;
   bool paused = false;
@@ -46,8 +50,16 @@ struct OverlayStats {
   // Event counts for the whole run
   int total_kills = 0;
   int total_food_eaten = 0;
-  int total_births = 0;
-  int total_deaths = 0;
+  int total_predator_births = 0;
+  int total_prey_births = 0;
+  int total_predator_deaths = 0;
+  int total_prey_deaths = 0;
+
+  // Generation metrics
+  int max_predator_generation = 0;
+  float avg_predator_generation = 0.0f;
+  int max_prey_generation = 0;
+  float avg_prey_generation = 0.0f;
 };
 
 class UIOverlay {
@@ -64,6 +76,8 @@ public:
   void set_activations(const std::unordered_map<std::uint32_t, float> &vals);
 
   void push_population(int predators, int prey, int food);
+  void push_complexity(float predator_complexity, float prey_complexity);
+  void push_energy(float predator_energy, float prey_energy);
 
 private:
   void draw_panel(sf::RenderTarget &target, float x, float y, float w, float h);
@@ -79,9 +93,17 @@ private:
   void draw_energy_distribution(sf::RenderTarget &target, const OverlayStats &stats, float x, float y, float w,
                                 float h);
   void draw_stats_widget(sf::RenderTarget &target, const OverlayStats &stats, float x, float y, float w, float h);
+  void draw_complexity_chart(sf::RenderTarget &target, float x, float y, float w, float h);
+  void draw_energy_chart(sf::RenderTarget &target, float x, float y, float w, float h);
 
   // Population history: tuple of {predators, prey, food}
   std::deque<std::tuple<int, int, int>> population_history_;
+
+  // Complexity history: tuple of {predator_complexity, prey_complexity}
+  std::deque<std::tuple<float, float>> complexity_history_;
+
+  // Energy history: tuple of {predator_energy, prey_energy}
+  std::deque<std::tuple<float, float>> energy_history_;
 
   std::unordered_map<std::uint32_t, float> node_activations_;
 

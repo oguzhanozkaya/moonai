@@ -46,6 +46,7 @@ struct AgentRegistry {
   std::vector<uint32_t> species_id;
   std::vector<uint32_t> entity_id;
   std::vector<int> consumption;
+  std::vector<int> generation;
 
   InnovationTracker innovation_tracker;
   std::vector<Species> species;
@@ -73,13 +74,20 @@ struct MetricsSnapshot {
   int active_food = 0;
   int kills = 0;
   int food_eaten = 0;
-  int births = 0;
-  int deaths = 0;
+  int predator_births = 0;
+  int prey_births = 0;
+  int predator_deaths = 0;
+  int prey_deaths = 0;
   int predator_species = 0;
   int prey_species = 0;
-  float avg_genome_complexity = 0.0f;
+  float avg_predator_complexity = 0.0f;
+  float avg_prey_complexity = 0.0f;
   float avg_predator_energy = 0.0f;
   float avg_prey_energy = 0.0f;
+  int max_predator_generation = 0;
+  float avg_predator_generation = 0.0f;
+  int max_prey_generation = 0;
+  float avg_prey_generation = 0.0f;
 
   void clear() {
     *this = {};
@@ -88,15 +96,19 @@ struct MetricsSnapshot {
   void clear_events() {
     kills = 0;
     food_eaten = 0;
-    births = 0;
-    deaths = 0;
+    predator_births = 0;
+    prey_births = 0;
+    predator_deaths = 0;
+    prey_deaths = 0;
   }
 
   void add_events(const MetricsSnapshot &other) {
     kills += other.kills;
     food_eaten += other.food_eaten;
-    births += other.births;
-    deaths += other.deaths;
+    predator_births += other.predator_births;
+    prey_births += other.prey_births;
+    predator_deaths += other.predator_deaths;
+    prey_deaths += other.prey_deaths;
   }
 };
 
