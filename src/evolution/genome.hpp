@@ -57,7 +57,6 @@ public:
 
   // JSON serialization
   std::string to_json() const;
-  static Genome from_json(const std::string &json_str);
 
 private:
   std::vector<NodeGene> nodes_;

@@ -21,15 +21,6 @@ public:
 
   std::uint32_t next_node_id();
 
-  void reset_mutation_window();
-
-  std::uint32_t innovation_count() const {
-    return innovation_counter_;
-  }
-  std::uint32_t node_count() const {
-    return node_counter_;
-  }
-
   void set_counters(std::uint32_t innov, std::uint32_t node) {
     innovation_counter_ = innov;
     node_counter_ = node;

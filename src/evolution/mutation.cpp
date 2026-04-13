@@ -36,10 +36,6 @@ std::uint32_t InnovationTracker::next_node_id() {
   return node_counter_++;
 }
 
-void InnovationTracker::reset_mutation_window() {
-  innovation_cache_.clear();
-}
-
 void Mutation::mutate_weights(Genome &genome, Random &rng, float power) {
   for (auto &conn : genome.connections()) {
     if (rng.next_bool(0.9f)) {

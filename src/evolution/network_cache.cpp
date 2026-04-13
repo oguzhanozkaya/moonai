@@ -45,14 +45,6 @@ bool NetworkCache::has(uint32_t e) const {
   return get(e) != nullptr;
 }
 
-std::vector<float> NetworkCache::activate(uint32_t e, const std::vector<float> &inputs) const {
-  auto *network = get(e);
-  if (network) {
-    return network->activate(inputs);
-  }
-  return {};
-}
-
 void NetworkCache::clear() {
   networks_.clear();
 }

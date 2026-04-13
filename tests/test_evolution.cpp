@@ -27,28 +27,6 @@ TEST(InnovationTrackerTest, DifferentConnectionGetsDifferentInnovation) {
   EXPECT_NE(i1, i2);
 }
 
-TEST(InnovationTrackerTest, ResetClearsGenerationCache) {
-  InnovationTracker tracker;
-  std::uint32_t i1 = tracker.get_innovation(0, 3);
-  tracker.reset_mutation_window();
-  std::uint32_t i2 = tracker.get_innovation(0, 3);
-  EXPECT_NE(i1, i2);
-}
-
-TEST(InnovationTrackerTest, InitFromPopulation) {
-  std::vector<Genome> pop;
-  Genome g(2, 1);
-  g.add_connection({0, 3, 0.5f, true, 5});
-  g.add_node({10, NodeType::Hidden});
-  pop.push_back(std::move(g));
-
-  InnovationTracker tracker;
-  tracker.init_from_population(pop);
-
-  EXPECT_GE(tracker.innovation_count(), 6u);
-  EXPECT_GE(tracker.node_count(), 11u);
-}
-
 // ── Mutation Tests ──────────────────────────────────────────────────────
 
 TEST(MutationTest, MutateWeightsChangesWeights) {
@@ -62,8 +40,7 @@ TEST(MutationTest, MutateWeightsChangesWeights) {
 
   Mutation::mutate_weights(g, rng, 0.5f);
 
-  bool changed = (g.connections()[0].weight != original_w0 ||
-                  g.connections()[1].weight != original_w1);
+  bool changed = (g.connections()[0].weight != original_w0 || g.connections()[1].weight != original_w1);
   EXPECT_TRUE(changed);
 }
 
@@ -95,8 +72,8 @@ TEST(MutationTest, MutatedGenomeProducesValidNetwork) {
     for (const auto &out_node : g.nodes()) {
       if (out_node.type != NodeType::Output)
         continue;
-      g.add_connection({in_node.id, out_node.id, rng.next_float(-1.0f, 1.0f),
-                        true, tracker.get_innovation(in_node.id, out_node.id)});
+      g.add_connection({in_node.id, out_node.id, rng.next_float(-1.0f, 1.0f), true,
+                        tracker.get_innovation(in_node.id, out_node.id)});
     }
   }
 
@@ -171,8 +148,7 @@ TEST(CrossoverTest, ChildProducesValidNetwork) {
       for (const auto &out_node : g->nodes()) {
         if (out_node.type != NodeType::Output)
           continue;
-        g->add_connection({in_node.id, out_node.id, rng.next_float(-1.0f, 1.0f),
-                           true,
+        g->add_connection({in_node.id, out_node.id, rng.next_float(-1.0f, 1.0f), true,
                            tracker.get_innovation(in_node.id, out_node.id)});
       }
     }
@@ -330,8 +306,8 @@ TEST(MutationTest, DeleteConnectionProducesValidNetwork) {
     for (const auto &out_node : g.nodes()) {
       if (out_node.type != NodeType::Output)
         continue;
-      g.add_connection({in_node.id, out_node.id, rng.next_float(-1.0f, 1.0f),
-                        true, tracker.get_innovation(in_node.id, out_node.id)});
+      g.add_connection({in_node.id, out_node.id, rng.next_float(-1.0f, 1.0f), true,
+                        tracker.get_innovation(in_node.id, out_node.id)});
     }
   }
 
@@ -362,8 +338,8 @@ TEST(NeuralNetworkTest, ActivateIntoMatchesActivate) {
     for (const auto &out_node : g.nodes()) {
       if (out_node.type != NodeType::Output)
         continue;
-      g.add_connection({in_node.id, out_node.id, rng.next_float(-1.0f, 1.0f),
-                        true, tracker.get_innovation(in_node.id, out_node.id)});
+      g.add_connection({in_node.id, out_node.id, rng.next_float(-1.0f, 1.0f), true,
+                        tracker.get_innovation(in_node.id, out_node.id)});
     }
   }
 
@@ -458,23 +434,6 @@ TEST(GenomeTest, CompatibilityDistanceWithExcess) {
   EXPECT_GT(dist, 0.0f);
 }
 
-TEST(GenomeTest, JsonRoundTrip) {
-  Genome g(3, 2);
-  g.add_connection({0, 4, 0.5f, true, 0});
-  g.add_connection({1, 5, -0.3f, false, 1});
-  g.add_node({10, NodeType::Hidden});
-
-  std::string json = g.to_json();
-  Genome restored = Genome::from_json(json);
-
-  EXPECT_EQ(restored.num_inputs(), 3);
-  EXPECT_EQ(restored.num_outputs(), 2);
-  EXPECT_EQ(restored.nodes().size(), g.nodes().size());
-  EXPECT_EQ(restored.connections().size(), 2u);
-  EXPECT_FLOAT_EQ(restored.connections()[0].weight, 0.5f);
-  EXPECT_FALSE(restored.connections()[1].enabled);
-}
-
 // ── Neural Network Tests ─────────────────────────────────────────────────
 
 TEST(NeuralNetworkTest, ActivateReturnsCorrectOutputCount) {
@@ -483,8 +442,7 @@ TEST(NeuralNetworkTest, ActivateReturnsCorrectOutputCount) {
   std::uint32_t innov = 0;
   for (int i = 0; i < 3; ++i) {
     for (int o = 4; o <= 5; ++o) {
-      g.add_connection({static_cast<std::uint32_t>(i),
-                        static_cast<std::uint32_t>(o), 0.5f, true, innov++});
+      g.add_connection({static_cast<std::uint32_t>(i), static_cast<std::uint32_t>(o), 0.5f, true, innov++});
     }
   }
 

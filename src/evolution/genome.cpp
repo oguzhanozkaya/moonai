@@ -155,22 +155,4 @@ std::string Genome::to_json() const {
   return j.dump();
 }
 
-Genome Genome::from_json(const std::string &json_str) {
-  auto j = nlohmann::json::parse(json_str);
-
-  Genome g;
-  g.num_inputs_ = j["num_inputs"];
-  g.num_outputs_ = j["num_outputs"];
-
-  for (const auto &n : j["nodes"]) {
-    g.nodes_.push_back({n["id"], static_cast<NodeType>(n["type"].get<int>())});
-  }
-
-  for (const auto &c : j["connections"]) {
-    g.connections_.push_back({c["in"], c["out"], c["weight"], c["enabled"], c["innovation"]});
-  }
-
-  return g;
-}
-
 } // namespace moonai

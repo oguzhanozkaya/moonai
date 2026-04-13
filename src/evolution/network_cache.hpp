@@ -25,8 +25,6 @@ public:
 
   bool has(uint32_t e) const;
 
-  std::vector<float> activate(uint32_t e, const std::vector<float> &inputs) const;
-
   void clear();
 
   std::size_t size() const {

@@ -27,7 +27,6 @@ private:
   static volatile std::sig_atomic_t g_running_;
   static void signal_handler(int);
   static void register_signal_handlers();
-  static std::uint64_t generate_seed();
 
   bool step();
   void record_and_log();

@@ -61,35 +61,6 @@ public:
   const std::vector<int> &network_to_slot_mapping() const {
     return network_to_slot_;
   }
-  const int *device_network_to_slot() const {
-    return d_network_to_slot_;
-  }
-
-  const NetworkDescriptor *device_descriptors() const {
-    return d_descriptors_;
-  }
-  float *device_node_values() const {
-    return d_node_values_;
-  }
-  const int *device_eval_order() const {
-    return d_eval_order_;
-  }
-  const int *device_conn_from() const {
-    return d_conn_from_;
-  }
-  const float *device_conn_weights() const {
-    return d_conn_weights_;
-  }
-  const int *device_conn_ptr() const {
-    return d_conn_ptr_;
-  }
-  const int *device_out_indices() const {
-    return d_out_indices_;
-  }
-
-  std::size_t capacity() const {
-    return entity_capacity_;
-  }
 
 private:
   float *d_node_values_ = nullptr;

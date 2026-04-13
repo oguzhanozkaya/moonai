@@ -170,20 +170,6 @@ constexpr uint8_t ENERGY_BUCKET_3_B = 180;
 constexpr uint8_t ENERGY_BUCKET_4_R = 220;
 constexpr uint8_t ENERGY_BUCKET_4_G = 220;
 constexpr uint8_t ENERGY_BUCKET_4_B = 220;
-
-// Backdrop
-constexpr uint8_t BACKDROP_A = 180;
-
-// Hover highlight
-constexpr uint8_t HOVER_HIGHLIGHT_R = 60;
-constexpr uint8_t HOVER_HIGHLIGHT_G = 60;
-constexpr uint8_t HOVER_HIGHLIGHT_B = 100;
-constexpr uint8_t HOVER_HIGHLIGHT_A = 150;
-
-// Hint text
-constexpr uint8_t HINT_R = 120;
-constexpr uint8_t HINT_G = 120;
-constexpr uint8_t HINT_B = 140;
 } // namespace ui
 
 } // namespace moonai
