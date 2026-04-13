@@ -10,32 +10,32 @@ namespace moonai {
 struct SimulationConfig {
   int grid_size = 6000;
 
-  int predator_count = 2400;
-  int prey_count = 27600;
+  int predator_count = 1200;
+  int prey_count = 28800;
   int food_count = 60000;
 
-  float predator_speed = 0.6f;
-  float prey_speed = 0.66f;
-  float vision_range = 24.0f;
+  float predator_speed = 1.0f;
+  float prey_speed = 1.0f;
+  float vision_range = 36.0f;
   float interaction_range = 1.0f;
-  float mate_range = 30.0f;
+  float mate_range = 12.0f;
+  float birth_spawn_radius = 12.0f;
 
-  float food_respawn_rate = 0.00096f;
-  float energy_drain_per_step = 0.036f;
-  float energy_gain_from_kill = 72.0f;
-  float energy_gain_from_food = 60.0f;
-  float initial_energy = 120.0f;
-  float reproduction_energy_threshold = 240.0f;
-  float reproduction_energy_cost = 60.0f;
-  float offspring_initial_energy = 120.0f;
-  float birth_spawn_radius = 30.0f;
+  float food_respawn_rate = 0.00030f;
+  float energy_drain_per_step = 0.00015f;
+  float energy_gain_from_kill = 0.30f;
+  float energy_gain_from_food = 0.25f;
+  float initial_energy = 0.5f;
+  float reproduction_energy_threshold = 1.0f;
+  float reproduction_energy_cost = 0.25f;
+  float offspring_initial_energy = 1.0f;
 
-  float mutation_rate = 0.6f;
+  float mutation_rate = 0.3f;
   float crossover_rate = 0.75f;
-  float weight_mutation_power = 0.5f;
-  float add_node_rate = 0.09f;
-  float add_connection_rate = 0.6f;
-  float delete_connection_rate = 0.02f;
+  float weight_mutation_power = 0.3f;
+  float add_node_rate = 0.06f;
+  float add_connection_rate = 0.12f;
+  float delete_connection_rate = 0.01f;
   int max_hidden_nodes = 1200;
   int max_steps = 0;
 

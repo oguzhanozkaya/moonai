@@ -6,8 +6,8 @@ namespace moonai {
 
 // uint32_t sizes
 namespace sizes {
-constexpr float PREDATOR_RADIUS = 4.2f;
-constexpr float PREY_RADIUS = 3.6f;
+constexpr float PREDATOR_RADIUS = 2.4f;
+constexpr float PREY_RADIUS = 2.0f;
 constexpr float FOOD_RADIUS = 1.2f;
 } // namespace sizes
 
