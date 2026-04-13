@@ -93,7 +93,7 @@ ECS solves these with:
 |-----------|---------|---------|-------------|
 | `src/core/` | OOP | `moonai_core` | Foundation code: shared types, config, Lua runtime, deterministic helpers, seeded RNG |
 | `src/app/` | OOP | `moonai_app` | Application orchestration, main loop, runtime lifecycle, top-level step flow |
-| `src/data/` | OOP | `moonai_data` | Metrics aggregation, CSV/JSON logging, report snapshots |
+| `src/metrics/` | OOP | `moonai_metrics` | Metrics aggregation, CSV/JSON logging, report snapshots |
 | `src/simulation/` | **ECS** | `moonai_simulation` | Sparse-set registry, SoA components, movement/sensing/combat/energy systems, spatial grid, and simulation CUDA backend |
 | `src/evolution/` | OOP | `moonai_evolution` | NEAT genome, neural network, NetworkCache, speciation, mutation, crossover, and neural inference CUDA backend |
 | `src/visualization/` | OOP | `moonai_visualization` | SFML window, renderer, and UI overlay |
@@ -463,7 +463,7 @@ moonai/
 │   ├── profiler_main.cpp       # Profiler executable entry point
 │   ├── app/                    # Application orchestration layer
 │   ├── core/                   # Foundation code: types, config, Lua runtime, RNG
-│   ├── data/                   # Metrics aggregation and CSV/JSON logging
+│   ├── metrics/                # Metrics aggregation and CSV/JSON logging
 │   ├── simulation/             # ECS-based simulation core
 │   ├── evolution/              # NEAT evolution implementation
 │   └── visualization/          # SFML rendering and UI

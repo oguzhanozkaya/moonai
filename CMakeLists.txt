@@ -47,7 +47,7 @@ target_link_libraries(moonai_build_config INTERFACE CUDA::cudart)
 add_subdirectory(src/core)
 add_subdirectory(src/simulation)
 add_subdirectory(src/evolution)
-add_subdirectory(src/data)
+add_subdirectory(src/metrics)
 add_subdirectory(src/visualization)
 add_subdirectory(src/app)
 

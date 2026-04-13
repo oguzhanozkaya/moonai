@@ -2,8 +2,8 @@
 
 #include "core/app_state.hpp"
 #include "core/config.hpp"
-#include "data/logger.hpp"
 #include "evolution/evolution_manager.hpp"
+#include "metrics/logger.hpp"
 #include "visualization/visualization_manager.hpp"
 
 #include <csignal>

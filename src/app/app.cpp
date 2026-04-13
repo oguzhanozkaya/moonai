@@ -2,7 +2,7 @@
 
 #include "core/profiler_macros.hpp"
 #include "core/types.hpp"
-#include "data/metrics.hpp"
+#include "metrics/metrics.hpp"
 #include "simulation/simulation.hpp"
 #include "visualization/frame_snapshot.hpp"
 #include "visualization/visualization_manager.hpp"
