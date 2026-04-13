@@ -171,6 +171,10 @@ void Profiler::end_scope(const char *event_name) {
 }
 
 int Profiler::record_stream_event_start(const char *name, cudaStream_t stream) {
+  if (active_stack_.empty() || active_stack_.front()->name != "frame_total") {
+    return -1;
+  }
+
   int index = next_stream_event_index_++;
 
   if (index >= static_cast<int>(pending_stream_events_.size())) {

@@ -61,7 +61,6 @@ void AgentRegistry::clear() {
 
 void AgentRegistry::compact() {
   std::size_t i = 0;
-  bool compacted = false;
   while (i < size()) {
     if (alive[i] != 0) {
       ++i;
@@ -80,6 +79,7 @@ void AgentRegistry::compact() {
       }
 
       network_cache.move_entity(static_cast<uint32_t>(last), static_cast<uint32_t>(i));
+      inference_cache.swap_remove_entity(static_cast<uint32_t>(i), static_cast<uint32_t>(last));
 
       if (last + 1 == genomes.size()) {
         genomes.pop_back();
@@ -89,15 +89,11 @@ void AgentRegistry::compact() {
       if (!genomes.empty() && last < genomes.size()) {
         genomes.pop_back();
       }
+      inference_cache.swap_remove_entity(static_cast<uint32_t>(last), static_cast<uint32_t>(last));
       network_cache.remove(static_cast<uint32_t>(last));
     }
 
     pop_back();
-    compacted = true;
-  }
-
-  if (compacted) {
-    inference_cache.invalidate();
   }
 }
 

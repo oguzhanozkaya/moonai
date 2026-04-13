@@ -11,8 +11,8 @@ typedef struct CUstream_st *cudaStream_t;
 
 namespace moonai {
 
+struct CompiledNetwork;
 class NetworkCache;
-class NeuralNetwork;
 
 namespace evolution {
 
@@ -40,8 +40,11 @@ public:
   InferenceCache(InferenceCache &&) = delete;
   InferenceCache &operator=(InferenceCache &&) = delete;
 
-  void build_from(const NetworkCache &network_cache, const std::vector<std::pair<uint32_t, int>> &entities_with_slots,
-                  cudaStream_t stream);
+  void clear();
+  void build_from(const NetworkCache &network_cache, std::size_t count, cudaStream_t stream);
+  void add_entity(uint32_t slot, const CompiledNetwork &compiled);
+  void swap_remove_entity(uint32_t removed_slot, uint32_t last_slot);
+  bool prepare_for_launch(const NetworkCache &network_cache, std::size_t count, cudaStream_t stream);
 
   bool launch_inference_async(const float *sensor_inputs, float *brain_outputs, std::size_t count, cudaStream_t stream);
 
@@ -52,18 +55,18 @@ public:
     return dirty_;
   }
   bool is_valid() const {
-    return !dirty_ && entity_capacity_ > 0;
-  }
-
-  const std::vector<uint32_t> &entity_mapping() const {
-    return entity_mapping_;
-  }
-
-  const std::vector<int> &network_to_slot_mapping() const {
-    return network_to_slot_;
+    return !dirty_ && d_descriptors_ != nullptr;
   }
 
 private:
+  struct Entry {
+    NetworkDescriptor descriptor{};
+    int node_capacity = 0;
+    int eval_capacity = 0;
+    int conn_capacity = 0;
+    int ptr_capacity = 0;
+  };
+
   float *d_node_values_ = nullptr;
   int *d_eval_order_ = nullptr;
   int *d_conn_from_ = nullptr;
@@ -72,32 +75,44 @@ private:
   int *d_out_indices_ = nullptr;
   NetworkDescriptor *d_descriptors_ = nullptr;
 
+  std::vector<Entry> entries_;
+  std::vector<uint32_t> slot_to_entry_;
+  std::vector<uint32_t> free_entries_;
+  std::vector<NetworkDescriptor> launch_descriptors_;
   std::vector<int> h_eval_order_;
   std::vector<int> h_conn_from_;
   std::vector<float> h_conn_weights_;
   std::vector<int> h_conn_ptr_;
   std::vector<int> h_out_indices_;
-  std::vector<NetworkDescriptor> h_descriptors_;
-  std::vector<int> h_network_to_slot_;
-
-  std::vector<uint32_t> entity_mapping_;
-  std::vector<int> network_to_slot_;
-  int *d_network_to_slot_ = nullptr;
+  std::vector<uint32_t> pending_entry_uploads_;
+  std::vector<uint8_t> entry_upload_pending_;
 
   bool dirty_ = true;
+  bool launch_dirty_ = true;
+  bool full_upload_required_ = false;
   std::size_t entity_capacity_ = 0;
-  std::size_t active_node_count_ = 0;
+  std::size_t node_extent_ = 0;
   std::size_t node_capacity_ = 0;
+  std::size_t eval_extent_ = 0;
   std::size_t eval_capacity_ = 0;
+  std::size_t conn_extent_ = 0;
   std::size_t conn_capacity_ = 0;
+  std::size_t ptr_extent_ = 0;
   std::size_t ptr_capacity_ = 0;
+  std::size_t output_extent_ = 0;
   std::size_t output_capacity_ = 0;
 
   void allocate_device_memory(std::size_t node_capacity, std::size_t eval_capacity, std::size_t conn_capacity,
-                              std::size_t entity_capacity);
+                              std::size_t ptr_capacity, std::size_t output_capacity, std::size_t entity_capacity);
   bool needs_reallocation(std::size_t node_capacity, std::size_t eval_capacity, std::size_t conn_capacity,
-                          std::size_t entity_capacity) const;
+                          std::size_t ptr_capacity, std::size_t output_capacity, std::size_t entity_capacity) const;
   void free_device_memory();
+  void assign_entry_data(Entry &entry, const CompiledNetwork &compiled);
+  uint32_t acquire_entry(const CompiledNetwork &compiled);
+  void mark_entry_for_upload(uint32_t entry_index);
+  void rebuild_launch_descriptors();
+  void upload_full(cudaStream_t stream);
+  void upload_pending(cudaStream_t stream);
 };
 
 } // namespace evolution

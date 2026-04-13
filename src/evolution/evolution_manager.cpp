@@ -13,12 +13,6 @@
 
 namespace moonai {
 
-namespace {
-
-void invalidate_inference_cache(AgentRegistry &registry);
-
-} // namespace
-
 EvolutionManager::EvolutionManager(const SimulationConfig &config) : config_(config) {}
 
 EvolutionManager::~EvolutionManager() = default;
@@ -29,7 +23,7 @@ void EvolutionManager::initialize_population(AgentRegistry &registry) const {
   registry.species.clear();
   registry.genomes.clear();
   registry.network_cache.clear();
-  invalidate_inference_cache(registry);
+  registry.inference_cache.clear();
 }
 
 void EvolutionManager::initialize(AppState &state, int num_inputs, int num_outputs) {
@@ -45,10 +39,6 @@ using moonai::OUTPUT_COUNT;
 using moonai::SENSOR_COUNT;
 
 namespace {
-
-void invalidate_inference_cache(AgentRegistry &registry) {
-  registry.inference_cache.invalidate();
-}
 
 class DenseReproductionGrid {
 public:
@@ -218,9 +208,6 @@ void EvolutionManager::seed_initial_population(AppState &state) {
   for (int i = 0; i < config_.prey_count; ++i) {
     seed_prey();
   }
-
-  invalidate_inference_cache(state.predator);
-  invalidate_inference_cache(state.prey);
 }
 
 uint32_t EvolutionManager::create_offspring(AppState &state, AgentRegistry &registry, uint32_t parent_a,
@@ -251,11 +238,14 @@ uint32_t EvolutionManager::create_offspring(AppState &state, AgentRegistry &regi
   }
   registry.genomes[idx] = std::move(child_genome);
   registry.network_cache.assign(idx, registry.genomes[idx]);
+  if (const CompiledNetwork *compiled = registry.network_cache.get_compiled(idx)) {
+    registry.inference_cache.add_entity(idx, *compiled);
+  } else {
+    registry.inference_cache.invalidate();
+  }
 
   registry.energy[parent_a] -= config_.reproduction_energy_cost;
   registry.energy[parent_b] -= config_.reproduction_energy_cost;
-
-  invalidate_inference_cache(registry);
 
   return idx;
 }
@@ -317,8 +307,8 @@ void EvolutionManager::refresh_species(AppState &state) {
 }
 
 void EvolutionManager::initialize_inference(AppState &state) {
-  state.predator.inference_cache.invalidate();
-  state.prey.inference_cache.invalidate();
+  state.predator.inference_cache.build_from(state.predator.network_cache, state.predator.size(), state.batch.stream());
+  state.prey.inference_cache.build_from(state.prey.network_cache, state.prey.size(), state.batch.stream());
 }
 
 void EvolutionManager::reproduce_population(AppState &state, AgentRegistry &registry) {
@@ -389,37 +379,18 @@ namespace {
 
 bool launch_population_inference(AgentRegistry &registry, evolution::InferenceCache &cache,
                                  simulation::PopulationBuffer &buffer, std::size_t count, cudaStream_t stream) {
-  std::vector<std::pair<uint32_t, int>> entities_with_slots;
-  entities_with_slots.reserve(count);
-
-  {
-    MOONAI_PROFILE_SCOPE("inference_collect_entities");
-
-    const uint32_t entity_count = static_cast<uint32_t>(count);
-    for (uint32_t entity = 0; entity < entity_count; ++entity) {
-      if (registry.network_cache.has(entity)) {
-        entities_with_slots.emplace_back(entity, static_cast<int>(entity));
-      }
-    }
-  }
-
-  if (entities_with_slots.empty()) {
+  if (count == 0) {
     return true;
   }
 
   {
     MOONAI_PROFILE_SCOPE("inference_cache_check");
-    if (cache.is_dirty() || cache.entity_mapping().size() != entities_with_slots.size() ||
-        !std::equal(cache.entity_mapping().begin(), cache.entity_mapping().end(), entities_with_slots.begin(),
-                    [](uint32_t entity, const std::pair<uint32_t, int> &entity_with_index) {
-                      return entity == entity_with_index.first;
-                    })) {
-      cache.build_from(registry.network_cache, entities_with_slots, stream);
+    if (!cache.prepare_for_launch(registry.network_cache, count, stream)) {
+      return false;
     }
   }
 
-  return cache.launch_inference_async(buffer.device_sensor_inputs(), buffer.device_brain_outputs(),
-                                      entities_with_slots.size(), stream);
+  return cache.launch_inference_async(buffer.device_sensor_inputs(), buffer.device_brain_outputs(), count, stream);
 }
 
 } // namespace
