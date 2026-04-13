@@ -140,8 +140,8 @@ StepParams build_step_params(const SimulationConfig &config) {
   params.world_height = static_cast<float>(config.grid_size);
   params.energy_drain_per_step = config.energy_drain_per_step;
   params.vision_range = config.vision_range;
-  params.max_energy = static_cast<float>(config.initial_energy);
-  params.max_age = config.max_steps;
+  params.max_energy = config.max_energy;
+  params.max_age = config.max_age;
   params.interaction_range = config.interaction_range;
   params.energy_gain_from_food = static_cast<float>(config.energy_gain_from_food);
   params.energy_gain_from_kill = static_cast<float>(config.energy_gain_from_kill);

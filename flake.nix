@@ -28,10 +28,8 @@
             cmake
             ninja
             gnumake
-            just
             gcc
             vcpkg
-            clang-tools
             cppcheck
             llvm
             pkg-config
@@ -39,15 +37,9 @@
 
             uv
             python312
-            pylyzer
 
             fontconfig
             expat
-
-            texliveFull
-            plantuml
-            graphviz
-            corefonts
 
             cudatoolkit
             libx11

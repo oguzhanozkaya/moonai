@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
 
 using namespace moonai;
 
@@ -25,6 +26,56 @@ TEST(InnovationTrackerTest, DifferentConnectionGetsDifferentInnovation) {
   std::uint32_t i1 = tracker.get_innovation(0, 3);
   std::uint32_t i2 = tracker.get_innovation(1, 3);
   EXPECT_NE(i1, i2);
+}
+
+TEST(InnovationTrackerTest, SameSplitReusesNodeId) {
+  InnovationTracker tracker;
+  const std::uint32_t node_a = tracker.get_split_node_id(0, 3);
+  const std::uint32_t node_b = tracker.get_split_node_id(0, 3);
+
+  EXPECT_EQ(node_a, node_b);
+}
+
+TEST(InnovationTrackerTest, InitFromPopulationReusesExistingInnovation) {
+  Genome g(1, 1);
+  g.add_connection({0, 2, 0.5f, true, 7});
+
+  InnovationTracker tracker;
+  tracker.init_from_population({g});
+
+  EXPECT_EQ(tracker.get_innovation(0, 2), 7u);
+}
+
+// ── Config Tests ─────────────────────────────────────────────────────────
+
+TEST(ConfigTest, MaxAgeIsIndependentFromRunLength) {
+  SimulationConfig config;
+  config.max_steps = 500;
+  config.max_age = 0;
+
+  const auto errors = validate_config(config);
+  EXPECT_TRUE(errors.empty());
+}
+
+TEST(ConfigTest, MaxEnergyMustCoverSpawnAndReproductionThreshold) {
+  SimulationConfig config;
+  config.max_energy = 0.25f;
+
+  const auto errors = validate_config(config);
+  EXPECT_FALSE(errors.empty());
+
+  auto has_field = [&](const char *field) {
+    for (const auto &error : errors) {
+      if (error.field == field) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  EXPECT_TRUE(has_field("initial_energy"));
+  EXPECT_TRUE(has_field("reproduction_energy_threshold"));
+  EXPECT_TRUE(has_field("offspring_initial_energy"));
 }
 
 // ── Mutation Tests ──────────────────────────────────────────────────────
@@ -93,6 +144,99 @@ TEST(MutationTest, MutatedGenomeProducesValidNetwork) {
     EXPECT_GE(o, -1.0f);
     EXPECT_LE(o, 1.0f);
   }
+}
+
+TEST(MutationTest, AddNodeReusesSplitInnovationAcrossGenomes) {
+  Genome a(1, 1);
+  Genome b(1, 1);
+  InnovationTracker tracker;
+  Random rng(42);
+
+  const std::uint32_t direct_innovation = tracker.get_innovation(0, 2);
+  a.add_connection({0, 2, 0.75f, true, direct_innovation});
+  b.add_connection({0, 2, -0.25f, true, direct_innovation});
+  tracker.init_from_population({a, b});
+
+  Mutation::add_node(a, rng, tracker);
+  Mutation::add_node(b, rng, tracker);
+
+  auto hidden_node_id = [](const Genome &genome) {
+    for (const auto &node : genome.nodes()) {
+      if (node.type == NodeType::Hidden) {
+        return node.id;
+      }
+    }
+    return std::numeric_limits<std::uint32_t>::max();
+  };
+
+  auto find_connection = [](const Genome &genome, std::uint32_t from, std::uint32_t to) -> const ConnectionGene * {
+    for (const auto &conn : genome.connections()) {
+      if (conn.in_node == from && conn.out_node == to) {
+        return &conn;
+      }
+    }
+    return nullptr;
+  };
+
+  const std::uint32_t hidden_a = hidden_node_id(a);
+  const std::uint32_t hidden_b = hidden_node_id(b);
+  ASSERT_NE(hidden_a, std::numeric_limits<std::uint32_t>::max());
+  ASSERT_EQ(hidden_a, hidden_b);
+
+  const ConnectionGene *a_in = find_connection(a, 0, hidden_a);
+  const ConnectionGene *a_out = find_connection(a, hidden_a, 2);
+  const ConnectionGene *b_in = find_connection(b, 0, hidden_b);
+  const ConnectionGene *b_out = find_connection(b, hidden_b, 2);
+
+  ASSERT_NE(a_in, nullptr);
+  ASSERT_NE(a_out, nullptr);
+  ASSERT_NE(b_in, nullptr);
+  ASSERT_NE(b_out, nullptr);
+  EXPECT_EQ(a_in->innovation, b_in->innovation);
+  EXPECT_EQ(a_out->innovation, b_out->innovation);
+}
+
+TEST(MutationTest, AddNodeDoesNotDuplicateExistingSplitStructure) {
+  Genome g(1, 1);
+  InnovationTracker tracker;
+  Random rng(42);
+
+  const std::uint32_t direct_innovation = tracker.get_innovation(0, 2);
+  g.add_connection({0, 2, 0.5f, true, direct_innovation});
+  tracker.init_from_population({g});
+
+  const std::uint32_t hidden_id = tracker.get_split_node_id(0, 2);
+  const std::uint32_t split_innovation_a = tracker.get_innovation(0, hidden_id);
+  const std::uint32_t split_innovation_b = tracker.get_innovation(hidden_id, 2);
+
+  g.add_node({hidden_id, NodeType::Hidden});
+  g.add_connection({0, hidden_id, 1.0f, false, split_innovation_a});
+  g.add_connection({hidden_id, 2, 0.5f, false, split_innovation_b});
+
+  Mutation::add_node(g, rng, tracker);
+
+  int hidden_count = 0;
+  for (const auto &node : g.nodes()) {
+    if (node.id == hidden_id) {
+      ++hidden_count;
+    }
+  }
+
+  EXPECT_EQ(hidden_count, 1);
+  EXPECT_EQ(g.connections().size(), 3u);
+
+  const auto is_enabled_connection = [](const Genome &genome, std::uint32_t from, std::uint32_t to) {
+    for (const auto &conn : genome.connections()) {
+      if (conn.in_node == from && conn.out_node == to) {
+        return conn.enabled;
+      }
+    }
+    return false;
+  };
+
+  EXPECT_FALSE(is_enabled_connection(g, 0, 2));
+  EXPECT_TRUE(is_enabled_connection(g, 0, hidden_id));
+  EXPECT_TRUE(is_enabled_connection(g, hidden_id, 2));
 }
 
 // ── Crossover Tests ─────────────────────────────────────────────────────

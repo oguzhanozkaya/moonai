@@ -174,7 +174,7 @@ void EvolutionManager::seed_initial_population(AppState &state) {
     state.predator.pos_y[idx] = state.runtime.rng.next_float(0.0f, grid_size);
     state.predator.vel_x[idx] = 0.0f;
     state.predator.vel_y[idx] = 0.0f;
-    state.predator.energy[idx] = config_.initial_energy;
+    state.predator.energy[idx] = std::min(config_.initial_energy, config_.max_energy);
     state.predator.age[idx] = 0;
     state.predator.alive[idx] = 1;
     state.predator.species_id[idx] = 0;
@@ -195,7 +195,7 @@ void EvolutionManager::seed_initial_population(AppState &state) {
     state.prey.pos_y[idx] = state.runtime.rng.next_float(0.0f, grid_size);
     state.prey.vel_x[idx] = 0.0f;
     state.prey.vel_y[idx] = 0.0f;
-    state.prey.energy[idx] = config_.initial_energy;
+    state.prey.energy[idx] = std::min(config_.initial_energy, config_.max_energy);
     state.prey.age[idx] = 0;
     state.prey.alive[idx] = 1;
     state.prey.species_id[idx] = 0;
@@ -227,7 +227,7 @@ uint32_t EvolutionManager::create_offspring(AppState &state, AgentRegistry &regi
   registry.pos_y[idx] = spawn_position.y;
   registry.vel_x[idx] = 0.0f;
   registry.vel_y[idx] = 0.0f;
-  registry.energy[idx] = config_.offspring_initial_energy;
+  registry.energy[idx] = std::min(config_.offspring_initial_energy, config_.max_energy);
   registry.age[idx] = 0;
   registry.alive[idx] = 1;
   registry.species_id[idx] = registry.species_id[parent_a];
@@ -368,10 +368,6 @@ void EvolutionManager::post_step(AppState &state) {
 
   reproduce_population(state, state.predator);
   reproduce_population(state, state.prey);
-
-  if (config_.species_update_interval_steps > 0 && (state.runtime.step % config_.species_update_interval_steps) == 0) {
-    refresh_species(state);
-  }
 }
 
 namespace {

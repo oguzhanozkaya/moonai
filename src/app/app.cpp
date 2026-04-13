@@ -52,6 +52,7 @@ App::App(AppConfig cfg)
   simulation::initialize(state_, cfg_.sim_config);
   evolution_.initialize(state_, SENSOR_COUNT, OUTPUT_COUNT);
   evolution_.seed_initial_population(state_);
+  evolution_.refresh_species(state_);
   evolution_.initialize_inference(state_);
   metrics::refresh(state_);
 

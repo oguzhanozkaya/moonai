@@ -18,7 +18,7 @@ struct Vec2 {
 constexpr uint32_t INVALID_ENTITY = std::numeric_limits<uint32_t>::max();
 
 // Agent neural network topology constants
-inline constexpr int SENSOR_COUNT = 14;
+inline constexpr int SENSOR_COUNT = 35;
 inline constexpr int OUTPUT_COUNT = 2;
 
 } // namespace moonai

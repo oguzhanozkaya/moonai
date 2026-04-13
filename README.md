@@ -188,7 +188,7 @@ There is one build type — it always bundles SFML visualization and requires CU
 | Right-click drag | Pan camera |
 | Scroll wheel | Zoom |
 
-When an agent is selected, its **vision range** (semi-transparent circle), **sensor lines** (connections to nearby agents and food), and **stats panel** (bottom-left) are automatically displayed. The agent controller currently receives 12 inputs: nearest predator/prey/food as normalized `dx, dy`, energy, velocity `x/y`, and local predator/prey/food density. The **Network panel** (top-right) shows its topology with nodes colored by live activation value: blue (inactive, −1) → gray (zero) → orange (active, +1).
+When an agent is selected, its **vision range** (semi-transparent circle), **sensor lines** (connections to nearby agents and food), and **stats panel** (bottom-left) are automatically displayed. The agent controller currently receives 35 inputs: the 5 closest predators, prey, and food items as signed proximity-weighted `dx, dy` pairs, plus self energy, velocity `x/y`, and signed wall proximity on `x/y`. Missing targets are encoded as `0`, and closer objects produce larger absolute values in `[-1, 1]`. The **Network panel** (top-right) shows its topology with nodes colored by live activation value: blue (inactive, −1) → gray (zero) → orange (active, +1).
 
 ## Configuration
 
@@ -281,7 +281,7 @@ just list-experiments       # shows all experiments in config.lua
 
 **3. Run experiments**
 ```bash
-just experiment-run         # 66 conditions × 5 seeds × 200 report windows → output/
+just experiment-run         # 275 seeded runs + default entry → output/
 ```
 
 **4. Set up Python and generate analysis**
@@ -338,7 +338,7 @@ The analysis code is structured as a small package under `analysis/moonai_analys
 
 ### Experiment conditions
 
-66 conditions defined in `config.lua` across 9 groups, each × 5 seeds = **330 deterministic runs**.
+55 conditions defined in `config.lua` across 9 groups, each × 5 seeds = **275 seeded runs**, plus the unseeded `default` entry.
 
 The default baseline is 2000 agents (500 predators, 1500 prey) on a 3000×3000 square world with 1500 steps per report window. Scaled experiments use `scale_base()` to maintain agent density by proportionally adjusting world size and food count.
 

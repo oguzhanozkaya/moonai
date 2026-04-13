@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/types.hpp"
 #include "evolution/genome.hpp"
 #include "visualization/constants.hpp"
 
@@ -14,6 +15,7 @@
 #include <deque>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace moonai {
 
@@ -79,10 +81,31 @@ public:
   void push_energy(float predator_energy, float prey_energy);
 
 private:
+  struct CachedNnNode {
+    std::uint32_t id = INVALID_ENTITY;
+    NodeType type = NodeType::Input;
+    sf::Vector2f position;
+    sf::Color color = sf::Color::White;
+  };
+
+  struct CachedNnPanel {
+    const Genome *genome = nullptr;
+    sf::Vector2f view_size;
+    float panel_x = 0.0f;
+    float panel_y = 0.0f;
+    float panel_width = 0.0f;
+    float panel_height = 0.0f;
+    float node_radius = 0.0f;
+    sf::VertexArray connection_lines{sf::PrimitiveType::Lines};
+    std::vector<CachedNnNode> nodes;
+    bool valid = false;
+  };
+
   void draw_panel(sf::RenderTarget &target, float x, float y, float w, float h);
   void draw_text(sf::RenderTarget &target, const std::string &str, float x, float y, unsigned int size = 14,
                  sf::Color color = sf::Color::White);
   void draw_nn_panel(sf::RenderTarget &target, const Genome &genome);
+  void rebuild_nn_panel_cache(const Genome &genome, sf::Vector2f view_size);
 
   // Left column panels
   void draw_left_column(sf::RenderTarget &target, const OverlayStats &stats);
@@ -105,6 +128,7 @@ private:
   std::deque<std::tuple<float, float>> energy_history_;
 
   std::unordered_map<std::uint32_t, float> node_activations_;
+  CachedNnPanel nn_panel_cache_;
 
   sf::Font font_;
   bool font_loaded_ = false;
