@@ -106,8 +106,7 @@ FrameSnapshot build_frame_snapshot(const AppState &state, const AppConfig &confi
       frame.overlay_stats.selected_agent = static_cast<int>(state.predator.entity_id[predator_selected]);
       frame.overlay_stats.selected_energy = state.predator.energy[predator_selected];
       frame.overlay_stats.selected_age = state.predator.age[predator_selected];
-      frame.overlay_stats.selected_kills = state.predator.consumption[predator_selected];
-      frame.overlay_stats.selected_food_eaten = 0;
+      frame.overlay_stats.selected_generation = state.predator.generation[predator_selected];
       frame.overlay_stats.selected_genome_complexity =
           static_cast<int>(genome->nodes().size() + genome->connections().size());
       frame.selected_genome = genome;
@@ -160,8 +159,7 @@ FrameSnapshot build_frame_snapshot(const AppState &state, const AppConfig &confi
       frame.overlay_stats.selected_agent = static_cast<int>(state.prey.entity_id[prey_selected]);
       frame.overlay_stats.selected_energy = state.prey.energy[prey_selected];
       frame.overlay_stats.selected_age = state.prey.age[prey_selected];
-      frame.overlay_stats.selected_kills = 0;
-      frame.overlay_stats.selected_food_eaten = state.prey.consumption[prey_selected];
+      frame.overlay_stats.selected_generation = state.prey.generation[prey_selected];
       frame.overlay_stats.selected_genome_complexity =
           static_cast<int>(genome->nodes().size() + genome->connections().size());
       frame.selected_genome = genome;

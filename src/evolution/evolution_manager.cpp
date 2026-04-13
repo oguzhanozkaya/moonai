@@ -188,7 +188,6 @@ void EvolutionManager::seed_initial_population(AppState &state) {
     state.predator.alive[idx] = 1;
     state.predator.species_id[idx] = 0;
     state.predator.entity_id[idx] = state.runtime.next_agent_id++;
-    state.predator.consumption[idx] = 0;
     state.predator.generation[idx] = 0;
   };
 
@@ -210,7 +209,6 @@ void EvolutionManager::seed_initial_population(AppState &state) {
     state.prey.alive[idx] = 1;
     state.prey.species_id[idx] = 0;
     state.prey.entity_id[idx] = state.runtime.next_agent_id++;
-    state.prey.consumption[idx] = 0;
     state.prey.generation[idx] = 0;
   };
 
@@ -246,7 +244,6 @@ uint32_t EvolutionManager::create_offspring(AppState &state, AgentRegistry &regi
   registry.alive[idx] = 1;
   registry.species_id[idx] = registry.species_id[parent_a];
   registry.entity_id[idx] = state.runtime.next_agent_id++;
-  registry.consumption[idx] = 0;
   registry.generation[idx] = std::max(registry.generation[parent_a], registry.generation[parent_b]) + 1;
 
   if (idx >= registry.genomes.size()) {

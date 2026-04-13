@@ -38,8 +38,7 @@ struct OverlayStats {
   int selected_agent = -1;
   float selected_energy = 0.0f;
   int selected_age = 0;
-  int selected_kills = 0;
-  int selected_food_eaten = 0;
+  int selected_generation = 0;
   int selected_genome_complexity = 0;
 
   // Energy distribution (5 buckets: 0-20%, 20-40%, 40-60%, 60-80%, 80-100%)

@@ -45,7 +45,6 @@ struct AgentRegistry {
   std::vector<uint8_t> alive;
   std::vector<uint32_t> species_id;
   std::vector<uint32_t> entity_id;
-  std::vector<int> consumption;
   std::vector<int> generation;
 
   InnovationTracker innovation_tracker;

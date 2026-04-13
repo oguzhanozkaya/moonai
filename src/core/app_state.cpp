@@ -119,7 +119,6 @@ void AgentRegistry::resize(std::size_t new_size) {
   this->alive.resize(new_size);
   this->species_id.resize(new_size);
   this->entity_id.resize(new_size);
-  this->consumption.resize(new_size);
   this->generation.resize(new_size);
 }
 
@@ -135,7 +134,6 @@ void AgentRegistry::swap_entities(std::size_t a, std::size_t b) {
   swap(this->alive[a], this->alive[b]);
   swap(this->species_id[a], this->species_id[b]);
   swap(this->entity_id[a], this->entity_id[b]);
-  swap(this->consumption[a], this->consumption[b]);
   swap(this->generation[a], this->generation[b]);
 }
 
@@ -149,7 +147,6 @@ void AgentRegistry::pop_back() {
   this->alive.pop_back();
   this->species_id.pop_back();
   this->entity_id.pop_back();
-  this->consumption.pop_back();
   this->generation.pop_back();
 }
 

@@ -23,16 +23,12 @@ void collect_step_events(AppState &state, Batch &batch, const std::vector<uint8_
     const int prey_idx = food_buffer.host_consumed_by()[food_idx];
     if (was_food_active[food_idx] && !state.food.active[food_idx] && prey_idx >= 0 &&
         static_cast<uint32_t>(prey_idx) < state.prey.size()) {
-      ++state.prey.consumption[prey_idx];
       ++state.metrics.step_delta.food_eaten;
     }
   }
 
   const uint32_t predator_count = static_cast<uint32_t>(state.predator.size());
   for (uint32_t predator_idx = 0; predator_idx < predator_count; ++predator_idx) {
-    if (predator_buffer.host_kill_counts()[predator_idx] > 0) {
-      state.predator.consumption[predator_idx] += static_cast<int>(predator_buffer.host_kill_counts()[predator_idx]);
-    }
     if (state.predator.alive[predator_idx] == 0) {
       ++state.metrics.step_delta.predator_deaths;
     }

@@ -42,15 +42,20 @@ void UIOverlay::draw(sf::RenderTarget &target, const OverlayStats &stats, const 
   // Draw right column (simulation stats widgets)
   draw_right_column(target, stats);
 
-  // Selected agent panel (bottom-left)
-  float panel_width = 220.0f;
+  // Bottom-left stacked panels: NN topology and Selected agent info
   float margin = 25.0f;
-  char buf[128];
-  float line_h = 18.0f;
+
+  if (selected_genome) {
+    draw_nn_panel(target, *selected_genome);
+  }
 
   if (stats.selected_agent >= 0) {
-    float sel_y = target.getDefaultView().getSize().y - margin - 130.0f;
-    draw_panel(target, margin, sel_y, panel_width, 120.0f);
+    float panel_width = 220.0f;
+    float line_h = 18.0f;
+    char buf[128];
+    // Position below NN panel (NN panel is PANEL_H=300 at bottom-left)
+    float sel_y = target.getDefaultView().getSize().y - margin - 300.0f - 10.0f - 100.0f;
+    draw_panel(target, margin, sel_y, panel_width, 100.0f);
 
     float sx = margin + 8.0f;
     float sy = sel_y + 6.0f;
@@ -63,17 +68,12 @@ void UIOverlay::draw(sf::RenderTarget &target, const OverlayStats &stats, const 
     draw_text(target, buf, sx, sy, 13);
     sy += line_h;
 
-    std::snprintf(buf, sizeof(buf), "Kills: %d  Food: %d", stats.selected_kills, stats.selected_food_eaten);
+    std::snprintf(buf, sizeof(buf), "Generation: %d", stats.selected_generation);
     draw_text(target, buf, sx, sy, 13);
     sy += line_h;
 
     std::snprintf(buf, sizeof(buf), "Complexity: %d", stats.selected_genome_complexity);
     draw_text(target, buf, sx, sy, 13, sf::Color(ui::MUTED_R, ui::MUTED_G, ui::MUTED_B));
-  }
-
-  // NN topology panel (bottom-right, anchored to right edge)
-  if (selected_genome) {
-    draw_nn_panel(target, *selected_genome);
   }
 
   // Restore the camera view
@@ -131,8 +131,8 @@ void UIOverlay::draw_right_column(sf::RenderTarget &target, const OverlayStats &
   float y = MARGIN;
 
   // Stats widget: Population counts, species, energy, complexity, events, and generation
-  draw_stats_widget(target, stats, x, y, PANEL_WIDTH, 350.0f);
-  y += 350.0f + MARGIN;
+  draw_stats_widget(target, stats, x, y, PANEL_WIDTH, 400.0f);
+  y += 400.0f + MARGIN;
 
   // Population chart
   draw_population_chart(target, x, y, PANEL_WIDTH, 180.0f);
@@ -192,9 +192,10 @@ void UIOverlay::draw_stats_widget(sf::RenderTarget &target, const OverlayStats &
   float tx = x + 8.0f;
   float ty = y + 22.0f;
   float line_h = 18.0f;
+  float indent = 12.0f;
   char buf[32];
 
-  // Single column: Population counts and events
+  // Population counts
   std::snprintf(buf, sizeof(buf), "Predators: %d", stats.alive_predator);
   draw_text(target, buf, tx, ty, 13,
             sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G, chart_colors::PREDATOR_B));
@@ -206,68 +207,72 @@ void UIOverlay::draw_stats_widget(sf::RenderTarget &target, const OverlayStats &
 
   std::snprintf(buf, sizeof(buf), "Food: %d", stats.active_food);
   draw_text(target, buf, tx, ty, 13, sf::Color(chart_colors::FOOD_R, chart_colors::FOOD_G, chart_colors::FOOD_B));
+  ty += line_h + 4;
+
+  // Predator section
+  draw_text(target, "Predator:", tx, ty, 13,
+            sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G, chart_colors::PREDATOR_B));
   ty += line_h;
 
-  std::snprintf(buf, sizeof(buf), "Pred Species: %d", stats.predator_species);
+  std::snprintf(buf, sizeof(buf), "  Species: %d", stats.predator_species);
   draw_text(target, buf, tx, ty, 13, sf::Color::White);
   ty += line_h;
 
-  std::snprintf(buf, sizeof(buf), "Prey Species: %d", stats.prey_species);
+  std::snprintf(buf, sizeof(buf), "  Energy: %.1f", stats.avg_predator_energy);
   draw_text(target, buf, tx, ty, 13, sf::Color::White);
   ty += line_h;
 
-  std::snprintf(buf, sizeof(buf), "Pred Energy: %.1f", stats.avg_predator_energy);
-  draw_text(target, buf, tx, ty, 13,
-            sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G, chart_colors::PREDATOR_B));
+  std::snprintf(buf, sizeof(buf), "  Complx: %.1f", stats.avg_predator_complexity);
+  draw_text(target, buf, tx, ty, 13, sf::Color::White);
   ty += line_h;
 
-  std::snprintf(buf, sizeof(buf), "Prey Energy: %.1f", stats.avg_prey_energy);
-  draw_text(target, buf, tx, ty, 13, sf::Color(chart_colors::PREY_R, chart_colors::PREY_G, chart_colors::PREY_B));
+  std::snprintf(buf, sizeof(buf), "  Births: %d", stats.total_predator_births);
+  draw_text(target, buf, tx, ty, 13, sf::Color::White);
   ty += line_h;
 
-  std::snprintf(buf, sizeof(buf), "Pred Complx: %.1f", stats.avg_predator_complexity);
-  draw_text(target, buf, tx, ty, 13,
-            sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G, chart_colors::PREDATOR_B));
+  std::snprintf(buf, sizeof(buf), "  Deaths: %d", stats.total_predator_deaths);
+  draw_text(target, buf, tx, ty, 13, sf::Color::White);
   ty += line_h;
 
-  std::snprintf(buf, sizeof(buf), "Prey Complx: %.1f", stats.avg_prey_complexity);
-  draw_text(target, buf, tx, ty, 13, sf::Color(chart_colors::PREY_R, chart_colors::PREY_G, chart_colors::PREY_B));
-  ty += line_h;
-
-  std::snprintf(buf, sizeof(buf), "Kills: %d", stats.total_kills);
-  draw_text(target, buf, tx, ty, 13, sf::Color(ui::EVENT_KILL_R, ui::EVENT_KILL_G, ui::EVENT_KILL_B));
-  ty += line_h;
-
-  std::snprintf(buf, sizeof(buf), "Eaten: %d", stats.total_food_eaten);
-  draw_text(target, buf, tx, ty, 13, sf::Color(ui::EVENT_FOOD_R, ui::EVENT_FOOD_G, ui::EVENT_FOOD_B));
-  ty += line_h;
-
-  std::snprintf(buf, sizeof(buf), "Pred Births: %d", stats.total_predator_births);
-  draw_text(target, buf, tx, ty, 13,
-            sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G, chart_colors::PREDATOR_B));
-  ty += line_h;
-
-  std::snprintf(buf, sizeof(buf), "Prey Births: %d", stats.total_prey_births);
-  draw_text(target, buf, tx, ty, 13, sf::Color(chart_colors::PREY_R, chart_colors::PREY_G, chart_colors::PREY_B));
-  ty += line_h;
-
-  std::snprintf(buf, sizeof(buf), "Pred Deaths: %d", stats.total_predator_deaths);
-  draw_text(target, buf, tx, ty, 13,
-            sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G, chart_colors::PREDATOR_B));
-  ty += line_h;
-
-  std::snprintf(buf, sizeof(buf), "Prey Deaths: %d", stats.total_prey_deaths);
-  draw_text(target, buf, tx, ty, 13, sf::Color(chart_colors::PREY_R, chart_colors::PREY_G, chart_colors::PREY_B));
-  ty += line_h;
-
-  std::snprintf(buf, sizeof(buf), "Pred Gen: max=%d avg=%.1f", stats.max_predator_generation,
+  std::snprintf(buf, sizeof(buf), "  Gen: max=%d avg=%.1f", stats.max_predator_generation,
                 stats.avg_predator_generation);
-  draw_text(target, buf, tx, ty, 13,
-            sf::Color(chart_colors::PREDATOR_R, chart_colors::PREDATOR_G, chart_colors::PREDATOR_B));
+  draw_text(target, buf, tx, ty, 13, sf::Color::White);
   ty += line_h;
 
-  std::snprintf(buf, sizeof(buf), "Prey Gen: max=%d avg=%.1f", stats.max_prey_generation, stats.avg_prey_generation);
-  draw_text(target, buf, tx, ty, 13, sf::Color(chart_colors::PREY_R, chart_colors::PREY_G, chart_colors::PREY_B));
+  std::snprintf(buf, sizeof(buf), "  Kills: %d", stats.total_kills);
+  draw_text(target, buf, tx, ty, 13, sf::Color::White);
+  ty += line_h + 4;
+
+  // Prey section
+  draw_text(target, "Prey:", tx, ty, 13, sf::Color(chart_colors::PREY_R, chart_colors::PREY_G, chart_colors::PREY_B));
+  ty += line_h;
+
+  std::snprintf(buf, sizeof(buf), "  Species: %d", stats.prey_species);
+  draw_text(target, buf, tx, ty, 13, sf::Color::White);
+  ty += line_h;
+
+  std::snprintf(buf, sizeof(buf), "  Energy: %.1f", stats.avg_prey_energy);
+  draw_text(target, buf, tx, ty, 13, sf::Color::White);
+  ty += line_h;
+
+  std::snprintf(buf, sizeof(buf), "  Complx: %.1f", stats.avg_prey_complexity);
+  draw_text(target, buf, tx, ty, 13, sf::Color::White);
+  ty += line_h;
+
+  std::snprintf(buf, sizeof(buf), "  Births: %d", stats.total_prey_births);
+  draw_text(target, buf, tx, ty, 13, sf::Color::White);
+  ty += line_h;
+
+  std::snprintf(buf, sizeof(buf), "  Deaths: %d", stats.total_prey_deaths);
+  draw_text(target, buf, tx, ty, 13, sf::Color::White);
+  ty += line_h;
+
+  std::snprintf(buf, sizeof(buf), "  Gen: max=%d avg=%.1f", stats.max_prey_generation, stats.avg_prey_generation);
+  draw_text(target, buf, tx, ty, 13, sf::Color::White);
+  ty += line_h;
+
+  std::snprintf(buf, sizeof(buf), "  Eaten: %d", stats.total_food_eaten);
+  draw_text(target, buf, tx, ty, 13, sf::Color::White);
 }
 
 void UIOverlay::draw_population_chart(sf::RenderTarget &target, float x, float y, float w, float h) {
@@ -511,7 +516,7 @@ void UIOverlay::draw_nn_panel(sf::RenderTarget &target, const Genome &genome) {
 
   sf::Vector2f view_size = target.getDefaultView().getSize();
 
-  float cx = view_size.x - PANEL_W - MARGIN;
+  float cx = MARGIN;
   float cy = view_size.y - PANEL_H - MARGIN;
 
   draw_panel(target, cx, cy, PANEL_W, PANEL_H);
