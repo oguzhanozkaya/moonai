@@ -87,37 +87,6 @@ struct MetricsSnapshot {
   float avg_predator_generation = 0.0f;
   int max_prey_generation = 0;
   float avg_prey_generation = 0.0f;
-
-  void clear() {
-    *this = {};
-  }
-
-  void clear_events() {
-    kills = 0;
-    food_eaten = 0;
-    predator_births = 0;
-    prey_births = 0;
-    predator_deaths = 0;
-    prey_deaths = 0;
-  }
-
-  void add_events(const MetricsSnapshot &other) {
-    kills += other.kills;
-    food_eaten += other.food_eaten;
-    predator_births += other.predator_births;
-    prey_births += other.prey_births;
-    predator_deaths += other.predator_deaths;
-    prey_deaths += other.prey_deaths;
-  }
-};
-
-struct MetricsState {
-  MetricsSnapshot live;
-  MetricsSnapshot step_delta;
-  MetricsSnapshot report_window;
-  MetricsSnapshot totals;
-  MetricsSnapshot last_report;
-  bool has_last_report = false;
 };
 
 struct RuntimeState {
@@ -148,7 +117,7 @@ struct AppState {
   AgentRegistry prey;
   Food food;
 
-  MetricsState metrics;
+  MetricsSnapshot metrics;
   RuntimeState runtime;
   StepBuffers step_buffers;
   simulation::Batch batch;

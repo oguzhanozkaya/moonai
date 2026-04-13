@@ -15,7 +15,6 @@ namespace {
 void collect_step_events(AppState &state, Batch &batch, const std::vector<uint8_t> &was_food_active) {
   MOONAI_PROFILE_SCOPE("collect_step_events");
 
-  auto &predator_buffer = batch.predator_buffer();
   auto &prey_buffer = batch.prey_buffer();
   auto &food_buffer = batch.food_buffer();
 
@@ -23,14 +22,14 @@ void collect_step_events(AppState &state, Batch &batch, const std::vector<uint8_
     const int prey_idx = food_buffer.host_consumed_by()[food_idx];
     if (was_food_active[food_idx] && !state.food.active[food_idx] && prey_idx >= 0 &&
         static_cast<uint32_t>(prey_idx) < state.prey.size()) {
-      ++state.metrics.step_delta.food_eaten;
+      ++state.metrics.food_eaten;
     }
   }
 
   const uint32_t predator_count = static_cast<uint32_t>(state.predator.size());
   for (uint32_t predator_idx = 0; predator_idx < predator_count; ++predator_idx) {
     if (state.predator.alive[predator_idx] == 0) {
-      ++state.metrics.step_delta.predator_deaths;
+      ++state.metrics.predator_deaths;
     }
   }
 
@@ -38,10 +37,10 @@ void collect_step_events(AppState &state, Batch &batch, const std::vector<uint8_
   for (uint32_t prey_idx = 0; prey_idx < prey_count; ++prey_idx) {
     const int killer_idx = prey_buffer.host_claimed_by()[prey_idx];
     if (killer_idx >= 0 && static_cast<uint32_t>(killer_idx) < state.predator.size()) {
-      ++state.metrics.step_delta.kills;
+      ++state.metrics.kills;
     }
     if (state.prey.alive[prey_idx] == 0) {
-      ++state.metrics.step_delta.prey_deaths;
+      ++state.metrics.prey_deaths;
     }
   }
 }

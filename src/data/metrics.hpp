@@ -6,10 +6,7 @@ struct AppState;
 
 namespace metrics {
 
-void begin_step(AppState &state);
-void refresh_live(AppState &state);
-void finalize_step(AppState &state);
-void record_report(AppState &state);
+void refresh(AppState &state);
 
 } // namespace metrics
 

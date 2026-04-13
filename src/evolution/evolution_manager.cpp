@@ -364,9 +364,9 @@ void EvolutionManager::reproduce_population(AppState &state, AgentRegistry &regi
     const uint32_t child = create_offspring(state, registry, idx, best_mate, {clamped_x, clamped_y});
     if (child != INVALID_ENTITY) {
       if (&registry == &state.predator) {
-        ++state.metrics.step_delta.predator_births;
+        ++state.metrics.predator_births;
       } else {
-        ++state.metrics.step_delta.prey_births;
+        ++state.metrics.prey_births;
       }
     }
     used[idx] = 1;

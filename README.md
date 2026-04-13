@@ -297,7 +297,7 @@ Each run writes to `output/{experiment_name}/` (named experiments) or `output/YY
 | File | Contents |
 |------|----------|
 | `config.json` | Full config snapshot for this run |
-| `stats.csv` | One row per report window: `step, predator_count, prey_count, births, deaths, predator_species, prey_species, avg_complexity, avg_predator_energy, avg_prey_energy` |
+| `stats.csv` | One row per report interval sample with current state plus cumulative event totals: `step, predator_count, prey_count, predator_births, prey_births, predator_deaths, prey_deaths, predator_species, prey_species, avg_predator_complexity, avg_prey_complexity, avg_predator_energy, avg_prey_energy, max_predator_generation, avg_predator_generation, max_prey_generation, avg_prey_generation` |
 | `species.csv` | One row per species per generation: `step, population, species_id, size, avg_complexity` |
 | `genomes.json` | Representative genome snapshots (nodes + connections JSON) |
 

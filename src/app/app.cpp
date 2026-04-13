@@ -53,7 +53,7 @@ App::App(AppConfig cfg)
   evolution_.initialize(state_, SENSOR_COUNT, OUTPUT_COUNT);
   evolution_.seed_initial_population(state_);
   evolution_.initialize_inference(state_);
-  metrics::refresh_live(state_);
+  metrics::refresh(state_);
 
   logger_.initialize(cfg_.sim_config);
 
@@ -71,8 +71,6 @@ App::App(AppConfig cfg)
 }
 
 bool App::step() {
-  metrics::begin_step(state_);
-
   const auto run_step_once = [&]() {
     if (!simulation::prepare_step(state_, cfg_.sim_config)) {
       return false;
@@ -94,16 +92,15 @@ bool App::step() {
   }
 
   ++state_.runtime.step;
-  metrics::finalize_step(state_);
+  metrics::refresh(state_);
   return true;
 }
 
 void App::record_and_log() {
   evolution_.refresh_species(state_);
-  metrics::refresh_live(state_);
-  metrics::record_report(state_);
+  metrics::refresh(state_);
 
-  logger_.log_report(state_.metrics.last_report);
+  logger_.log_report(state_.metrics);
 
   const Genome *best_genome = nullptr;
   std::size_t best_complexity = 0;
@@ -123,20 +120,18 @@ void App::record_and_log() {
   }
 
   if (best_genome) {
-    logger_.log_best_genome(state_.metrics.last_report.step, *best_genome);
+    logger_.log_best_genome(state_.metrics.step, *best_genome);
   }
 
-  logger_.log_species(state_.metrics.last_report.step, state_.predator.species, "predator");
-  logger_.log_species(state_.metrics.last_report.step, state_.prey.species, "prey");
+  logger_.log_species(state_.metrics.step, state_.predator.species, "predator");
+  logger_.log_species(state_.metrics.step, state_.prey.species, "prey");
   logger_.flush();
 
   spdlog::info("Step {:6d}: predators={} prey={} pred_births={} prey_births={} pred_deaths={} prey_deaths={} "
                "pred_species={} prey_species={}",
-               state_.metrics.last_report.step, state_.metrics.last_report.predator_count,
-               state_.metrics.last_report.prey_count, state_.metrics.last_report.predator_births,
-               state_.metrics.last_report.prey_births, state_.metrics.last_report.predator_deaths,
-               state_.metrics.last_report.prey_deaths, state_.metrics.last_report.predator_species,
-               state_.metrics.last_report.prey_species);
+               state_.metrics.step, state_.metrics.predator_count, state_.metrics.prey_count,
+               state_.metrics.predator_births, state_.metrics.prey_births, state_.metrics.predator_deaths,
+               state_.metrics.prey_deaths, state_.metrics.predator_species, state_.metrics.prey_species);
 }
 
 bool App::run() {
@@ -185,10 +180,6 @@ bool App::run() {
     if (!cfg_.headless) {
       visualization_->render(build_frame_snapshot(state_, cfg_));
     }
-  }
-
-  if (!state_.metrics.has_last_report || state_.metrics.last_report.step != state_.metrics.live.step) {
-    record_and_log();
   }
 
   logger_.flush();

@@ -28,7 +28,7 @@ FrameSnapshot build_frame_snapshot(const AppState &state, const AppConfig &confi
   float pred_dist[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
   float prey_dist[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
 
-  frame.foods.reserve(static_cast<std::size_t>(state.metrics.live.active_food));
+  frame.foods.reserve(static_cast<std::size_t>(state.metrics.active_food));
   for (std::size_t i = 0; i < state.food.size(); ++i) {
     if (!state.food.active[i]) {
       continue;
@@ -59,41 +59,41 @@ FrameSnapshot build_frame_snapshot(const AppState &state, const AppConfig &confi
                                      Vec2{state.prey.vel_x[idx], state.prey.vel_y[idx]}});
   }
 
-  if (state.metrics.live.predator_count > 0) {
+  if (state.metrics.predator_count > 0) {
     for (float &value : pred_dist) {
-      value /= state.metrics.live.predator_count;
+      value /= state.metrics.predator_count;
     }
   }
-  if (state.metrics.live.prey_count > 0) {
+  if (state.metrics.prey_count > 0) {
     for (float &value : prey_dist) {
-      value /= state.metrics.live.prey_count;
+      value /= state.metrics.prey_count;
     }
   }
 
-  frame.overlay_stats.step = state.metrics.live.step;
+  frame.overlay_stats.step = state.metrics.step;
   frame.overlay_stats.max_steps = config.sim_config.max_steps;
-  frame.overlay_stats.alive_predator = state.metrics.live.predator_count;
-  frame.overlay_stats.alive_prey = state.metrics.live.prey_count;
-  frame.overlay_stats.active_food = state.metrics.live.active_food;
-  frame.overlay_stats.predator_species = state.metrics.live.predator_species;
-  frame.overlay_stats.prey_species = state.metrics.live.prey_species;
-  frame.overlay_stats.avg_predator_complexity = state.metrics.live.avg_predator_complexity;
-  frame.overlay_stats.avg_prey_complexity = state.metrics.live.avg_prey_complexity;
-  frame.overlay_stats.avg_predator_energy = state.metrics.live.avg_predator_energy;
-  frame.overlay_stats.avg_prey_energy = state.metrics.live.avg_prey_energy;
+  frame.overlay_stats.alive_predator = state.metrics.predator_count;
+  frame.overlay_stats.alive_prey = state.metrics.prey_count;
+  frame.overlay_stats.active_food = state.metrics.active_food;
+  frame.overlay_stats.predator_species = state.metrics.predator_species;
+  frame.overlay_stats.prey_species = state.metrics.prey_species;
+  frame.overlay_stats.avg_predator_complexity = state.metrics.avg_predator_complexity;
+  frame.overlay_stats.avg_prey_complexity = state.metrics.avg_prey_complexity;
+  frame.overlay_stats.avg_predator_energy = state.metrics.avg_predator_energy;
+  frame.overlay_stats.avg_prey_energy = state.metrics.avg_prey_energy;
   frame.overlay_stats.speed_multiplier = state.ui.speed_multiplier;
   frame.overlay_stats.paused = state.ui.paused;
   frame.overlay_stats.experiment_name = config.experiment_name;
-  frame.overlay_stats.total_kills = state.metrics.totals.kills;
-  frame.overlay_stats.total_food_eaten = state.metrics.totals.food_eaten;
-  frame.overlay_stats.total_predator_births = state.metrics.totals.predator_births;
-  frame.overlay_stats.total_prey_births = state.metrics.totals.prey_births;
-  frame.overlay_stats.total_predator_deaths = state.metrics.totals.predator_deaths;
-  frame.overlay_stats.total_prey_deaths = state.metrics.totals.prey_deaths;
-  frame.overlay_stats.max_predator_generation = state.metrics.live.max_predator_generation;
-  frame.overlay_stats.avg_predator_generation = state.metrics.live.avg_predator_generation;
-  frame.overlay_stats.max_prey_generation = state.metrics.live.max_prey_generation;
-  frame.overlay_stats.avg_prey_generation = state.metrics.live.avg_prey_generation;
+  frame.overlay_stats.total_kills = state.metrics.kills;
+  frame.overlay_stats.total_food_eaten = state.metrics.food_eaten;
+  frame.overlay_stats.total_predator_births = state.metrics.predator_births;
+  frame.overlay_stats.total_prey_births = state.metrics.prey_births;
+  frame.overlay_stats.total_predator_deaths = state.metrics.predator_deaths;
+  frame.overlay_stats.total_prey_deaths = state.metrics.prey_deaths;
+  frame.overlay_stats.max_predator_generation = state.metrics.max_predator_generation;
+  frame.overlay_stats.avg_predator_generation = state.metrics.avg_predator_generation;
+  frame.overlay_stats.max_prey_generation = state.metrics.max_prey_generation;
+  frame.overlay_stats.avg_prey_generation = state.metrics.avg_prey_generation;
   for (int i = 0; i < 5; ++i) {
     frame.overlay_stats.predator_energy_dist[i] = pred_dist[i];
     frame.overlay_stats.prey_energy_dist[i] = prey_dist[i];
