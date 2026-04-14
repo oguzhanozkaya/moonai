@@ -36,9 +36,6 @@ void EvolutionManager::initialize(AppState &state, int num_inputs, int num_outpu
   initialize_population(state.prey);
 }
 
-using moonai::OUTPUT_COUNT;
-using moonai::SENSOR_COUNT;
-
 namespace {
 
 class DenseReproductionGrid {
@@ -51,6 +48,8 @@ public:
         write_offsets_(static_cast<std::size_t>(cols_ * rows_), 0), entries_(entity_count, INVALID_ENTITY) {}
 
   void build(const AgentRegistry &registry, std::size_t entity_count) {
+    MOONAI_PROFILE_SCOPE("reproduce_population_grid_build");
+
     std::fill(counts_.begin(), counts_.end(), 0);
     std::fill(offsets_.begin(), offsets_.end(), 0);
 
@@ -319,6 +318,8 @@ void EvolutionManager::reproduce_population(AppState &state, AgentRegistry &regi
   const float world_size = static_cast<float>(config_.grid_size);
   const uint32_t entity_count = static_cast<uint32_t>(registry.size());
 
+  {
+  MOONAI_PROFILE_SCOPE("reproduce_population_loop");
   for (uint32_t idx = 0; idx < entity_count; ++idx) {
     if (registry.energy[idx] < config_.reproduction_energy_threshold || used[idx] != 0) {
       continue;
@@ -360,6 +361,7 @@ void EvolutionManager::reproduce_population(AppState &state, AgentRegistry &regi
     }
     used[idx] = 1;
     used[best_mate] = 1;
+  }
   }
 }
 
