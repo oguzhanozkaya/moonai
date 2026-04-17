@@ -434,7 +434,7 @@ MoonAI follows the **LLVM coding style** (2-space indentation, LLVM brace breaki
   - 2-space indentation
   - 120 column limit
   - Attached braces
-  - Right-aligned pointers/references
+  - Left-aligned pointers/references
 
 #### Code Style Conventions
 
