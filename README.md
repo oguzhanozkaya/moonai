@@ -64,29 +64,13 @@ ECS solves these with:
 
 ### System Architecture
 
-```
-┌───────────────────────────────────────────────────────────┐
-│                    Visualization (SFML)                   │
-│              Renders agents, grid, UI overlays            │
-└──────────────────────────┬────────────────────────────────┘
-                           │ Reads runtime state
-┌──────────────────────────┴────────────────────────────────┐
-│                  App / Orchestration Layer                │
-│   Runs the top-level step flow, logging, and lifecycle    │
-└───────────────┬───────────────────┬───────────────────────┘
-                │                   │
-┌───────────────┴──────────────┐  ┌─┴───────────────────────┐
-│   ECS Simulation Core        │  │   Evolution Core (NEAT) │
-│ Registry, systems, CUDA sim  │  │ Genome, NN, species,    │
-│ backend under simulation/    │  │ CUDA inference backend  │
-└───────────────┬──────────────┘  └─┬───────────────────────┘
-                │                   │
-                └──────────┬────────┘
-                           │
-                ┌──────────┴──────────┐
-                │    Data / Reporting  │
-                │ Metrics, CSV, JSON   │
-                └──────────────────────┘
+```mermaid
+flowchart TB
+    Viz[Visualization] --> App
+    App --> Sim[Simulation]
+    App --> Ev[Evolution]
+    Sim --> Data
+    Ev --> Data
 ```
 
 | Subsystem | Pattern | Library | Description |
