@@ -1,173 +1,63 @@
 ---
-icon: lucide/rocket
+hide:
+  - navigation
+  - toc
 ---
 
-# Get started
+# MoonAI
 
-For full documentation visit [zensical.org](https://zensical.org/docs/).
+A modular and extensible simulation platform for studying continuous evolutionary algorithms and neural network evolution through predator-prey dynamics.
 
-## Commands
+**CMPE 491/492 - Senior Design Project | TED University**
 
-* [`zensical new`][new] - Create a new project
-* [`zensical serve`][serve] - Start local web server
-* [`zensical build`][build] - Build your site
+**Team:**
 
-  [new]: https://zensical.org/docs/usage/new/
-  [serve]: https://zensical.org/docs/usage/preview/
-  [build]: https://zensical.org/docs/usage/build/
+- Caner Aras
+- Emir Irkılata
+- Oğuzhan Özkaya
 
-## Examples
+**Supervisor:**
 
-### Admonitions
+- Ayşenur Birtürk
 
-> Go to [documentation](https://zensical.org/docs/authoring/admonitions/)
+**Jury Members:**
 
-!!! note
+- Deniz Canturk
+- Mehmet Evren Coskun
 
-    This is a **note** admonition. Use it to provide helpful information.
+## Overview
 
-!!! warning
+MoonAI uses a predator-prey environment as a synthetic benchmark to evaluate evolutionary computation methods. Agents (predators and prey) are controlled by neural networks whose structure and weights evolve continuously through births and deaths using the **NeuroEvolution of Augmenting Topologies (NEAT)** algorithm.
 
-    This is a **warning** admonition. Be careful!
+The platform enables researchers to:
 
-### Details
+- Observe how neural network topologies emerge and grow in complexity through evolution
+- Compare different genetic representations, mutation strategies, and selection methods
+- Generate structured datasets for machine learning research without real-world data
+- Visualize agent behavior and algorithm evolution in real time
 
-> Go to [documentation](https://zensical.org/docs/authoring/admonitions/#collapsible-blocks)
+### Motivation
 
-??? info "Click to expand for more info"
+Modern artificial intelligence training often requires vast amounts of real-world data and manually designed scenarios, which do not scale efficiently. MoonAI addresses this limitation by providing autonomous, self-generating training environments for studying evolutionary computation without external data dependencies.
 
-    This content is hidden until you click to expand it.
-    Great for FAQs or long explanations.
+### Objective
 
-## Code Blocks
+Develop a robust simulation environment to research and optimize evolutionary algorithms. By decoupling training from real-world data dependencies, we investigate how genetic representations influence learning efficiency and adaptability in dynamic, complex environments.
 
-> Go to [documentation](https://zensical.org/docs/authoring/code-blocks/)
+### Approach
+The system employs a high-fidelity predator-prey simulation to generate evolutionary and genetic data. This synthetic ecosystem serves as a dynamic benchmark for evaluating evolutionary computation techniques in adaptive behavior modeling.
 
-``` python hl_lines="2" title="Code blocks"
-def greet(name):
-    print(f"Hello, {name}!") # (1)!
+## Features
 
-greet("Python")
-```
+- **Entity-Component-System Architecture** - Data-oriented design with sparse-set ECS, cache-friendly SoA memory layouts, and 5-10x performance improvement
+- **NEAT Implementation** - Evolves both topology and weights of neural networks simultaneously
+- **Real-Time Visualization** - SFML-based rendering with interactive controls and live NN activation display
+- **GPU Acceleration** - CUDA backend for sensing, neural inference, and simulation systems in both visual and headless modes
+- **Cross-Platform** - Runs on Linux and Windows with matched features and stable runtime behavior
+- **Reproducible Experiments** - Seeded RNG with deterministic behavior within the CUDA execution path on a fixed runtime environment
+- **Lua Configuration** - Define named experiments and parameter sweeps in `config.lua` without recompilation
+- **Data Export** - CSV/JSON output (including optional per-step trajectories) compatible with Python analysis tools
 
-1.  > Go to [documentation](https://zensical.org/docs/authoring/code-blocks/#code-annotations)
+### Real-Time Analytics
 
-    Code annotations allow to attach notes to lines of code.
-
-Code can also be highlighted inline: `#!python print("Hello, Python!")`.
-
-## Content tabs
-
-> Go to [documentation](https://zensical.org/docs/authoring/content-tabs/)
-
-=== "Python"
-
-    ``` python
-    print("Hello from Python!")
-    ```
-
-=== "Rust"
-
-    ``` rs
-    println!("Hello from Rust!");
-    ```
-
-## Diagrams
-
-> Go to [documentation](https://zensical.org/docs/authoring/diagrams/)
-
-``` mermaid
-graph LR
-  A[Start] --> B{Error?};
-  B -->|Yes| C[Hmm...];
-  C --> D[Debug];
-  D --> B;
-  B ---->|No| E[Yay!];
-```
-
-## Footnotes
-
-> Go to [documentation](https://zensical.org/docs/authoring/footnotes/)
-
-Here's a sentence with a footnote.[^1]
-
-Hover it, to see a tooltip.
-
-[^1]: This is the footnote.
-
-
-## Formatting
-
-> Go to [documentation](https://zensical.org/docs/authoring/formatting/)
-
-- ==This was marked (highlight)==
-- ^^This was inserted (underline)^^
-- ~~This was deleted (strikethrough)~~
-- H~2~O
-- A^T^A
-- ++ctrl+alt+del++
-
-## Icons, Emojis
-
-> Go to [documentation](https://zensical.org/docs/authoring/icons-emojis/)
-
-* :sparkles: `:sparkles:`
-* :rocket: `:rocket:`
-* :tada: `:tada:`
-* :memo: `:memo:`
-* :eyes: `:eyes:`
-
-## Maths
-
-> Go to [documentation](https://zensical.org/docs/authoring/math/)
-
-$$
-\cos x=\sum_{k=0}^{\infty}\frac{(-1)^k}{(2k)!}x^{2k}
-$$
-
-!!! warning "Needs configuration"
-    Note that MathJax is included via a `script` tag on this page and is not
-    configured in the generated default configuration to avoid including it
-    in a pages that do not need it. See the documentation for details on how
-    to configure it on all your pages if they are more Maths-heavy than these
-    simple starter pages.
-
-<script id="MathJax-script" src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
-<script>
-  window.MathJax = {
-    tex: {
-      inlineMath: [["\\(", "\\)"]],
-      displayMath: [["\\[", "\\]"]],
-      processEscapes: true,
-      processEnvironments: true
-    },
-    options: {
-      ignoreHtmlClass: ".*|",
-      processHtmlClass: "arithmatex"
-    }
-  };
-
-  document$.subscribe(() => {
-    MathJax.startup.output.clearCache()
-    MathJax.typesetClear()
-    MathJax.texReset()
-    MathJax.typesetPromise()
-  })
-</script>
-
-## Task Lists
-
-> Go to [documentation](https://zensical.org/docs/authoring/lists/#using-task-lists)
-
-* [x] Install Zensical
-* [x] Configure `zensical.toml`
-* [x] Write amazing documentation
-* [ ] Deploy anywhere
-
-## Tooltips
-
-> Go to [documentation](https://zensical.org/docs/authoring/tooltips/)
-
-[Hover me][example]
-
-  [example]: https://example.com "I'm a tooltip!"
+Researchers observe emergent behaviors through an SFML-based real-time visualization layer. The system concurrently logs extensive telemetry, including population metrics and genome histories, exporting structured data for rigorous offline analysis using Python-based tools.

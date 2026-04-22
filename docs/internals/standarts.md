@@ -1,6 +1,8 @@
-# Standarts
+---
+description: Conventions, rules and policies.
+---
 
-> Conventions, rules and policies.
+# Standarts
 
 ## C++ Code Style
 

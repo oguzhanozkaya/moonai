@@ -1,3 +1,5 @@
-# Domain
+---
+description: High-level overview of the project.
+---
 
-> High-level overview of the project.
+# Domain
