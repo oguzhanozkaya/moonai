@@ -1,5 +1,16 @@
 # About
 
+## Overview
+
+MoonAI uses a predator-prey environment as a synthetic benchmark to evaluate evolutionary computation methods. Agents (predators and prey) are controlled by neural networks whose structure and weights evolve continuously through births and deaths using the **NeuroEvolution of Augmenting Topologies (NEAT)** algorithm.
+
+The platform enables researchers to:
+
+- Observe how neural network topologies emerge and grow in complexity through evolution
+- Compare different genetic representations, mutation strategies, and selection methods
+- Generate structured datasets for machine learning research without real-world data
+- Visualize agent behavior and algorithm evolution in real time
+
 ## Features
 
 - **Entity-Component-System Architecture** - Data-oriented design with sparse-set ECS, cache-friendly SoA memory layouts, and 5-10x performance improvement
