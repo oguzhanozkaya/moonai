@@ -19,7 +19,7 @@ release-dir := "build" / (os + "-release")
 
 # ─── Build ──────────────────────────────────────────────────────────────────
 
-# Set up Python environments for simulation and profiler analysis
+# Set up Python environments for simulation and analysis
 [group('build')]
 setup-python:
   uv sync
@@ -36,7 +36,7 @@ build:
   cmake --build {{build-dir}} --parallel
 
 # Build in release mode (with LTO, native optimizations, and strict warnings)
-# Pass extra cmake args (e.g., just release -DMOONAI_BUILD_PROFILER=ON)
+# Pass extra cmake args (e.g., just release -DVAR=value)
 [group('build')]
 release *args:
   just build-type=release configure {{args}}
@@ -80,22 +80,6 @@ experiment-analyse:
 # Full experiment pipeline: run all experiments → generate report
 [group('experiment')]
 experiment: experiment-run experiment-analyse
-
-# ─── Profile ────────────────────────────────────────────────────────────────
-
-# Full profiler pipeline: run profiler -> generate profiler report
-[group('profile')]
-profile: profile-run profile-analyse
-
-# Run the built-in profiler with optional arguments
-[group('profile')]
-profile-run *args: (release "-DMOONAI_BUILD_PROFILER=ON")
-  {{release-dir}}/moonai_profiler {{args}}
-
-# Generate the self-contained HTML profiler report from output/profiles/
-[group('profile')]
-profile-analyse:
-  uv run profiler
 
 # ─── Development ────────────────────────────────────────────────────────────
 

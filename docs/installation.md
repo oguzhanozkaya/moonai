@@ -66,7 +66,6 @@ cmake --build build/linux-debug --parallel # manually
 | Option | Default | Description |
 |--------|---------|-------------|
 | `MOONAI_BUILD_TESTS` | `ON` | Build unit tests |
-| `MOONAI_BUILD_PROFILER` | `OFF` | Build profiler executable |
 
 #### 3. Run
 

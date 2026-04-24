@@ -27,7 +27,6 @@ endif()
 
 # ── Options ──────────────────────────────────────────────────────────────────
 option(MOONAI_BUILD_TESTS    "Build unit tests"                 ON)
-option(MOONAI_BUILD_PROFILER "Build profiler executable"        OFF)
 
 message(STATUS "CUDA compiler: ${CMAKE_CUDA_COMPILER}")
 
@@ -56,13 +55,6 @@ add_executable(moonai src/main.cpp)
 
 target_link_libraries(moonai PRIVATE moonai_app)
 
-if(MOONAI_BUILD_PROFILER)
-  add_executable(moonai_profiler src/profiler_main.cpp)
-
-  target_link_libraries(moonai_profiler PRIVATE moonai_app_profiler)
-  target_compile_definitions(moonai_profiler PRIVATE MOONAI_BUILD_PROFILER)
-endif()
-
 # ── Copy runtime assets to build directory ───────────────────────────────────
 # config.lua is resolved relative to CWD; copy it alongside the binary so that
 # running from the build dir (e.g. ./build/linux-debug/moonai) works out of the box.
@@ -79,20 +71,6 @@ add_custom_command(TARGET moonai POST_BUILD
         $<TARGET_FILE_DIR:moonai>/${MOONAI_BUNDLED_FONT_RELATIVE_PATH}
     COMMENT "Copying runtime assets to build directory"
 )
-
-if(MOONAI_BUILD_PROFILER)
-    add_custom_command(TARGET moonai_profiler POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${CMAKE_SOURCE_DIR}/config.lua
-            $<TARGET_FILE_DIR:moonai_profiler>/config.lua
-        COMMAND ${CMAKE_COMMAND} -E make_directory
-            $<TARGET_FILE_DIR:moonai_profiler>/assets/fonts
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${CMAKE_SOURCE_DIR}/${MOONAI_BUNDLED_FONT_RELATIVE_PATH}
-            $<TARGET_FILE_DIR:moonai_profiler>/${MOONAI_BUNDLED_FONT_RELATIVE_PATH}
-        COMMENT "Copying profiler runtime assets to build directory"
-    )
-endif()
 
 # ── Tests ────────────────────────────────────────────────────────────────────
 if(MOONAI_BUILD_TESTS)

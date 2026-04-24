@@ -164,43 +164,6 @@ The generated HTML is fully self-contained: it embeds all plots and report data 
 - skipped-run information for incomplete or invalid runs
 - inline styling and navigation so the report opens directly in a browser without side files
 
-## Profiler
-
-The profiler executable is available but not built by default (set `MOONAI_BUILD_PROFILER=ON` to enable). It captures detailed per-frame timing data for performance analysis.
-
-### Running the Profiler
-
-```bash
-just profile-run                                     # Run with defaults (300 frames, 6 seeds)
-just profile-run --frames 300                        # Custom frame count
-just profile-run --name mytest --output-dir results  # Custom name and output
-```
-
-**CLI Arguments:**
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--frames N` | 300 | Number of frames to capture per run |
-| `--name <name>` | profile | Experiment name (used in output filename) |
-| `--output-dir <path>` | output/profiler/profiles | Output directory |
-
-Each profiler run writes a single JSON file to `output/profiler/profiles/`:
-
-| File | Contents |
-|------|----------|
-| `YYYY-MM-DD_HH-MM-SS_name.json` | Suite manifest with per-frame timing data from all seeds |
-
-The profiler drops the fastest and slowest runs by average frame time, and reports aggregate timing data from the remaining runs. Standard simulation builds do not include profiler instrumentation.
-
-### Generating Reports
-
-```bash
-just profile-analyse    # Generate HTML report from latest profile run
-just profile            # Full pipeline: run profiler and build report
-```
-
-The profiler writes a timestamped self-contained HTML report to `output/profiler/`, for example `profile_report_20260324_154233.html`.
-
 ## Output Artifacts
 
 Generated artifacts live under `output/` (gitignored):

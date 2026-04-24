@@ -1,4 +1,3 @@
-#include "core/profiler_macros.hpp"
 #include "simulation/batch.hpp"
 #include "simulation/checks.cuh"
 
@@ -651,8 +650,6 @@ void Batch::ensure_capacity(std::size_t predator_count, std::size_t prey_count, 
 }
 
 void Batch::upload_async(std::size_t predator_count, std::size_t prey_count, std::size_t food_count) {
-  MOONAI_PROFILE_SCOPE("upload");
-
   const cudaStream_t stream = static_cast<cudaStream_t>(stream_);
   predator_buffer_.upload_async(predator_count, stream);
   prey_buffer_.upload_async(prey_count, stream);
@@ -660,8 +657,6 @@ void Batch::upload_async(std::size_t predator_count, std::size_t prey_count, std
 }
 
 void Batch::download_async(std::size_t predator_count, std::size_t prey_count, std::size_t food_count) {
-  MOONAI_PROFILE_SCOPE("download_enqueue");
-
   const cudaStream_t stream = static_cast<cudaStream_t>(stream_);
   predator_buffer_.download_async(predator_count, stream);
   prey_buffer_.download_async(prey_count, stream);
@@ -670,8 +665,6 @@ void Batch::download_async(std::size_t predator_count, std::size_t prey_count, s
 
 void Batch::launch_build_sensors_async(const StepParams &params, std::size_t predator_count, std::size_t prey_count,
                                        std::size_t food_count) {
-  MOONAI_PROFILE_SCOPE("launch_sensors");
-
   grid_cell_size_ = std::max(params.vision_range, 1.0f);
   grid_cols_ = std::max(1, static_cast<int>(std::ceil(params.world_width / grid_cell_size_)));
   grid_rows_ = std::max(1, static_cast<int>(std::ceil(params.world_height / grid_cell_size_)));
@@ -684,13 +677,11 @@ void Batch::launch_build_sensors_async(const StepParams &params, std::size_t pre
   const int food_blocks = (static_cast<int>(food_count) + kThreadsPerBlock - 1) / kThreadsPerBlock;
 
   {
-    MOONAI_PROFILE_SCOPE("build_grid", stream);
     CUDA_CHECK(cudaMemsetAsync(d_predator_cell_counts_, 0, (cell_count + 1) * sizeof(int), stream));
     CUDA_CHECK(cudaMemsetAsync(d_prey_cell_counts_, 0, (cell_count + 1) * sizeof(int), stream));
     CUDA_CHECK(cudaMemsetAsync(d_food_cell_counts_, 0, (cell_count + 1) * sizeof(int), stream));
 
     {
-      MOONAI_PROFILE_SCOPE("grid_count", stream);
       if (predator_count > 0) {
         kernel_count_population_cells_from_positions<<<predator_blocks, kThreadsPerBlock, 0, stream>>>(
             predator_buffer_.device_positions_x(), predator_buffer_.device_positions_y(),
@@ -710,7 +701,6 @@ void Batch::launch_build_sensors_async(const StepParams &params, std::size_t pre
     }
 
     {
-      MOONAI_PROFILE_SCOPE("grid_scan", stream);
       thrust::exclusive_scan(thrust::cuda::par.on(stream), d_predator_cell_counts_,
                              d_predator_cell_counts_ + cell_count + 1, d_predator_cell_offsets_);
       thrust::exclusive_scan(thrust::cuda::par.on(stream), d_prey_cell_counts_, d_prey_cell_counts_ + cell_count + 1,
@@ -727,7 +717,6 @@ void Batch::launch_build_sensors_async(const StepParams &params, std::size_t pre
     }
 
     {
-      MOONAI_PROFILE_SCOPE("grid_scatter", stream);
       if (predator_count > 0) {
         kernel_scatter_population_cells_from_positions<<<predator_blocks, kThreadsPerBlock, 0, stream>>>(
             predator_buffer_.device_positions_x(), predator_buffer_.device_positions_y(),
@@ -750,7 +739,6 @@ void Batch::launch_build_sensors_async(const StepParams &params, std::size_t pre
   }
 
   {
-    MOONAI_PROFILE_SCOPE("sensor_kernel", stream);
     if (predator_count > 0) {
       kernel_build_sensors<true><<<predator_blocks, kThreadsPerBlock, 0, stream>>>(
           predator_buffer_.device_positions_x(), predator_buffer_.device_positions_y(),
@@ -777,8 +765,6 @@ void Batch::launch_build_sensors_async(const StepParams &params, std::size_t pre
 
 void Batch::launch_post_inference_async(const StepParams &params, std::size_t predator_count, std::size_t prey_count,
                                         std::size_t food_count) {
-  MOONAI_PROFILE_SCOPE("post_inference");
-
   const cudaStream_t stream = static_cast<cudaStream_t>(stream_);
   const int predator_blocks = (static_cast<int>(predator_count) + kThreadsPerBlock - 1) / kThreadsPerBlock;
   const int prey_blocks = (static_cast<int>(prey_count) + kThreadsPerBlock - 1) / kThreadsPerBlock;
@@ -849,7 +835,6 @@ void Batch::launch_post_inference_async(const StepParams &params, std::size_t pr
 }
 
 void Batch::synchronize() {
-  MOONAI_PROFILE_SCOPE("synchronize");
   const cudaError_t err = cudaStreamSynchronize(static_cast<cudaStream_t>(stream_));
   if (err != cudaSuccess) {
     spdlog::error("CUDA synchronize failed: {}", cudaGetErrorString(err));

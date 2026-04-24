@@ -1,6 +1,5 @@
 #include "app/app.hpp"
 
-#include "core/profiler_macros.hpp"
 #include "core/types.hpp"
 #include "metrics/metrics.hpp"
 #include "simulation/simulation.hpp"
@@ -144,8 +143,6 @@ bool App::run() {
   bool completed = true;
   bool failed = false;
   while (cfg_.sim_config.max_steps == 0 || state_.runtime.step < cfg_.sim_config.max_steps) {
-    MOONAI_PROFILE_SCOPE("frame_total");
-
     if (g_running_ == 0) {
       completed = false;
       break;
@@ -162,8 +159,6 @@ bool App::run() {
     int steps_to_run = state_.ui.paused ? state_.ui.step_requested : std::max(1, state_.ui.speed_multiplier);
     state_.ui.step_requested = false;
     for (int i = 0; i < steps_to_run; ++i) {
-      MOONAI_PROFILE_SCOPE("step");
-
       if (!step()) {
         failed = true;
         break;

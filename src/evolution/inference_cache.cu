@@ -1,4 +1,3 @@
-#include "core/profiler_macros.hpp"
 #include "core/types.hpp"
 #include "evolution/inference_cache.hpp"
 #include "evolution/network_cache.hpp"
@@ -374,8 +373,6 @@ bool InferenceCache::upload_pending(cudaStream_t stream) {
     return true;
   }
 
-  MOONAI_PROFILE_SCOPE("inference_cache_upload", stream);
-
   for (const uint32_t entry_index : pending_entry_uploads_) {
     const Entry &entry = entries_[entry_index];
 
@@ -653,8 +650,6 @@ bool InferenceCache::launch_inference_async(const float *sensor_inputs, float *b
   }
 
   const int num_blocks = (static_cast<int>(count) + kBlockSize - 1) / kBlockSize;
-
-  MOONAI_PROFILE_SCOPE("inference_kernel", stream);
 
   kernel_neural_inference<<<num_blocks, kBlockSize, 0, stream>>>(
       d_descriptors_, d_node_values_, d_eval_order_, d_conn_from_, d_conn_weights_, d_conn_ptr_, d_out_indices_,

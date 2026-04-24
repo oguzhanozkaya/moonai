@@ -28,10 +28,8 @@ moonai/
 │   ├── about.md
 │   ├── installation.md
 │   └── index.md
-├── profiler/                   # Python profiler analysis package
 ├── src/                        # C++ simulation core
 │   ├── main.cpp                # Entry point: CLI parsing and app startup
-│   ├── profiler_main.cpp       # Profiler executable entry point
 │   ├── app/                    # Application orchestration layer
 │   ├── core/                   # Types, config, Lua runtime, seeded RNG
 │   ├── evolution/              # NEAT genome, neural network, speciation
@@ -78,16 +76,6 @@ The C++ simulation is organized into:
 | `plots.py` | Generates embedded matplotlib figures |
 | `genome.py` | Renders neural network topology diagrams |
 | `summary.py` | Prepares summary statistics |
-| `html_report.py` | Renders self-contained HTML document |
-| `report.html` | Jinja2 HTML report template |
-
-## `profiler/`
-
-| File | Purpose |
-|------|---------|
-| `__main__.py` | CLI entry point (`uv run profiler`) |
-| `report.py` | Generates profiler HTML report |
-| `io.py` | Profile run discovery and validation |
 | `html_report.py` | Renders self-contained HTML document |
 | `report.html` | Jinja2 HTML report template |
 

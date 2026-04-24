@@ -1,7 +1,5 @@
 #include "visualization/visualization_manager.hpp"
 
-#include "core/profiler_macros.hpp"
-
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/Graphics/Texture.hpp>
 #include <SFML/Window/Event.hpp>
@@ -55,8 +53,6 @@ bool VisualizationManager::initialize() {
 }
 
 void VisualizationManager::render(FrameSnapshot frame) {
-  MOONAI_PROFILE_SCOPE("render");
-
   if (!window_ || !running_)
     return;
 
@@ -72,7 +68,6 @@ void VisualizationManager::render(FrameSnapshot frame) {
   window_->setView(camera_view_);
 
   {
-    MOONAI_PROFILE_SCOPE("render_world");
     renderer_.draw_background(*window_, frame_.world_width, frame_.world_height);
     renderer_.draw_grid(*window_, frame_.world_width, frame_.world_height, 300.0f);
     renderer_.draw_boundaries(*window_, frame_.world_width, frame_.world_height);
@@ -80,13 +75,11 @@ void VisualizationManager::render(FrameSnapshot frame) {
   }
 
   {
-    MOONAI_PROFILE_SCOPE("render_agents");
     renderer_.draw_predators(*window_, frame_.predators, ui_state_.selected_agent_id);
     renderer_.draw_prey(*window_, frame_.prey, ui_state_.selected_agent_id);
   }
 
   if (frame_.has_selected_vision && frame_.selected_agent_id == ui_state_.selected_agent_id) {
-    MOONAI_PROFILE_SCOPE("render_sensor_lines");
     Renderer::draw_vision_range(*window_, frame_.selected_position, frame_.selected_vision_range);
     Renderer::draw_sensor_lines(*window_, frame_.sensor_lines);
   }
@@ -103,13 +96,11 @@ void VisualizationManager::render(FrameSnapshot frame) {
   }
 
   {
-    MOONAI_PROFILE_SCOPE("render_ui");
     overlay_.set_activations(frame_.selected_node_activations);
     overlay_.draw(*window_, frame_.overlay_stats, frame_.selected_genome);
   }
 
   {
-    MOONAI_PROFILE_SCOPE("swap_buffers");
     window_->display();
   }
 }
@@ -119,8 +110,6 @@ bool VisualizationManager::should_close() const {
 }
 
 void VisualizationManager::handle_events() {
-  MOONAI_PROFILE_SCOPE("handle_events");
-
   if (!window_)
     return;
 

@@ -1,6 +1,5 @@
 #include "core/app_state.hpp"
 #include "core/deterministic_respawn.hpp"
-#include "core/profiler_macros.hpp"
 
 #include <algorithm>
 
@@ -21,8 +20,6 @@ void Food::initialize(const SimulationConfig &config, Random &rng) {
 }
 
 void Food::respawn_step(const SimulationConfig &config, int step_index, std::uint64_t seed) {
-  MOONAI_PROFILE_SCOPE("food_respawn");
-
   const float world_size = static_cast<float>(config.grid_size);
 
   for (std::size_t i = 0; i < active.size(); ++i) {

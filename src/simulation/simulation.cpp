@@ -1,6 +1,5 @@
 #include "simulation/simulation.hpp"
 
-#include "core/profiler_macros.hpp"
 #include "simulation/batch.hpp"
 
 #include <algorithm>
@@ -13,8 +12,6 @@ namespace moonai::simulation {
 namespace {
 
 void collect_step_events(AppState &state, Batch &batch, const std::vector<uint8_t> &was_food_active) {
-  MOONAI_PROFILE_SCOPE("collect_step_events");
-
   auto &prey_buffer = batch.prey_buffer();
   auto &food_buffer = batch.food_buffer();
 
@@ -46,8 +43,6 @@ void collect_step_events(AppState &state, Batch &batch, const std::vector<uint8_
 }
 
 void pack_state(AppState &state, Batch &batch) {
-  MOONAI_PROFILE_SCOPE("pack_state");
-
   auto &predator_buffer = batch.predator_buffer();
   auto &prey_buffer = batch.prey_buffer();
   auto &food_buffer = batch.food_buffer();
@@ -91,8 +86,6 @@ void pack_state(AppState &state, Batch &batch) {
 }
 
 void apply_results(AppState &state, Batch &batch) {
-  MOONAI_PROFILE_SCOPE("apply_results");
-
   auto &predator_buffer = batch.predator_buffer();
   auto &prey_buffer = batch.prey_buffer();
   auto &food_buffer = batch.food_buffer();
@@ -157,8 +150,6 @@ void initialize(AppState &state, const SimulationConfig &config) {
 }
 
 bool prepare_step(AppState &state, const SimulationConfig &config) {
-  MOONAI_PROFILE_SCOPE("prepare_step");
-
   state.step_buffers.was_food_active = state.food.active;
 
   const std::size_t predator_count = state.predator.size();
@@ -187,8 +178,6 @@ bool prepare_step(AppState &state, const SimulationConfig &config) {
 }
 
 bool resolve_step(AppState &state, const SimulationConfig &config) {
-  MOONAI_PROFILE_SCOPE("resolve_step");
-
   if (!state.batch.ok()) {
     spdlog::error("Simulation batch is in an error state before resolve step");
     return false;

@@ -1,6 +1,5 @@
 #include "evolution/evolution_manager.hpp"
 #include "core/app_state.hpp"
-#include "core/profiler_macros.hpp"
 #include "core/types.hpp"
 #include "evolution/crossover.hpp"
 #include "evolution/inference_cache.hpp"
@@ -48,8 +47,6 @@ public:
         write_offsets_(static_cast<std::size_t>(cols_ * rows_), 0), entries_(entity_count, INVALID_ENTITY) {}
 
   void build(const AgentRegistry &registry, std::size_t entity_count) {
-    MOONAI_PROFILE_SCOPE("reproduce_population_grid_build");
-
     std::fill(counts_.begin(), counts_.end(), 0);
     std::fill(offsets_.begin(), offsets_.end(), 0);
 
@@ -122,7 +119,6 @@ private:
 } // namespace
 
 bool EvolutionManager::run_inference(AppState &state) {
-  MOONAI_PROFILE_SCOPE("evolution_run_inference");
   return launch_inference(state, state.batch);
 }
 
@@ -212,7 +208,6 @@ void EvolutionManager::seed_initial_population(AppState &state) {
 
 uint32_t EvolutionManager::create_offspring(AppState &state, AgentRegistry &registry, uint32_t parent_a,
                                             uint32_t parent_b, Vec2 spawn_position) {
-  MOONAI_PROFILE_SCOPE((&registry == &state.predator) ? "evolution_offspring_predator" : "evolution_offspring_prey");
   if (!registry.valid(parent_a) || !registry.valid(parent_b) || parent_a >= registry.genomes.size() ||
       parent_b >= registry.genomes.size()) {
     return INVALID_ENTITY;
@@ -294,7 +289,6 @@ void EvolutionManager::refresh_population_species(AgentRegistry &registry) const
 }
 
 void EvolutionManager::refresh_species(AppState &state) {
-  MOONAI_PROFILE_SCOPE("refresh_species");
   refresh_population_species(state.predator);
   refresh_population_species(state.prey);
 }
@@ -308,8 +302,6 @@ void EvolutionManager::initialize_inference(AppState &state) {
 }
 
 void EvolutionManager::reproduce_population(AppState &state, AgentRegistry &registry) {
-  MOONAI_PROFILE_SCOPE("reproduce_population");
-
   std::vector<uint8_t> used(registry.size(), 0);
 
   DenseReproductionGrid grid(static_cast<float>(config_.grid_size), static_cast<float>(config_.grid_size),
@@ -319,7 +311,6 @@ void EvolutionManager::reproduce_population(AppState &state, AgentRegistry &regi
   const uint32_t entity_count = static_cast<uint32_t>(registry.size());
 
   {
-  MOONAI_PROFILE_SCOPE("reproduce_population_loop");
   for (uint32_t idx = 0; idx < entity_count; ++idx) {
     if (registry.energy[idx] < config_.reproduction_energy_threshold || used[idx] != 0) {
       continue;
@@ -366,8 +357,6 @@ void EvolutionManager::reproduce_population(AppState &state, AgentRegistry &regi
 }
 
 void EvolutionManager::post_step(AppState &state) {
-  MOONAI_PROFILE_SCOPE("evolution_post_step");
-
   reproduce_population(state, state.predator);
   reproduce_population(state, state.prey);
 }
@@ -390,7 +379,6 @@ bool launch_population_inference(AgentRegistry &registry, evolution::InferenceCa
 } // namespace
 bool EvolutionManager::launch_inference(AppState &state, simulation::Batch &batch) {
   {
-    MOONAI_PROFILE_SCOPE("predator_inference");
     if (!launch_population_inference(state.predator, state.predator.inference_cache, batch.predator_buffer(),
                                      state.predator.size(), batch.stream())) {
       batch.mark_error();
@@ -399,7 +387,6 @@ bool EvolutionManager::launch_inference(AppState &state, simulation::Batch &batc
   }
 
   {
-    MOONAI_PROFILE_SCOPE("prey_inference");
     if (!launch_population_inference(state.prey, state.prey.inference_cache, batch.prey_buffer(), state.prey.size(),
                                      batch.stream())) {
       batch.mark_error();
