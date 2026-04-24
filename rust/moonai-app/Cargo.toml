@@ -4,11 +4,16 @@ version.workspace = true
 authors.workspace = true
 edition.workspace = true
 
+[lib]
+name = "moonai_app"
+path = "src/lib.rs"
+
 [dependencies]
 moonai-core = { path = "../moonai-core" }
 moonai-evo = { path = "../moonai-evo" }
 moonai-metrics = { path = "../moonai-metrics" }
 moonai-state = { path = "../moonai-state" }
+moonai-ffi = { path = "../moonai-ffi" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 clap = { version = "4.5", features = ["derive"] }

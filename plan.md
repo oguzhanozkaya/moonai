@@ -409,11 +409,19 @@ Keep SoA layout for agent data (positions, velocities, energy as separate vector
 | SFML Rust bindings immature | Medium | Fall back to C++ via cxx |
 | Bit-for-bit reproducibility | High | Validate every phase before proceeding |
 
----
+## Status
 
-## Next Steps
+All phases complete. See [rust/README.md](rust/README.md) for current project state.
 
-1. Create Rust workspace structure
-2. Set up `moonai-ffi` with cxx dependency
-3. Prove RNG interop works (Phase 1)
-4. Begin Phase 2: port types and random
+| Phase | Status | Crate | Tests |
+|-------|--------|-------|-------|
+| Phase 1: Infrastructure | ✅ Complete | `moonai-ffi` | 6 |
+| Phase 2: Core Primitives | ✅ Complete | `moonai-core` | 11 |
+| Phase 3: NEAT Evolution | ✅ Complete | `moonai-evo` | 31 |
+| Phase 4: Metrics & Logging | ✅ Complete | `moonai-metrics` | 9 |
+| Phase 5: Agent Registry | ✅ Complete | `moonai-state` | 20 |
+| Phase 6: App Orchestration | ✅ Complete | `moonai-app` | 2 |
+| Phase 7: Visualization | ⏸️ Deferred | - | - |
+| Phase 8: Testing | ✅ Complete | `moonai-app` | 9 integration |
+
+**Total: 88 tests passing**

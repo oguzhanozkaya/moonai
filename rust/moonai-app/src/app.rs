@@ -1,4 +1,5 @@
 use moonai_core::{SimulationConfig, SENSOR_COUNT, OUTPUT_COUNT};
+use moonai_ffi::{SimContext, SimulationConfig as FFISimulationConfig, SyncBuffers};
 use moonai_evo::{EvolutionManager, Genome, Species};
 use moonai_metrics::{Logger, refresh_metrics, AgentMetricsData, FoodMetricsData};
 use moonai_state::{AppState, AgentRegistry};
@@ -26,9 +27,10 @@ impl Default for AppConfig {
 
 pub struct App {
     cfg: AppConfig,
-    state: AppState,
+    pub state: AppState,
     evolution: EvolutionManager,
     logger: Logger,
+    sim_ctx: Option<SimContext>,
 }
 
 impl App {
@@ -46,6 +48,7 @@ impl App {
                     .as_ref()
                     .unwrap_or(&cfg.experiment_name),
             ),
+            sim_ctx: None,
         };
 
         app.state.ui.speed_multiplier = cfg.speed_multiplier;
@@ -56,13 +59,62 @@ impl App {
     }
 
     fn initialize(&mut self) {
+        // Create simulation context (GPU)
+        let mut ctx = SimContext::new()
+            .expect("Failed to create simulation context");
+
+        let ffi_config = FFISimulationConfig {
+            grid_size: self.cfg.sim_config.grid_size,
+            predator_count: self.cfg.sim_config.predator_count,
+            prey_count: self.cfg.sim_config.prey_count,
+            food_count: self.cfg.sim_config.food_count,
+            predator_speed: self.cfg.sim_config.predator_speed,
+            prey_speed: self.cfg.sim_config.prey_speed,
+            vision_range: self.cfg.sim_config.vision_range,
+            interaction_range: self.cfg.sim_config.interaction_range,
+            mate_range: self.cfg.sim_config.mate_range,
+            food_respawn_rate: self.cfg.sim_config.food_respawn_rate,
+            energy_drain_per_step: self.cfg.sim_config.energy_drain_per_step,
+            energy_gain_from_kill: self.cfg.sim_config.energy_gain_from_kill,
+            energy_gain_from_food: self.cfg.sim_config.energy_gain_from_food,
+            initial_energy: self.cfg.sim_config.initial_energy,
+            max_energy: self.cfg.sim_config.max_energy,
+            reproduction_energy_threshold: self.cfg.sim_config.reproduction_energy_threshold,
+            reproduction_energy_cost: self.cfg.sim_config.reproduction_energy_cost,
+            offspring_initial_energy: self.cfg.sim_config.offspring_initial_energy,
+            max_age: self.cfg.sim_config.max_age,
+            mutation_rate: self.cfg.sim_config.mutation_rate,
+            weight_mutation_power: self.cfg.sim_config.weight_mutation_power,
+            add_node_rate: self.cfg.sim_config.add_node_rate,
+            add_connection_rate: self.cfg.sim_config.add_connection_rate,
+            delete_connection_rate: self.cfg.sim_config.delete_connection_rate,
+            max_hidden_nodes: self.cfg.sim_config.max_hidden_nodes,
+            max_steps: self.cfg.sim_config.max_steps,
+            compatibility_threshold: self.cfg.sim_config.compatibility_threshold,
+            compatibility_min_normalization: self.cfg.sim_config.compatibility_min_normalization,
+            c1_excess: self.cfg.sim_config.c1_excess,
+            c2_disjoint: self.cfg.sim_config.c2_disjoint,
+            c3_weight: self.cfg.sim_config.c3_weight,
+            seed: self.cfg.sim_config.seed,
+            report_interval_steps: self.cfg.sim_config.report_interval_steps,
+        };
+
+        if !ctx.init(&ffi_config) {
+            panic!("Failed to initialize simulation: {}", ctx.error());
+        }
+
+        self.sim_ctx = Some(ctx);
+
+        // Initialize food via CPU
         self.state
             .food
             .initialize(&self.cfg.sim_config, &mut self.state.runtime.rng);
 
+        // Initialize evolution manager
         self.evolution
             .initialize(SENSOR_COUNT as i32, OUTPUT_COUNT as i32);
 
+        // Seed initial population
         self.seed_initial_population();
         self.refresh_species();
         self.refresh_metrics();
@@ -71,7 +123,7 @@ impl App {
             eprintln!("Warning: Failed to initialize logger: {}", e);
         }
 
-        log::info!("Simulation initialized");
+        log::info!("Simulation initialized with GPU");
     }
 
     fn seed_initial_population(&mut self) {
@@ -282,41 +334,58 @@ impl App {
     }
 
     pub fn step(&mut self) -> bool {
-        self.state.runtime.step += 1;
+        let sim_ctx = self.sim_ctx.as_mut().expect("Simulation context not initialized");
 
-        for i in 0..self.state.predator.size() {
-            self.state.predator.energy[i] -= self.cfg.sim_config.energy_drain_per_step;
-            if self.state.predator.energy[i] <= 0.0
-                || self.state.predator.age[i] >= self.cfg.sim_config.max_age
-            {
-                self.state.predator.alive[i] = 0;
-            }
-            self.state.predator.age[i] += 1;
+        // GPU: run full simulation step
+        if !sim_ctx.step() {
+            eprintln!("Simulation step failed: {}", sim_ctx.error());
+            return false;
         }
 
-        for i in 0..self.state.prey.size() {
-            self.state.prey.energy[i] -= self.cfg.sim_config.energy_drain_per_step;
-            if self.state.prey.energy[i] <= 0.0
-                || self.state.prey.age[i] >= self.cfg.sim_config.max_age
-            {
-                self.state.prey.alive[i] = 0;
-            }
-            self.state.prey.age[i] += 1;
-        }
+        // Update Rust state from GPU state
+        self.state.runtime.step = sim_ctx.get_step();
 
-        self.state.predator.compact();
-        self.state.prey.compact();
+        // Sync predator state from C++
+        let mut buffers = SyncBuffers::default();
+        sim_ctx.sync_predator_state(&mut buffers);
 
-        self.state.food.respawn_step(
-            &self.cfg.sim_config,
-            self.state.runtime.step,
-            self.state.runtime.rng.seed(),
-        );
+        let pred_count = buffers.predator_pos_x.len();
+        self.state.predator.pos_x.resize(pred_count, 0.0);
+        self.state.predator.pos_y.resize(pred_count, 0.0);
+        self.state.predator.vel_x.resize(pred_count, 0.0);
+        self.state.predator.vel_y.resize(pred_count, 0.0);
+        self.state.predator.energy.resize(pred_count, 0.0);
+        self.state.predator.age.resize(pred_count, 0);
+        self.state.predator.alive.resize(pred_count, 0);
 
-        self.reproduce_population_predator();
-        self.reproduce_population_prey();
+        self.state.predator.pos_x.copy_from_slice(&buffers.predator_pos_x);
+        self.state.predator.pos_y.copy_from_slice(&buffers.predator_pos_y);
+        self.state.predator.vel_x.copy_from_slice(&buffers.predator_vel_x);
+        self.state.predator.vel_y.copy_from_slice(&buffers.predator_vel_y);
+        self.state.predator.energy.copy_from_slice(&buffers.predator_energy);
+        self.state.predator.age.copy_from_slice(&buffers.predator_age);
+        self.state.predator.alive.copy_from_slice(&buffers.predator_alive);
 
-        self.refresh_species();
+        // Sync prey state from C++
+        sim_ctx.sync_prey_state(&mut buffers);
+
+        let prey_count = buffers.prey_pos_x.len();
+        self.state.prey.pos_x.resize(prey_count, 0.0);
+        self.state.prey.pos_y.resize(prey_count, 0.0);
+        self.state.prey.vel_x.resize(prey_count, 0.0);
+        self.state.prey.vel_y.resize(prey_count, 0.0);
+        self.state.prey.energy.resize(prey_count, 0.0);
+        self.state.prey.age.resize(prey_count, 0);
+        self.state.prey.alive.resize(prey_count, 0);
+
+        self.state.prey.pos_x.copy_from_slice(&buffers.prey_pos_x);
+        self.state.prey.pos_y.copy_from_slice(&buffers.prey_pos_y);
+        self.state.prey.vel_x.copy_from_slice(&buffers.prey_vel_x);
+        self.state.prey.vel_y.copy_from_slice(&buffers.prey_vel_y);
+        self.state.prey.energy.copy_from_slice(&buffers.prey_energy);
+        self.state.prey.age.copy_from_slice(&buffers.prey_age);
+        self.state.prey.alive.copy_from_slice(&buffers.prey_alive);
+
         self.refresh_metrics();
 
         true
