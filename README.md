@@ -6,17 +6,11 @@ A modular and extensible simulation platform for studying continuous evolutionar
 
 **Website:** https://moon-aii.github.io/moonai/
 
-**Team:**
-- Caner Aras
-- Emir Irkılata
-- Oğuzhan Özkaya
+**Team**: Caner Aras, Emir Irkılata, Oğuzhan Özkaya
 
-**Supervisor:**
-- Ayşenur Birtürk
+**Supervisor**: Ayşenur Birtürk
 
-**Jury Members:**
-- Deniz Canturk
-- Mehmet Evren Coskun
+**Jury Members**: Deniz Canturk, Mehmet Evren Coskun
 
 ## Overview
 
