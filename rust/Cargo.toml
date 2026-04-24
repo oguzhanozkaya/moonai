@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["moonai-ffi", "moonai-core", "moonai-evo", "moonai-metrics", "moonai-state"]
+members = ["moonai-ffi", "moonai-core", "moonai-evo", "moonai-metrics", "moonai-state", "moonai-app"]
 
 [workspace.package]
 version = "0.1.0"
