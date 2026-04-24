@@ -32,7 +32,7 @@ To achieve high-performance execution, MoonAI uses a CUDA-first runtime. The hos
 
 ### Simulation Environment
 
-The simulation operates within a deterministic, time-stepped 2D world. This virtual ecosystem imposes selective pressures on agents—predators and prey—with configurable attributes including speed, vision, stamina, and reproduction rates. Each agent is controlled by a neural network that reads 12 local inputs: nearest predator, prey, and food as normalized dx, dy, plus energy, velocity, and nearby predator, prey, and food density.
+The simulation operates within a deterministic, time-stepped 2D world. This virtual ecosystem imposes selective pressures on agents—predators and prey—with configurable attributes including speed, vision, stamina, and reproduction rates. Each agent is controlled by a neural network that reads 35 local inputs: the 5 closest predators, prey, and food items as signed proximity-weighted dx and dy pairs, plus self energy, velocity x/y, and signed wall proximity x/y.
 
 ### Evolutionary Core
 
