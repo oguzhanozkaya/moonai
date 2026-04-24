@@ -1,0 +1,13 @@
+[package]
+name = "moonai-evo"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+moonai-core = { path = "../moonai-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+similar = "2.6"
