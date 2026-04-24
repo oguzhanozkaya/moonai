@@ -20,6 +20,16 @@ pub struct Random {
     index: usize,
 }
 
+impl Clone for Random {
+    fn clone(&self) -> Self {
+        Self {
+            seed: self.seed,
+            state: self.state,
+            index: self.index,
+        }
+    }
+}
+
 impl Random {
     pub fn new(seed: i32) -> Self {
         let mut state = [0u64; N];
