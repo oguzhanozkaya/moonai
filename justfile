@@ -42,8 +42,8 @@ fix:
   cargo fmt --all
   cargo clippy --workspace --all-targets --all-features --fix --allow-dirty
 
-  ruff check . --fix
   ruff format .
+  ruff check . --fix
 
 # Check code: format, lint checks and manual supression command grep
 [group('dev')]
@@ -60,7 +60,7 @@ check:
 test *args:
   cargo test --workspace --all-targets --all-features --locked -- --nocapture {{args}}
 
-# Lint code
+# Full check + test gate
 [group('dev')]
 gate: check test
 

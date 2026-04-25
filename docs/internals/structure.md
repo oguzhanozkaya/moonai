@@ -12,31 +12,21 @@ moonai/
 ├── analysis/                   # Python simulation analysis package
 ├── assets/                     # assets (fonts, logo)
 ├── docs/                       # Documentation source
-│   ├── _assets/
-│   │   ├── reports/
-│   │   ├── logo.svg
-│   │   ├── extra.css
-│   │   └── extra.js
-│   ├── internals/              # Developer documentation
-│   │   ├── roadmap.md
-│   │   ├── standarts.md
-│   │   ├── structure.md
-│   │   └── workflow.md
-│   ├── reports.md
-│   ├── usage.md
-│   ├── about.md
-│   ├── installation.md
-│   └── index.md
 ├── legacy/                     # Legacy C++ implementation (read-only, for reference)
 ├── crates/                     # Rust workspace (moonai-*)
 ├── tests/                      # Google Test unit tests
 ├── .gitattributes              # Git attributes
 ├── .gitignore                  # Git ignore rules
-├── Cargo.toml                  # Rust workspace manifest
+├── Cargo.toml                  # Rust workspace manifest (workspace config, lints)
+├── Cargo.lock                  # Locked dependency versions
+├── clippy.toml                # Clippy linter configuration
+├── rustfmt.toml               # Rust formatter configuration
+├── rust-toolchain.toml        # Rust toolchain specification
+├── ruff.toml                  # Ruff linter configuration for Python
 ├── README.md                   # Project readme
 ├── config.lua                  # Unified config: default run + experiment matrix
 ├── justfile                    # Rust project commands
-├── pyproject.toml              # Python package config (hatchling build)
+├── pyproject.toml             # Python package config (hatchling build)
 ├── uv.lock                     # Python dependency lock
 └── zensical.toml               # Website configuration
 ```
@@ -97,6 +87,7 @@ crates/
 
 | Path | Purpose |
 |------|---------|
+| `_assets` | Documentation assets, extra.css, extra.js, and reports |
 | `index.md` | Documentation home |
 | `usage.md` | Usage guide and CLI reference |
 | `about.md` | Project overview and motivation |
