@@ -8,11 +8,11 @@ description: Conventions, rules and policies for MoonAI development.
 
 ### Toolchain
 
-| Tool | Version | Config |
-|------|---------|--------|
-| Rust | 1.95.0 | `rust-toolchain.toml` |
-| Clippy | (bundled) | `clippy.toml`, `Cargo.toml` |
-| rustfmt | (bundled) | `rustfmt.toml` |
+| Tool    | Version   | Config                      |
+| ------- | --------- | --------------------------- |
+| Rust    | 1.95.0    | `rust-toolchain.toml`       |
+| Clippy  | (bundled) | `clippy.toml`, `Cargo.toml` |
+| rustfmt | (bundled) | `rustfmt.toml`              |
 
 ### Edition and MSRV
 
@@ -31,12 +31,12 @@ description: Conventions, rules and policies for MoonAI development.
 
 #### Rust Lints
 
-| Lint | Level |
-|------|-------|
-| `elided_lifetimes_in_paths` | deny |
-| `absolute_paths_not_starting_with_crate` | deny |
-| `unsafe_code` | warn |
-| `unused` | warn |
+| Lint                                     | Level |
+| ---------------------------------------- | ----- |
+| `elided_lifetimes_in_paths`              | deny  |
+| `absolute_paths_not_starting_with_crate` | deny  |
+| `unsafe_code`                            | warn  |
+| `unused`                                 | warn  |
 
 #### Clippy Lint Groups (All denied)
 
@@ -53,6 +53,7 @@ From restriction/nursery (not covered by groups above):
 - `clone_on_ref_ptr`, `rest_pat_in_fully_bound_structs`, `str_to_string`
 
 #### Clippy Thresholds
+
 - `too-many-arguments-threshold`: 12
 - `cognitive-complexity-threshold`: 15
 - `enum-variant-size-threshold`: 128
@@ -68,9 +69,9 @@ From restriction/nursery (not covered by groups above):
 
 ### Toolchain
 
-| Tool | Version | Config |
-|------|---------|--------|
-| Python | 3.14+ | `pyproject.toml`, `ruff.toml` |
+| Tool   | Version | Config                        |
+| ------ | ------- | ----------------------------- |
+| Python | 3.14+   | `pyproject.toml`, `ruff.toml` |
 
 ## Rust Standards
 
@@ -80,72 +81,72 @@ These lints are **deny** at the workspace level and cannot be overridden locally
 
 #### Clippy Lints
 
-| Lint | Level |
-|------|-------|
-| `correctness` | deny |
-| `suspicious` | deny |
-| `complexity` | deny |
-| `perf` | deny |
-| `style` | deny |
+| Lint          | Level |
+| ------------- | ----- |
+| `correctness` | deny  |
+| `suspicious`  | deny  |
+| `complexity`  | deny  |
+| `perf`        | deny  |
+| `style`       | deny  |
 
 #### Explicitly Denied Lints
 
-| Lint | Level |
-|------|-------|
-| `dbg_macro` | deny |
-| `expect_used` | deny |
-| `needless_collect` | deny |
-| `panic` | deny |
-| `redundant_clone` | deny |
-| `redundant_closure_for_method_calls` | deny |
-| `trivially_copy_pass_by_ref` | deny |
-| `todo` | deny |
-| `uninlined_format_args` | deny |
-| `unwrap_used` | deny |
-| `implicit_clone` | deny |
-| `inefficient_to_string` | deny |
-| `large_stack_arrays` | deny |
-| `missing_const_for_fn` | deny |
-| `needless_pass_by_value` | deny |
-| `option_if_let_else` | deny |
-| `print_stdout` | deny |
-| `print_stderr` | deny |
-| `clone_on_ref_ptr` | deny |
-| `rest_pat_in_fully_bound_structs` | deny |
-| `str_to_string` | deny |
+| Lint                                 | Level |
+| ------------------------------------ | ----- |
+| `dbg_macro`                          | deny  |
+| `expect_used`                        | deny  |
+| `needless_collect`                   | deny  |
+| `panic`                              | deny  |
+| `redundant_clone`                    | deny  |
+| `redundant_closure_for_method_calls` | deny  |
+| `trivially_copy_pass_by_ref`         | deny  |
+| `todo`                               | deny  |
+| `uninlined_format_args`              | deny  |
+| `unwrap_used`                        | deny  |
+| `implicit_clone`                     | deny  |
+| `inefficient_to_string`              | deny  |
+| `large_stack_arrays`                 | deny  |
+| `missing_const_for_fn`               | deny  |
+| `needless_pass_by_value`             | deny  |
+| `option_if_let_else`                 | deny  |
+| `print_stdout`                       | deny  |
+| `print_stderr`                       | deny  |
+| `clone_on_ref_ptr`                   | deny  |
+| `rest_pat_in_fully_bound_structs`    | deny  |
+| `str_to_string`                      | deny  |
 
 ### Clippy Configuration (`clippy.toml`)
 
-| Setting | Value |
-|---------|-------|
-| MSRV | 1.95 |
-| Avoid breaking exported API | true |
-| Allow expect in tests | true |
-| Allow unwrap in tests | true |
-| Disallowed names | `foo`, `bar` |
-| Too many arguments threshold | 15 |
-| Cognitive complexity threshold | 15 |
-| Enum variant size threshold | 128 |
-| Type complexity threshold | 256 |
-| Large error threshold | 256 |
-| Source item ordering | `['enum', 'struct', 'trait']` |
+| Setting                        | Value                         |
+| ------------------------------ | ----------------------------- |
+| MSRV                           | 1.95                          |
+| Avoid breaking exported API    | true                          |
+| Allow expect in tests          | true                          |
+| Allow unwrap in tests          | true                          |
+| Disallowed names               | `foo`, `bar`                  |
+| Too many arguments threshold   | 15                            |
+| Cognitive complexity threshold | 15                            |
+| Enum variant size threshold    | 128                           |
+| Type complexity threshold      | 256                           |
+| Large error threshold          | 256                           |
+| Source item ordering           | `['enum', 'struct', 'trait']` |
 
 ### Rustfmt Configuration (`rustfmt.toml`)
 
-| Setting | Value |
-|---------|-------|
-| Edition | 2024 |
-| Style edition | 2024 |
-| Max width | 120 |
-| Use small heuristics | Max |
-| Newline style | Unix |
-| Hard tabs | false |
-| Tab spaces | 2 |
-| Reorder imports | true |
-| Reorder modules | true |
-| Remove nested parens | true |
-| Use field init shorthand | true |
-| Use try shorthand | true |
+| Setting                  | Value |
+| ------------------------ | ----- |
+| Edition                  | 2024  |
+| Style edition            | 2024  |
+| Max width                | 120   |
+| Use small heuristics     | Max   |
+| Newline style            | Unix  |
+| Hard tabs                | false |
+| Tab spaces               | 2     |
+| Reorder imports          | true  |
+| Reorder modules          | true  |
+| Remove nested parens     | true  |
+| Use field init shorthand | true  |
+| Use try shorthand        | true  |
 
 ### Suppression Forbidden
 
@@ -156,6 +157,7 @@ just check
 ```
 
 Do NOT use:
+
 - `#[allow(...)]`
 - `#![allow(...)]`
 - `#[expect(...)]` (use in tests only if clippy allows)
@@ -188,36 +190,37 @@ codegen-units = 4
 
 ### Ruff Configuration (`ruff.toml`)
 
-| Setting | Value |
-|---------|-------|
-| Line length | 120 |
+| Setting        | Value |
+| -------------- | ----- |
+| Line length    | 120   |
 | Target version | py314 |
-| Indent width | 4 |
+| Indent width   | 4     |
 
 #### Lint Rules
 
-| Rule Set | Status |
-|----------|--------|
+| Rule Set               | Status  |
+| ---------------------- | ------- |
 | E (pycodestyle errors) | enabled |
-| F (pyflakes) | enabled |
-| I (isort) | enabled |
-| UP (pyupgrade) | enabled |
+| F (pyflakes)           | enabled |
+| I (isort)              | enabled |
+| UP (pyupgrade)         | enabled |
 
 - Fixable: ALL
 - Unfixable: none
 
 #### Format Rules
 
-| Setting | Value |
-|---------|-------|
-| Quote style | double |
-| Indent style | space |
+| Setting      | Value  |
+| ------------ | ------ |
+| Quote style  | double |
+| Indent style | space  |
 
 ## Cargo Workspace Conventions
 
 ### Crate Organization
 
 Each crate MUST:
+
 - Use `version.workspace = true`
 - Use `edition.workspace = true`
 - Use `authors.workspace = true`

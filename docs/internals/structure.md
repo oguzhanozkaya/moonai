@@ -37,22 +37,22 @@ The `legacy/` directory contains the **original C++ implementation** of MoonAI. 
 
 ### Legacy Contents
 
-| File/Directory | Purpose |
-|---------------|---------|
-| `CMakeLists.txt` | Root CMake configuration |
-| `CMakePresets.json` | Build presets for Linux/Windows |
-| `.clang-format` | LLVM code style configuration |
-| `.clang-tidy` | Static analysis configuration |
-| `vcpkg.json` | vcpkg dependency manifest |
-| `justfile-cpp` | C++ build commands (`just -f legacy/justfile-cpp`) |
-| `architecture.md` | System architecture diagrams and design notes |
-| `main.cpp` | C++ entry point |
-| `app/` | Application orchestration, main loop |
-| `core/` | Types, config, Lua runtime, seeded RNG |
-| `evolution/` | NEAT genome, neural network, speciation |
-| `metrics/` | CSV/JSON logging, aggregation |
-| `simulation/` | ECS-based simulation (agents, physics, spatial grid) |
-| `visualization/` | SFML rendering, UI overlay |
+| File/Directory      | Purpose                                              |
+| ------------------- | ---------------------------------------------------- |
+| `CMakeLists.txt`    | Root CMake configuration                             |
+| `CMakePresets.json` | Build presets for Linux/Windows                      |
+| `.clang-format`     | LLVM code style configuration                        |
+| `.clang-tidy`       | Static analysis configuration                        |
+| `vcpkg.json`        | vcpkg dependency manifest                            |
+| `justfile-cpp`      | C++ build commands (`just -f legacy/justfile-cpp`)   |
+| `architecture.md`   | System architecture diagrams and design notes        |
+| `main.cpp`          | C++ entry point                                      |
+| `app/`              | Application orchestration, main loop                 |
+| `core/`             | Types, config, Lua runtime, seeded RNG               |
+| `evolution/`        | NEAT genome, neural network, speciation              |
+| `metrics/`          | CSV/JSON logging, aggregation                        |
+| `simulation/`       | ECS-based simulation (agents, physics, spatial grid) |
+| `visualization/`    | SFML rendering, UI overlay                           |
 
 ## Rust Workspace (`crates/`)
 
@@ -71,29 +71,29 @@ crates/
 
 ## `analysis/`
 
-| File | Purpose |
-|------|---------|
-| `__main__.py` | CLI entry point (`uv run analysis`) |
-| `pipeline.py` | Orchestrates the analysis run |
-| `io.py` | Run discovery, CSV/JSON loading |
-| `labels.py` | Groups runs into experiment conditions |
-| `plots.py` | Generates embedded matplotlib figures |
-| `genome.py` | Renders neural network topology diagrams |
-| `summary.py` | Prepares summary statistics |
-| `html_report.py` | Renders self-contained HTML document |
-| `report.html` | Jinja2 HTML report template |
+| File             | Purpose                                  |
+| ---------------- | ---------------------------------------- |
+| `__main__.py`    | CLI entry point (`uv run analysis`)      |
+| `pipeline.py`    | Orchestrates the analysis run            |
+| `io.py`          | Run discovery, CSV/JSON loading          |
+| `labels.py`      | Groups runs into experiment conditions   |
+| `plots.py`       | Generates embedded matplotlib figures    |
+| `genome.py`      | Renders neural network topology diagrams |
+| `summary.py`     | Prepares summary statistics              |
+| `html_report.py` | Renders self-contained HTML document     |
+| `report.html`    | Jinja2 HTML report template              |
 
 ## Documentation (`docs/`)
 
-| Path | Purpose |
-|------|---------|
-| `_assets` | Documentation assets, extra.css, extra.js, and reports |
-| `index.md` | Documentation home |
-| `usage.md` | Usage guide and CLI reference |
-| `about.md` | Project overview and motivation |
-| `installation.md` | Build and installation instructions |
-| `reports.md` | Links to project reports |
-| `internals/roadmap.md` | Tasks, bugs, and roadmap |
-| `internals/structure.md` | This file |
-| `internals/workflow.md` | Development workflow |
-| `internals/standarts.md` | Coding standards |
+| Path                     | Purpose                                                |
+| ------------------------ | ------------------------------------------------------ |
+| `_assets`                | Documentation assets, extra.css, extra.js, and reports |
+| `index.md`               | Documentation home                                     |
+| `usage.md`               | Usage guide and CLI reference                          |
+| `about.md`               | Project overview and motivation                        |
+| `installation.md`        | Build and installation instructions                    |
+| `reports.md`             | Links to project reports                               |
+| `internals/roadmap.md`   | Tasks, bugs, and roadmap                               |
+| `internals/structure.md` | This file                                              |
+| `internals/workflow.md`  | Development workflow                                   |
+| `internals/standarts.md` | Coding standards                                       |
