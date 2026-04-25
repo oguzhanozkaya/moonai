@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pandas as pd
 
-
 REQUIRED_RUN_FILES = ("config.json", "stats.csv")
 CONFIG_GROUP_IGNORE_KEYS = {"output_dir", "seed"}
 
@@ -58,11 +57,7 @@ def _normalize_value(value):
 
 
 def config_signature(config: dict) -> str:
-    normalized = {
-        key: _normalize_value(value)
-        for key, value in config.items()
-        if key not in CONFIG_GROUP_IGNORE_KEYS
-    }
+    normalized = {key: _normalize_value(value) for key, value in config.items() if key not in CONFIG_GROUP_IGNORE_KEYS}
     return json.dumps(normalized, sort_keys=True, separators=(",", ":"))
 
 
@@ -82,13 +77,9 @@ def discover_runs(output_dir: Path) -> tuple[list[RunData], list[SkippedRun]]:
         if not path.is_dir():
             continue
 
-        missing_files = [
-            name for name in REQUIRED_RUN_FILES if not (path / name).is_file()
-        ]
+        missing_files = [name for name in REQUIRED_RUN_FILES if not (path / name).is_file()]
         if missing_files:
-            skipped.append(
-                SkippedRun(path, f"missing required files: {', '.join(missing_files)}")
-            )
+            skipped.append(SkippedRun(path, f"missing required files: {', '.join(missing_files)}"))
             continue
 
         try:
@@ -136,9 +127,7 @@ def discover_runs(output_dir: Path) -> tuple[list[RunData], list[SkippedRun]]:
     return runs, skipped
 
 
-def load_optional_csv(
-    path: Path, *, required_columns: list[str] | None = None
-) -> pd.DataFrame | None:
+def load_optional_csv(path: Path, *, required_columns: list[str] | None = None) -> pd.DataFrame | None:
     if not path.is_file():
         return None
     try:

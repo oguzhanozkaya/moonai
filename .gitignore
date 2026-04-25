@@ -54,3 +54,5 @@ Thumbs.db
 
 # static docs
 site/
+
+target/

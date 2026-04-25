@@ -12,96 +12,88 @@ moonai/
 ├── analysis/                   # Python simulation analysis package
 ├── assets/                     # assets (fonts, logo)
 ├── docs/                       # Documentation source
-│   ├── _assets/
-│   │   ├── reports/
-│   │   ├── logo.svg
-│   │   ├── extra.css
-│   │   └── extra.js
-│   ├── internals/              # Developer documentation
-│   │   ├── architecture.md
-│   │   ├── roadmap.md
-│   │   ├── standarts.md
-│   │   ├── structure.md
-│   │   └── workflow.md
-│   ├── reports.md
-│   ├── usage.md
-│   ├── about.md
-│   ├── installation.md
-│   └── index.md
-├── profiler/                   # Python profiler analysis package
-├── src/                        # C++ simulation core
-│   ├── main.cpp                # Entry point: CLI parsing and app startup
-│   ├── profiler_main.cpp       # Profiler executable entry point
-│   ├── app/                    # Application orchestration layer
-│   ├── core/                   # Types, config, Lua runtime, seeded RNG
-│   ├── evolution/              # NEAT genome, neural network, speciation
-│   ├── metrics/                # CSV/JSON logging, aggregation
-│   ├── simulation/             # ECS-based simulation (agents, physics, grid)
-│   └── visualization/          # SFML rendering, UI overlay
+├── legacy/                     # Legacy C++ implementation (read-only, for reference)
+├── crates/                     # Rust workspace (moonai-*)
 ├── tests/                      # Google Test unit tests
-├── .clang-format               # LLVM code style configuration
-├── .clang-tidy                 # Static analysis configuration
 ├── .gitattributes              # Git attributes
 ├── .gitignore                  # Git ignore rules
-├── CMakeLists.txt              # Root CMake configuration
-├── CMakePresets.json           # Build presets for Linux/Windows
+├── Cargo.toml                  # Rust workspace manifest (workspace config, lints)
+├── Cargo.lock                  # Locked dependency versions
+├── clippy.toml                # Clippy linter configuration
+├── rustfmt.toml               # Rust formatter configuration
+├── rust-toolchain.toml        # Rust toolchain specification
+├── ruff.toml                  # Ruff linter configuration for Python
 ├── README.md                   # Project readme
 ├── config.lua                  # Unified config: default run + experiment matrix
-├── justfile                    # Project commands
-├── pyproject.toml              # Python package config (hatchling build)
+├── justfile                    # Rust project commands
+├── pyproject.toml             # Python package config (hatchling build)
 ├── uv.lock                     # Python dependency lock
-├── vcpkg.json                  # Dependency manifest
 └── zensical.toml               # Website configuration
 ```
 
-## Source Code (`src/`)
+## Legacy C++ Implementation (`legacy/`)
 
-The C++ simulation is organized into:
+The `legacy/` directory contains the **original C++ implementation** of MoonAI. This codebase is **frozen and read-only** — it serves as a reference for understanding the original design and can be consulted during the Rust rewrite but is no longer actively maintained.
 
-| Directory | Purpose |
-|-----------|---------|
-| `core/` | Types, config, Lua runtime, seeded RNG |
-| `app/` | Application orchestration, main loop |
-| `simulation/` | ECS-based simulation (agents, physics, spatial grid) |
-| `evolution/` | NEAT genome, neural network, speciation |
-| `metrics/` | CSV/JSON logging, aggregation |
-| `visualization/` | SFML rendering, UI overlay |
+### Legacy Contents
+
+| File/Directory      | Purpose                                              |
+| ------------------- | ---------------------------------------------------- |
+| `CMakeLists.txt`    | Root CMake configuration                             |
+| `CMakePresets.json` | Build presets for Linux/Windows                      |
+| `.clang-format`     | LLVM code style configuration                        |
+| `.clang-tidy`       | Static analysis configuration                        |
+| `vcpkg.json`        | vcpkg dependency manifest                            |
+| `justfile-cpp`      | C++ build commands (`just -f legacy/justfile-cpp`)   |
+| `architecture.md`   | System architecture diagrams and design notes        |
+| `main.cpp`          | C++ entry point                                      |
+| `app/`              | Application orchestration, main loop                 |
+| `core/`             | Types, config, Lua runtime, seeded RNG               |
+| `evolution/`        | NEAT genome, neural network, speciation              |
+| `metrics/`          | CSV/JSON logging, aggregation                        |
+| `simulation/`       | ECS-based simulation (agents, physics, spatial grid) |
+| `visualization/`    | SFML rendering, UI overlay                           |
+
+## Rust Workspace (`crates/`)
+
+The Rust rewrite lives in `crates/` and implements a GPU-first architecture:
+
+```
+crates/
+├── moonai-types/               # Core types (Vec2, NodeGene, ConnectionGene, etc.)
+├── moonai-config/              # SimulationConfig, CLI args, Lua loading
+├── moonai-evolution/           # NEAT algorithm, CUDA kernels
+├── moonai-simulation/          # GPU simulation, persistent kernel
+├── moonai-metrics/            # CSV/JSON logging
+├── moonai-ui/                  # wgpu rendering, egui overlay
+└── moonai/                     # Binary crate, signal handling
+```
 
 ## `analysis/`
 
-| File | Purpose |
-|------|---------|
-| `__main__.py` | CLI entry point (`uv run analysis`) |
-| `pipeline.py` | Orchestrates the analysis run |
-| `io.py` | Run discovery, CSV/JSON loading |
-| `labels.py` | Groups runs into experiment conditions |
-| `plots.py` | Generates embedded matplotlib figures |
-| `genome.py` | Renders neural network topology diagrams |
-| `summary.py` | Prepares summary statistics |
-| `html_report.py` | Renders self-contained HTML document |
-| `report.html` | Jinja2 HTML report template |
-
-## `profiler/`
-
-| File | Purpose |
-|------|---------|
-| `__main__.py` | CLI entry point (`uv run profiler`) |
-| `report.py` | Generates profiler HTML report |
-| `io.py` | Profile run discovery and validation |
-| `html_report.py` | Renders self-contained HTML document |
-| `report.html` | Jinja2 HTML report template |
+| File             | Purpose                                  |
+| ---------------- | ---------------------------------------- |
+| `__main__.py`    | CLI entry point (`uv run analysis`)      |
+| `pipeline.py`    | Orchestrates the analysis run            |
+| `io.py`          | Run discovery, CSV/JSON loading          |
+| `labels.py`      | Groups runs into experiment conditions   |
+| `plots.py`       | Generates embedded matplotlib figures    |
+| `genome.py`      | Renders neural network topology diagrams |
+| `summary.py`     | Prepares summary statistics              |
+| `html_report.py` | Renders self-contained HTML document     |
+| `report.html`    | Jinja2 HTML report template              |
 
 ## Documentation (`docs/`)
 
-| Path | Purpose |
-|------|---------|
-| `index.md` | Documentation home |
-| `usage.md` | Usage guide and CLI reference |
-| `about.md` | Project overview and motivation |
-| `installation.md` | Build and installation instructions |
-| `reports.md` | Links to project reports |
-| `internals/architecture.md` | System architecture |
-| `internals/structure.md` | This file |
-| `internals/workflow.md` | Development workflow |
-| `internals/roadmap.md` | Tasks, bugs, and roadmap |
-| `internals/standarts.md` | Coding standards |
+| Path                     | Purpose                                                |
+| ------------------------ | ------------------------------------------------------ |
+| `_assets`                | Documentation assets, extra.css, extra.js, and reports |
+| `index.md`               | Documentation home                                     |
+| `usage.md`               | Usage guide and CLI reference                          |
+| `about.md`               | Project overview and motivation                        |
+| `installation.md`        | Build and installation instructions                    |
+| `reports.md`             | Links to project reports                               |
+| `internals/roadmap.md`   | Tasks, bugs, and roadmap                               |
+| `internals/structure.md` | This file                                              |
+| `internals/workflow.md`  | Development workflow                                   |
+| `internals/standarts.md` | Coding standards                                       |

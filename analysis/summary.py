@@ -23,9 +23,7 @@ class SummaryData:
     skipped_runs: list[SkippedRun]
 
 
-def build_summary(
-    aggregates: list[ConditionAggregate], skipped_runs: list[SkippedRun]
-) -> SummaryData:
+def build_summary(aggregates: list[ConditionAggregate], skipped_runs: list[SkippedRun]) -> SummaryData:
     step = min(int(aggregate.summary_frame["step"].max()) for aggregate in aggregates)
     rows: list[SummaryRow] = []
 
@@ -35,8 +33,7 @@ def build_summary(
             eligible = aggregate.summary_frame
         row = eligible.iloc[-1]
         metrics = {
-            metric: f"{row[f'{metric}_mean']:.3f} +/- {row[f'{metric}_std']:.3f}"
-            for metric in COMPARISON_METRICS
+            metric: f"{row[f'{metric}_mean']:.3f} +/- {row[f'{metric}_std']:.3f}" for metric in COMPARISON_METRICS
         }
         rows.append(
             SummaryRow(
