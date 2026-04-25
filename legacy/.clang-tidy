@@ -19,23 +19,23 @@ Checks: >
   bugprone-unused-return-value,
   readability-delete-null-pointer,
   readability-redundant-*,
-  
+
   # Core bug detection
   clang-analyzer-core.*,
   bugprone-*,
-  
+
   # Modernization (C++17 best practices)
   modernize-*,
-  
+
   # Code quality
   cppcoreguidelines-*,
-  
+
   # Performance
   performance-*,
-  
+
   # Readability
   readability-*,
-  
+
   # Disable noisy/undesirable checks
   -modernize-use-trailing-return-type,
   -cppcoreguidelines-avoid-magic-numbers,
@@ -65,43 +65,41 @@ FormatStyle: file
 
 CheckOptions:
   # Dead code specific options
-  - key:   readability-redundant-member-init.IgnoreBaseInCopyConstructors
+  - key: readability-redundant-member-init.IgnoreBaseInCopyConstructors
     value: '1'
-  
+
   # Unused parameters
-  - key:   misc-unused-parameters.StrictMode
+  - key: misc-unused-parameters.StrictMode
     value: '1'
-  
+
   # Modernization preferences
-  - key:   modernize-loop-convert.MinConfidence
+  - key: modernize-loop-convert.MinConfidence
     value: reasonable
-  
+
   # Performance
-  - key:   performance-for-range-copy.WarnOnAllAutoCopies
+  - key: performance-for-range-copy.WarnOnAllAutoCopies
     value: '1'
-  
+
   # Readability
-  - key:   readability-identifier-naming.NamespaceCase
+  - key: readability-identifier-naming.NamespaceCase
     value: lower_case
-  - key:   readability-identifier-naming.ClassCase
+  - key: readability-identifier-naming.ClassCase
     value: PascalCase
-  - key:   readability-identifier-naming.StructCase
+  - key: readability-identifier-naming.StructCase
     value: PascalCase
-  - key:   readability-identifier-naming.FunctionCase
+  - key: readability-identifier-naming.FunctionCase
     value: camelBack
-  - key:   readability-identifier-naming.VariableCase
+  - key: readability-identifier-naming.VariableCase
     value: lower_case
-  - key:   readability-identifier-naming.MemberSuffix
+  - key: readability-identifier-naming.MemberSuffix
     value: '_'
-  - key:   readability-identifier-naming.EnumCase
+  - key: readability-identifier-naming.EnumCase
     value: PascalCase
-  - key:   readability-identifier-naming.EnumConstantCase
+  - key: readability-identifier-naming.EnumConstantCase
     value: UPPER_CASE
-  - key:   readability-identifier-naming.MacroDefinitionCase
+  - key: readability-identifier-naming.MacroDefinitionCase
     value: UPPER_CASE
-  
+
   # CUDA-specific (if present)
-  - key:   cppcoreguidelines-pro-type-vararg.HungarianPrefix
+  - key: cppcoreguidelines-pro-type-vararg.HungarianPrefix
     value: ''
-
-

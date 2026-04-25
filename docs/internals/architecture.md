@@ -3,4 +3,3 @@ description: System Architecture.
 ---
 
 # Architecture
-

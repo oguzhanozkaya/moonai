@@ -212,18 +212,18 @@ classDiagram
 
 **CLI flags:**
 
-| Flag | Description |
-|------|-------------|
-| `-c, --config <path>` | Path to Lua config file (default: `config.lua`) |
-| `-n, --steps <n>` | Override max steps (`0` = infinite) |
-| `--headless` | Run without visualization |
-| `-v, --verbose` | Enable debug logging |
-| `--experiment <name>` | Select one experiment by name |
-| `--all` | Run all experiments sequentially (headless only) |
-| `--list` | List experiment names and exit |
-| `--name <name>` | Override output directory name |
-| `--validate` | Load + validate config, print result, exit |
-| `-h, --help` | Show CLI help |
+| Flag                  | Description                                      |
+| --------------------- | ------------------------------------------------ |
+| `-c, --config <path>` | Path to Lua config file (default: `config.lua`)  |
+| `-n, --steps <n>`     | Override max steps (`0` = infinite)              |
+| `--headless`          | Run without visualization                        |
+| `-v, --verbose`       | Enable debug logging                             |
+| `--experiment <name>` | Select one experiment by name                    |
+| `--all`               | Run all experiments sequentially (headless only) |
+| `--list`              | List experiment names and exit                   |
+| `--name <name>`       | Override output directory name                   |
+| `--validate`          | Load + validate config, print result, exit       |
+| `-h, --help`          | Show CLI help                                    |
 
 **CLI routing:**
 
@@ -274,17 +274,17 @@ flowchart TB
 
 ## 4. Technology Choices
 
-| Concern | C++ | Rust/GPU-First |
-|---------|-----|----------------|
-| Language | C++17 | Rust 2024 |
-| CUDA binding | raw CUDA | `cxx` (supports CUDA natively) |
-| Logging | spdlog | `tracing` + `tracing-subscriber` |
-| JSON | nlohmann/json | `serde` + `serde_json` |
-| Lua binding | Lua C API | `mlua` crate |
-| GUI framework | SFML | winit + egui + wgpu |
-| GPU rendering | SFML shapes | wgpu instanced rendering |
-| Atomic counters | — | CUDA atomics for GPU-to-CPU events |
-| Genome compilation | CPU (rayon) | GPU (persistent kernel) |
+| Concern            | C++           | Rust/GPU-First                     |
+| ------------------ | ------------- | ---------------------------------- |
+| Language           | C++17         | Rust 2024                          |
+| CUDA binding       | raw CUDA      | `cxx` (supports CUDA natively)     |
+| Logging            | spdlog        | `tracing` + `tracing-subscriber`   |
+| JSON               | nlohmann/json | `serde` + `serde_json`             |
+| Lua binding        | Lua C API     | `mlua` crate                       |
+| GUI framework      | SFML          | winit + egui + wgpu                |
+| GPU rendering      | SFML shapes   | wgpu instanced rendering           |
+| Atomic counters    | —             | CUDA atomics for GPU-to-CPU events |
+| Genome compilation | CPU (rayon)   | GPU (persistent kernel)            |
 
 ## 5. Crate Architecture
 
@@ -364,15 +364,15 @@ crates/
 
 ### Crate Responsibilities
 
-| Crate | Owns | Depends on |
-|-------|------|------------|
-| `moonai-config` | SimulationConfig, CliArgs, UiConfig, ConfigError, Lua loading | `moonai-types` |
-| `moonai-types` | Vec2, NodeType, NodeGene, ConnectionGene, SENSOR_COUNT, OUTPUT_COUNT, INVALID_ENTITY | — |
-| `moonai-evolution` | ALL NEAT evolution logic: CUDA kernels for crossover, mutation, network compilation, InnovationTracker, Species, EvolutionManager | `moonai-types` |
-| `moonai-simulation` | GPU SoA buffers, persistent simulation kernel (calls evolution kernels), spatial grid, inference, metrics reduce, UI stats write | `moonai-types`, `moonai-config`, `moonai-evolution` |
-| `moonai-metrics` | CSV/JSON file logging | `moonai-types`, `moonai-config` |
-| `moonai-ui` | winit, egui panels, wgpu world renderer, UiState (runtime) | `moonai-types`, `moonai-config`, `moonai-evolution`, `moonai-simulation` |
-| `moonai` | main.rs, signal handling | All above |
+| Crate               | Owns                                                                                                                              | Depends on                                                               |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `moonai-config`     | SimulationConfig, CliArgs, UiConfig, ConfigError, Lua loading                                                                     | `moonai-types`                                                           |
+| `moonai-types`      | Vec2, NodeType, NodeGene, ConnectionGene, SENSOR_COUNT, OUTPUT_COUNT, INVALID_ENTITY                                              | —                                                                        |
+| `moonai-evolution`  | ALL NEAT evolution logic: CUDA kernels for crossover, mutation, network compilation, InnovationTracker, Species, EvolutionManager | `moonai-types`                                                           |
+| `moonai-simulation` | GPU SoA buffers, persistent simulation kernel (calls evolution kernels), spatial grid, inference, metrics reduce, UI stats write  | `moonai-types`, `moonai-config`, `moonai-evolution`                      |
+| `moonai-metrics`    | CSV/JSON file logging                                                                                                             | `moonai-types`, `moonai-config`                                          |
+| `moonai-ui`         | winit, egui panels, wgpu world renderer, UiState (runtime)                                                                        | `moonai-types`, `moonai-config`, `moonai-evolution`, `moonai-simulation` |
+| `moonai`            | main.rs, signal handling                                                                                                          | All above                                                                |
 
 ## 6. Phase Specifications
 
@@ -380,40 +380,40 @@ crates/
 
 **Goal:** Empty but compilable workspace
 
-| # | Task | File Changes | Verification | Status |
-|---|------|-------------|--------------|--------|
-| 1 | Create `Cargo.toml` workspace | `Cargo.toml` | `cargo metadata` succeeds | [x] |
-| 2 | Create `moonai-config` stub | `moonai-config/Cargo.toml`, `moonai-config/src/lib.rs` | `cargo build -p moonai-config` | [x] |
-| 3 | Create `moonai-types` stub | `moonai-types/Cargo.toml`, `moonai-types/src/lib.rs` | `cargo build -p moonai-types` | [x] |
-| 4 | Create `moonai-evolution` stub | `moonai-evolution/Cargo.toml`, `moonai-evolution/src/lib.rs`, `moonai-evolution/build.rs` | `cargo build -p moonai-evolution` | [x] |
-| 5 | Create `moonai-simulation` stub | same pattern | `cargo build -p moonai-simulation` | [x] |
-| 6 | Create `moonai-metrics` stub | same pattern | `cargo build -p moonai-metrics` | [x] |
-| 7 | Create `moonai-ui` stub | same pattern | `cargo build -p moonai-ui` | [x] |
-| 8 | Create `moonai` binary stub | same pattern | `cargo build -p moonai` | [x] |
-| 9 | Verify workspace | — | `cargo build --workspace` | [x] |
+| #   | Task                            | File Changes                                                                              | Verification                       | Status |
+| --- | ------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------- | ------ |
+| 1   | Create `Cargo.toml` workspace   | `Cargo.toml`                                                                              | `cargo metadata` succeeds          | [x]    |
+| 2   | Create `moonai-config` stub     | `moonai-config/Cargo.toml`, `moonai-config/src/lib.rs`                                    | `cargo build -p moonai-config`     | [x]    |
+| 3   | Create `moonai-types` stub      | `moonai-types/Cargo.toml`, `moonai-types/src/lib.rs`                                      | `cargo build -p moonai-types`      | [x]    |
+| 4   | Create `moonai-evolution` stub  | `moonai-evolution/Cargo.toml`, `moonai-evolution/src/lib.rs`, `moonai-evolution/build.rs` | `cargo build -p moonai-evolution`  | [x]    |
+| 5   | Create `moonai-simulation` stub | same pattern                                                                              | `cargo build -p moonai-simulation` | [x]    |
+| 6   | Create `moonai-metrics` stub    | same pattern                                                                              | `cargo build -p moonai-metrics`    | [x]    |
+| 7   | Create `moonai-ui` stub         | same pattern                                                                              | `cargo build -p moonai-ui`         | [x]    |
+| 8   | Create `moonai` binary stub     | same pattern                                                                              | `cargo build -p moonai`            | [x]    |
+| 9   | Verify workspace                | —                                                                                         | `cargo build --workspace`          | [x]    |
 
 ### Phase 2 — moonai-config
 
 **Goal:** `moonai-config` fully implemented — simulation params, CLI, UI config, Lua loading
 
-| # | Task | Verification |
-|---|------|--------------|
-| 1 | `SimulationConfig` with all fields + serde | `cargo test -p moonai-config` |
-| 2 | `CliArgs` + clap parsing (`--experiment`, `--all`, `--headless`, `-n`, etc.) | `cargo test -p moonai-config` |
-| 3 | `UiConfig` with **hardcoded defaults** (agent radii, colors, panel styles) | Unit tests |
-| 4 | Lua loading — inject `moonai_defaults`, parse experiment table, merge `ui` sub-table overrides | `cargo run -- validate config.lua` |
-| 5 | `ConfigError` + `validate_config` | Unit tests |
-| 6 | Set up `tracing` subscriber | `RUST_LOG=debug cargo test` shows trace output |
+| #   | Task                                                                                           | Verification                                   |
+| --- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| 1   | `SimulationConfig` with all fields + serde                                                     | `cargo test -p moonai-config`                  |
+| 2   | `CliArgs` + clap parsing (`--experiment`, `--all`, `--headless`, `-n`, etc.)                   | `cargo test -p moonai-config`                  |
+| 3   | `UiConfig` with **hardcoded defaults** (agent radii, colors, panel styles)                     | Unit tests                                     |
+| 4   | Lua loading — inject `moonai_defaults`, parse experiment table, merge `ui` sub-table overrides | `cargo run -- validate config.lua`             |
+| 5   | `ConfigError` + `validate_config`                                                              | Unit tests                                     |
+| 6   | Set up `tracing` subscriber                                                                    | `RUST_LOG=debug cargo test` shows trace output |
 
 ### Phase 2b — moonai-types (Pure NEAT Types)
 
 **Goal:** `moonai-types` contains only genetic/simulation types — no config structs
 
-| # | Task | Verification |
-|---|------|--------------|
-| 1 | `Vec2`, constants (`SENSOR_COUNT` (35), `OUTPUT_COUNT` (2), `INVALID_ENTITY`) | Unit tests |
-| 2 | `NodeType`, `NodeGene`, `ConnectionGene` | Unit tests |
-| 3 | `deterministic_respawn` with `#[repr(C)]` | Deterministic output test |
+| #   | Task                                                                          | Verification              |
+| --- | ----------------------------------------------------------------------------- | ------------------------- |
+| 1   | `Vec2`, constants (`SENSOR_COUNT` (35), `OUTPUT_COUNT` (2), `INVALID_ENTITY`) | Unit tests                |
+| 2   | `NodeType`, `NodeGene`, `ConnectionGene`                                      | Unit tests                |
+| 3   | `deterministic_respawn` with `#[repr(C)]`                                     | Deterministic output test |
 
 ### Phase 3 — Evolution (GPU CUDA Kernels)
 
@@ -421,30 +421,30 @@ crates/
 
 #### 3a. Data Structures
 
-| # | Task | Verification |
-|---|------|--------------|
-| 1 | Implement `Genome` struct with `Vec<NodeGene>`, `Vec<ConnectionGene>` | `cargo test -p moonai-evolution -- genome` |
-| 2 | Implement `Genome::add_node`, `add_connection`, `has_connection`, `has_node`, `max_node_id` | Unit tests |
-| 3 | Implement `Genome::complexity`, `compatibility_distance` | Unit tests |
-| 4 | Implement `InnovationTracker` with global counter | Unit tests |
-| 5 | Implement `NeuralNetwork::activate`, `activate_into` | Compare with C++ forward pass |
+| #   | Task                                                                                        | Verification                               |
+| --- | ------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| 1   | Implement `Genome` struct with `Vec<NodeGene>`, `Vec<ConnectionGene>`                       | `cargo test -p moonai-evolution -- genome` |
+| 2   | Implement `Genome::add_node`, `add_connection`, `has_connection`, `has_node`, `max_node_id` | Unit tests                                 |
+| 3   | Implement `Genome::complexity`, `compatibility_distance`                                    | Unit tests                                 |
+| 4   | Implement `InnovationTracker` with global counter                                           | Unit tests                                 |
+| 5   | Implement `NeuralNetwork::activate`, `activate_into`                                        | Compare with C++ forward pass              |
 
 #### 3b. CPU Reference Operations (for algorithm validation)
 
-| # | Task | Verification |
-|---|------|--------------|
-| 6 | Implement `crossover` function (sexual, matching by innovation) | Unit tests (property-based) |
-| 7 | Implement `mutate_weights`, `add_connection`, `add_node`, `delete_connection` | Unit tests |
-| 8 | Implement `Species` compatibility, add_member, refresh | Unit tests |
-| 9 | Implement `EvolutionManager::seed_initial_population`, `reproduce_population` | Integration test |
+| #   | Task                                                                          | Verification                |
+| --- | ----------------------------------------------------------------------------- | --------------------------- |
+| 6   | Implement `crossover` function (sexual, matching by innovation)               | Unit tests (property-based) |
+| 7   | Implement `mutate_weights`, `add_connection`, `add_node`, `delete_connection` | Unit tests                  |
+| 8   | Implement `Species` compatibility, add_member, refresh                        | Unit tests                  |
+| 9   | Implement `EvolutionManager::seed_initial_population`, `reproduce_population` | Integration test            |
 
 #### 3c. CUDA Kernel Implementation
 
-| # | Task | Algorithm |
-|---|------|-----------|
-| 10 | `crossover.cu` — `gpu_crossover_kernel` | 1 thread per offspring. Sort parent connections by innovation (warp-level bitonic). Merge with 50%/50% inheritance rules. |
-| 11 | `mutation.cu` — `gpu_mutate_kernel` | Per-agent: weight perturbation (Gaussian), add_connection (atomic innovation counter + linear scan), add_node (disable connection + 2 new connections with atomic counters), delete_connection. |
-| 12 | `network_compilation.cu` — `gpu_compile_kernel` | Topological sort of nodes → eval_order[]. Build conn_ptr[] offsets. Copy weights to inference arrays. |
+| #   | Task                                            | Algorithm                                                                                                                                                                                       |
+| --- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 10  | `crossover.cu` — `gpu_crossover_kernel`         | 1 thread per offspring. Sort parent connections by innovation (warp-level bitonic). Merge with 50%/50% inheritance rules.                                                                       |
+| 11  | `mutation.cu` — `gpu_mutate_kernel`             | Per-agent: weight perturbation (Gaussian), add_connection (atomic innovation counter + linear scan), add_node (disable connection + 2 new connections with atomic counters), delete_connection. |
+| 12  | `network_compilation.cu` — `gpu_compile_kernel` | Topological sort of nodes → eval_order[]. Build conn_ptr[] offsets. Copy weights to inference arrays.                                                                                           |
 
 ### Phase 4 — GPU Simulation Kernel
 
@@ -452,72 +452,73 @@ crates/
 
 #### 4a. GPU Buffers
 
-| # | Task | Notes |
-|---|------|-------|
-| 1 | `PredatorBuffer` SoA layout | All genome arrays in-place |
-| 2 | `PreyBuffer` SoA layout | Same as predator |
-| 3 | `FoodBuffer` | pos_x, pos_y, active |
-| 4 | `UiStats` pinned host-mapped | Written every step, CPU reads with memcpy |
-| 5 | Free list ring buffer | Push dead slots, pop for births |
+| #   | Task                         | Notes                                     |
+| --- | ---------------------------- | ----------------------------------------- |
+| 1   | `PredatorBuffer` SoA layout  | All genome arrays in-place                |
+| 2   | `PreyBuffer` SoA layout      | Same as predator                          |
+| 3   | `FoodBuffer`                 | pos_x, pos_y, active                      |
+| 4   | `UiStats` pinned host-mapped | Written every step, CPU reads with memcpy |
+| 5   | Free list ring buffer        | Push dead slots, pop for births           |
 
 #### 4b. Persistent Kernel Phases
 
-| # | Phase | Calls | Algorithm |
-|---|-------|-------|-----------|
-| 1 | `grid_build` | — | Count-scan-scatter into spatial cells |
-| 2 | `sensor_compute` | — | Search 5 nearest predators/prey/food per agent |
-| 3 | `inference` | — | Forward pass tanh activation |
-| 4 | `update_vitals` | — | Energy drain, age++, death check |
-| 5 | `resolve_food` | — | Prey claim food in range |
-| 6 | `resolve_combat` | — | Predator claim prey in range |
-| 7 | `apply_movement` | — | NN output → position update |
-| 8 | `reproduction` | — | |
-| 8a | evaluate | — | Energy >= threshold, not used this step |
-| 8b | find_mate | — | DenseReproductionGrid search |
-| 8c | gpu_crossover | **moonai-evolution** | Calls crossover.cu kernel |
-| 8d | gpu_mutate | **moonai-evolution** | Calls mutation.cu kernel |
-| 8e | gpu_compile_network | **moonai-evolution** | Calls network_compilation.cu |
-| 8f | activate_slot | — | Mark birth_state=ACTIVE |
-| 9 | `write_ui_stats` | — | Pinned memory write |
+| #   | Phase               | Calls                | Algorithm                                      |
+| --- | ------------------- | -------------------- | ---------------------------------------------- |
+| 1   | `grid_build`        | —                    | Count-scan-scatter into spatial cells          |
+| 2   | `sensor_compute`    | —                    | Search 5 nearest predators/prey/food per agent |
+| 3   | `inference`         | —                    | Forward pass tanh activation                   |
+| 4   | `update_vitals`     | —                    | Energy drain, age++, death check               |
+| 5   | `resolve_food`      | —                    | Prey claim food in range                       |
+| 6   | `resolve_combat`    | —                    | Predator claim prey in range                   |
+| 7   | `apply_movement`    | —                    | NN output → position update                    |
+| 8   | `reproduction`      | —                    |                                                |
+| 8a  | evaluate            | —                    | Energy >= threshold, not used this step        |
+| 8b  | find_mate           | —                    | DenseReproductionGrid search                   |
+| 8c  | gpu_crossover       | **moonai-evolution** | Calls crossover.cu kernel                      |
+| 8d  | gpu_mutate          | **moonai-evolution** | Calls mutation.cu kernel                       |
+| 8e  | gpu_compile_network | **moonai-evolution** | Calls network_compilation.cu                   |
+| 8f  | activate_slot       | —                    | Mark birth_state=ACTIVE                        |
+| 9   | `write_ui_stats`    | —                    | Pinned memory write                            |
 
 #### 4c. Metrics Reduce
 
-| # | Task | Notes |
-|---|------|-------|
-| 10 | Launch `metrics_reduce_kernel` at `report_interval` | Warp reduction → compact struct |
+| #   | Task                                                | Notes                           |
+| --- | --------------------------------------------------- | ------------------------------- |
+| 10  | Launch `metrics_reduce_kernel` at `report_interval` | Warp reduction → compact struct |
 
 #### 4d. Buffer Management
 
-| # | Task | Trigger |
-|---|------|--------|
-| 11 | Buffer expansion | `live_count > capacity * 0.9` |
-| 12 | Compaction (mark-scatter-swap) | `free_list empty && births pending` |
+| #   | Task                           | Trigger                             |
+| --- | ------------------------------ | ----------------------------------- |
+| 11  | Buffer expansion               | `live_count > capacity * 0.9`       |
+| 12  | Compaction (mark-scatter-swap) | `free_list empty && births pending` |
 
 ### Phase 5 — Metrics
 
 **Goal:** Output files match C++ schema exactly
 
-| # | Task | Details |
-|---|------|---------|
-| 1 | `Logger` struct | `YYYYMMDD_HHMMSS_seedN` directory |
-| 2 | `stats.csv` | step, predator_count, prey_count, predator_births, prey_births, predator_deaths, prey_deaths, predator_species, prey_species, avg_predator_complexity, avg_prey_complexity, avg_predator_energy, avg_prey_energy, max_predator_generation, avg_predator_generation, max_prey_generation, avg_prey_generation |
-| 3 | `species.csv` | step, population, species_id, size, avg_complexity |
-| 4 | `genomes.json` | Representative genome snapshots |
+| #   | Task            | Details                                                                                                                                                                                                                                                                                                      |
+| --- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | `Logger` struct | `YYYYMMDD_HHMMSS_seedN` directory                                                                                                                                                                                                                                                                            |
+| 2   | `stats.csv`     | step, predator_count, prey_count, predator_births, prey_births, predator_deaths, prey_deaths, predator_species, prey_species, avg_predator_complexity, avg_prey_complexity, avg_predator_energy, avg_prey_energy, max_predator_generation, avg_predator_generation, max_prey_generation, avg_prey_generation |
+| 3   | `species.csv`   | step, population, species_id, size, avg_complexity                                                                                                                                                                                                                                                           |
+| 4   | `genomes.json`  | Representative genome snapshots                                                                                                                                                                                                                                                                              |
 
 ### Phase 6 — Headless Runtime (Milestone)
 
 **Verification Gates:**
 
-| Gate | Command | Success Criteria |
-|------|---------|------------------|
-| Evolution tests | `cargo test -p moonai-evolution` | All tests pass |
-| Build parity | `cargo build --workspace` | All crates compile, no CMake |
-| Config parity | `cargo run -- --validate config.lua` | Config loads |
+| Gate             | Command                                                             | Success Criteria                                                  |
+| ---------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Evolution tests  | `cargo test -p moonai-evolution`                                    | All tests pass                                                    |
+| Build parity     | `cargo build --workspace`                                           | All crates compile, no CMake                                      |
+| Config parity    | `cargo run -- --validate config.lua`                                | Config loads                                                      |
 | Headless runtime | `./moonai config.lua --experiment baseline --headless --steps 1000` | Produces stats.csv, species.csv, genomes.json matching C++ output |
 
 ### Phase 7 — UI
 
 **File structure:**
+
 ```
 crates/moonai-ui/
 ├── Cargo.toml
@@ -532,6 +533,7 @@ crates/moonai-ui/
 state** — it is NOT config. It lives in `moonai-ui/types.rs` and is never serialized.
 
 **Render pipeline:**
+
 ```
 GPU buffers → wgpu buffer → instanced draw predator/prey/food
                                     ↓
@@ -541,18 +543,18 @@ GPU buffers → wgpu buffer → instanced draw predator/prey/food
 
 **Controls:**
 
-| Key/Action | Behavior |
-|------------|----------|
-| Space | Pause / resume (stops GPU tick loop) |
-| ↑ / ↓ or + / - | Increase / decrease simulation speed (1x–1024x, 2x per press) |
-| . | Step one tick (while paused) |
-| S | Save screenshot |
-| Esc | Quit |
-| Home | Reset camera to default zoom and center |
-| Left-click | GPU computes agent features → read staging buffer → show stats + NN panel |
-| Middle-click drag | Pan camera |
-| Right-click drag | Pan camera |
-| Scroll wheel | Zoom |
+| Key/Action        | Behavior                                                                  |
+| ----------------- | ------------------------------------------------------------------------- |
+| Space             | Pause / resume (stops GPU tick loop)                                      |
+| ↑ / ↓ or + / -    | Increase / decrease simulation speed (1x–1024x, 2x per press)             |
+| .                 | Step one tick (while paused)                                              |
+| S                 | Save screenshot                                                           |
+| Esc               | Quit                                                                      |
+| Home              | Reset camera to default zoom and center                                   |
+| Left-click        | GPU computes agent features → read staging buffer → show stats + NN panel |
+| Middle-click drag | Pan camera                                                                |
+| Right-click drag  | Pan camera                                                                |
+| Scroll wheel      | Zoom                                                                      |
 
 ### Phase 8 — Cleanup
 
@@ -644,17 +646,20 @@ Per-step innovation log (append-only):
 ```
 
 **Mutation -- add_connection**:
+
 1. Pick random `(from_node, to_node)` pair
 2. Check if connection exists by scanning this agent's connection array (O(C), typically <500)
 3. If not found and `num_connections < max_connections`: atomically increment `innovation_counter` -> new ID -> insert connection
 
 **Mutation -- add_node**:
+
 1. Pick random enabled connection `(a, b)` with innovation `I`
 2. Atomically increment `next_node_id` -> hidden node `h`
 3. Atomically increment `innovation_counter` twice -> `I1`, `I2`
 4. Disable connection `(a, b)`, insert `(a, h): I1`, `(h, b): I2`
 
 **Why this is fast**:
+
 - No hash map contention -- atomics only on counter increments (1-2 ops each)
 - Connection existence check is a simple linear scan -- O(C) is fine since most connections do not mutate
 - All other mutations (weight perturbation, enable/disable) are data movement, no atomics
@@ -679,6 +684,7 @@ render pass (wgpu, no CPU readback):
 ```
 
 **Selected Agent Readback (On Demand)**:
+
 ```
 User clicks agent:
   GPU: kernel_compute_selected_agent_features(slot_id, staging_buffer)
@@ -726,17 +732,18 @@ Reset free_list to dead slots at end of new buffer
 
 ## 12. Risk Assessment
 
-| Risk | Probability | Impact | Mitigation |
-|------|-------------|--------|------------|
-| cxx CUDA interop complexity | Medium | High | Start with simple kernel, iterate |
-| Persistent kernel register pressure | Medium | Medium | Template on N_STEPS; tune block size |
-| Buffer expansion copying large arrays | Low | Low | 2x doubling is infrequent |
-| Innovation counter atomics contention | Low | Low | Only 1-2 atomics per offspring |
-| wgpu rendering performance | Medium | Medium | Instanced rendering, no per-frame readback |
+| Risk                                  | Probability | Impact | Mitigation                                 |
+| ------------------------------------- | ----------- | ------ | ------------------------------------------ |
+| cxx CUDA interop complexity           | Medium      | High   | Start with simple kernel, iterate          |
+| Persistent kernel register pressure   | Medium      | Medium | Template on N_STEPS; tune block size       |
+| Buffer expansion copying large arrays | Low         | Low    | 2x doubling is infrequent                  |
+| Innovation counter atomics contention | Low         | Low    | Only 1-2 atomics per offspring             |
+| wgpu rendering performance            | Medium      | Medium | Instanced rendering, no per-frame readback |
 
 ## 13. Sensor Layout (35 inputs, unchanged)
 
 Same as current C++:
+
 - 5 nearest predators x 2 values (dx, dy)
 - 5 nearest prey x 2 values
 - 5 nearest food x 2 values
