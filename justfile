@@ -1,175 +1,87 @@
-# MoonAI - Project Commands
+# MoonAI - Rust Project Commands
 # Usage: just <recipe>
 # Run `just --list` to see all available recipes.
 
-# ─── Configuration ──────────────────────────────────────────────────────────
-
-# Detect OS
-os := if os() == "windows" { "windows" } else { "linux" }
-
-# vcpkg root (falls back to ~/.vcpkg if not set in environment)
-export VCPKG_ROOT := env("VCPKG_ROOT", env("HOME") + "/.vcpkg")
-
-# Build type (override with: just build-type=release build)
-build-type := "debug"
-
-preset := os + "-" + build-type
-build-dir := "build" / preset
-release-dir := "build" / (os + "-release")
-
-# ─── Build ──────────────────────────────────────────────────────────────────
 
 # Set up Python environments for simulation and analysis
 [group('build')]
-setup-python:
+setup-uv:
   uv sync
 
-# Configure CMake (run after setup or when CMakeLists change)
-# Pass extra cmake args (e.g., just configure -DVAR=value)
+# Build all crates in the workspace
 [group('build')]
-configure *args:
-  cmake --preset {{preset}} {{args}}
+build-debug:
+  cargo build --workspace
 
-# Build the project
+# Build in release mode
 [group('build')]
 build:
-  cmake --build {{build-dir}} --parallel
+  cargo build --workspace --release
 
-# Build in release mode (with LTO, native optimizations, and strict warnings)
-# Pass extra cmake args (e.g., just release -DVAR=value)
-[group('build')]
-release *args:
-  just build-type=release configure {{args}}
-  just build-type=release build
-
-# ─── Run ────────────────────────────────────────────────────────────────────
-
-# Run the simulation with default config (pass additional args after --)
-[group('run')]
-run *args: build
-  {{build-dir}}/moonai config.lua --experiment default {{args}}
 
 # Run the release build with default config (pass additional args after --)
 [default]
 [group('run')]
-run-release *args: release
-  {{release-dir}}/moonai config.lua --experiment default {{args}}
+run *args:
+  cargo run --release -- {{args}}
 
-# Validate a config file
+# Run the debug build with default config (pass additional args after --)
 [group('run')]
-validate config_path="config.lua": build
-  {{build-dir}}/moonai --validate {{config_path}}
-
-# ─── Experiments ─────────────────────────────────────────────────────────────
-
-# List all experiments defined in the Lua config
-[group('experiment')]
-list-experiments: build
-  {{build-dir}}/moonai config.lua --list
-
-# Run the full experiment matrix (all conditions × seeds, headless)
-[group('experiment')]
-experiment-run: release
-  {{release-dir}}/moonai config.lua --all --headless
+run-debug *args:
+  cargo run -- {{args}}
 
 # Generate the self-contained HTML analysis report from output/
-[group('experiment')]
-experiment-analyse:
+[group('run')]
+analyse:
   uv run analysis
 
-# Full experiment pipeline: run all experiments → generate report
-[group('experiment')]
-experiment: experiment-run experiment-analyse
 
-# ─── Development ────────────────────────────────────────────────────────────
-
-# Run tests (optional args: --verbose, -R pattern, etc.)
+# Fix: format and lint
 [group('dev')]
-test *args: build
-  ctest --test-dir {{build-dir}} --output-on-failure {{args}}
+fix:
+  cargo fmt --all
+  cargo clippy --workspace --all-targets --all-features --fix --allow-dirty
 
-# Run code quality checks: auto-format all C++ files and run static analysis
+  ruff check . --fix
+  ruff format .
+
+# Check code: format, lint checks and manual supression command grep
 [group('dev')]
-lint: configure
-  find src \( -name "*.cpp" -o -name "*.hpp" -o -name "*.h" -o -name "*.cu" -o -name "*.cuh" \) | xargs clang-format --style=file -i
-  cppcheck --enable=warning,style,performance \
-    --std=c++17 \
-    --suppress=missingIncludeSystem \
-    --suppress=*:*/vcpkg_installed/* \
-    --project={{build-dir}}/compile_commands.json
-  run-clang-tidy -p {{build-dir}} src/
+check:
+  ! rg -n -F -e '#[allow' -e '#![allow' -g '*.rs' -g '!tests/**'
+  cargo fmt --all -- --check
+  cargo clippy --workspace --all-targets --all-features
 
-# Generate compile_commands.json for IDE/LSP integration
+  ruff format . --check
+  ruff check .
+
+# Run tests
 [group('dev')]
-compdb:
-  cmake --preset {{preset}} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-  ln -sf {{build-dir}}/compile_commands.json compile_commands.json
+test *args:
+  cargo test --workspace --all-targets --all-features --locked -- --nocapture {{args}}
 
-# Show project info and detected configuration
+# Lint code
 [group('dev')]
-info:
-  @echo "MoonAI Project"
-  @echo "─────────────────────────────"
-  @echo "OS:         {{os}}"
-  @echo "Build type: {{build-type}}"
-  @echo "Preset:     {{preset}}"
-  @echo "Build dir:  {{build-dir}}"
-  @echo "VCPKG_ROOT: ${VCPKG_ROOT:-NOT SET}"
+gate: check test
 
-# ─── GPU ────────────────────────────────────────────────────────────────────
+update:
+  cargo update
 
-# Run Nsight Compute on the hottest GPU kernel with CLI output only (requires sudo for GPU perf counters)
-[group('gpu')]
-ncu: release
-  sudo ncu \
-    --target-processes all \
-    --kernel-name "regex:.*sensor_build_kernel.*" \
-    --launch-skip 0 \
-    --launch-count 1 \
-    --set basic \
-    {{release-dir}}/moonai config.lua --experiment baseline_seed42 --headless --steps 60 --name nsight-baseline
-  @echo "Note: Output files may be owned by root. Run: sudo chown -R $(whoami):$(whoami) output/nsight-baseline*"
 
-# Run a deeper Nsight Compute pass on the hottest GPU kernel (requires sudo for GPU perf counters)
-[group('gpu')]
-ncu-full: release
-  sudo ncu \
-    --target-processes all \
-    --kernel-name "regex:.*sensor_build_kernel.*" \
-    --launch-skip 0 \
-    --launch-count 1 \
-    --set full \
-    {{release-dir}}/moonai config.lua --experiment baseline_seed42 --headless --steps 60 --name nsight-baseline
-  @echo "Note: Output files may be owned by root. Run: sudo chown -R $(whoami):$(whoami) output/nsight-baseline*"
-
-# Run Nsight Systems for one profiler suite and print CLI stats (requires sudo for GPU perf counters)
-[group('gpu')]
-nsys: release
-  mkdir -p output/nsight
-  sudo nsys profile \
-    --trace=cuda,nvtx,osrt \
-    --sample=none \
-    --stats=true \
-    --force-overwrite=true \
-    --output=output/nsight/nsys-baseline \
-    {{release-dir}}/moonai config.lua --experiment baseline_seed42 --headless --steps 60 --name nsight-baseline
-  @echo "Note: Output files may be owned by root. Run: sudo chown -R $(whoami):$(whoami) output/nsight*"
-
-# ─── Clean ──────────────────────────────────────────────────────────────────
-
-# Remove build directory
+# Remove build artifacts
 [group('clean')]
 clean:
-  rm -rf build/
+  cargo clean
+  ruff clean
 
 # Remove all output and generated report artifacts
 [group('clean')]
 clean-outputs:
   rm -rf output/
 
-# ─── Docs ──────────────────────────────────────────────────────────────────
 
 # Clean and start website at localhost
+[group('docs')]
 docs:
   rm -rf site/
   zensical serve

@@ -2,35 +2,282 @@
 description: Tasks, priorities, known bugs, and the project roadmap.
 ---
 
-# Rewrite Plan: MoonAI — GPU-First Architecture
+# MoonAI Implementation Plan — GPU-First Architecture
 
-## Overview
+> **Legacy C++ Implementation**: The original C++ simulation code is preserved in `legacy/`. This legacy codebase can be inspected for reference but is no longer actively developed. It includes the CMake build system, full SFML visualization, and all original NEAT implementation details. All C++ build configuration (CMakeLists.txt, CMakePresets.json, .clang-format, .clang-tidy, vcpkg.json), source code (main.cpp, app/, core/, evolution/, metrics/, simulation/, visualization/), and architecture documentation (architecture.md) are located in `legacy/`.
 
-Complete rewrite in Rust with GPU-first simulation design. The GPU runs all simulation compute (agents, sensors, neural inference, physics, spatial grid, genome crossover and mutation, birth activation) as a **persistent kernel** that executes N steps per tick. The CPU orchestrates: metrics export, UI data delivery, and initial population seeding. No per-step CPU iteration over agents. No CPU-side genome compilation.
+## 1. System Architecture
 
-## Design Principles
+### 1.1 Module Dependency Graph
+
+```mermaid
+graph TD
+    moonai["
+    moonai
+    ─ main.rs
+    ─ signal.rs
+    "]
+
+    moonai_config["
+    moonai-config
+    ─ SimulationConfig
+    ─ CliArgs
+    ─ UiConfig
+    ─ Lua loading
+    "]
+
+    moonai_types["
+    moonai-types
+    "]
+
+    moonai_evolution["
+    moonai-evolution
+    ─ lib.rs
+    ─ Genome, NeuralNetwork
+    ─ Mutation, Crossover
+    ─ Species, EvolutionManager
+    ─ crossover.cu
+    ─ mutation.cu
+    ─ network_compilation.cu
+    "]
+
+    moonai_simulation["
+    moonai-simulation
+    ─ lib.rs
+    ─ kernel.cu
+    ─ buffers.rs
+    ─ inference.rs
+    ─ reproduction.rs
+    ─ metrics_reduce.rs
+    ─ compaction.rs
+    "]
+
+    moonai_metrics["
+    moonai-metrics
+    "]
+
+    moonai_ui["
+    moonai-ui
+    ─ lib.rs
+    ─ render.rs
+    ─ types.rs
+    "]
+
+    moonai_config --> moonai_types
+    moonai_evolution --> moonai_types
+    moonai_simulation --> moonai_types
+    moonai_simulation --> moonai_config
+    moonai_simulation --> moonai_evolution
+    moonai_metrics --> moonai_types
+    moonai_metrics --> moonai_config
+    moonai_ui --> moonai_types
+    moonai_ui --> moonai_config
+    moonai_ui --> moonai_evolution
+    moonai_ui --> moonai_simulation
+    moonai --> moonai_evolution
+    moonai --> moonai_simulation
+    moonai --> moonai_metrics
+    moonai --> moonai_ui
+    moonai --> moonai_config
+    moonai --> moonai_types
+```
+
+### 1.2 Tick Execution Flow
+
+```mermaid
+flowchart TD
+    subgraph CPU["CPU Orchestrator"]
+        CLI[parse CLI]
+        LUA[load config.lua]
+        ROUTE{Route}
+        INIT_SIM[init moonai-simulation]
+        INIT_LOG[init moonai-metrics]
+        INIT_UI[init moonai-ui]
+        SEED[seed initial population]
+        TICK_LOOP{while running}
+        REDUCE{gpu_reduce_metrics}
+        LOG[log CSV/JSON]
+        RENDER[wgpu_render_frame]
+        UI[egui_overlay_draw]
+        EXIT[exit]
+    end
+
+    subgraph GPU["GPU Persistent Kernel"]
+        GRID[grid_build]
+        SENSOR[sensor_compute]
+        INFERENCE[neural_inference]
+        VITALS[update_vitals]
+        FOOD[resolve_food]
+        COMBAT[resolve_combat]
+        MOVE[apply_movement]
+        REPRO[reproduction]
+        EVAL[evaluate eligibility]
+        FIND[find_mate]
+        CROSS[gpu_crossover]
+        MUT[gpu_mutate]
+        COMPILE[gpu_compile_network]
+        ACTIVATE[activate_slot]
+        ATOMICS[write_atomics]
+        UISTATS[write_ui_stats]
+    end
+
+    CLI --> LUA --> ROUTE
+    ROUTE -->|list| EXIT
+    ROUTE -->|validate| EXIT
+    ROUTE -->|run| INIT_SIM
+    INIT_SIM --> INIT_LOG --> INIT_UI --> SEED --> TICK_LOOP
+    TICK_LOOP -->|run N steps| GPU
+    GPU --> GRID --> SENSOR --> INFERENCE --> VITALS --> FOOD --> COMBAT --> MOVE
+    MOVE --> REPRO
+    REPRO --> EVAL --> FIND --> CROSS --> MUT --> COMPILE --> ACTIVATE
+    ACTIVATE --> ATOMICS --> UISTATS
+    TICK_LOOP -->|report_interval| REDUCE --> LOG
+    TICK_LOOP -->|headless| RENDER
+    TICK_LOOP -->|GUI mode| RENDER --> UI
+    TICK_LOOP -->|signal| EXIT
+```
+
+### 1.3 GPU Memory Layout
+
+```mermaid
+classDiagram
+    class PredatorBuffer {
+        +float pos_x[N]
+        +float pos_y[N]
+        +float vel_x[N]
+        +float vel_y[N]
+        +float energy[N]
+        +float age[N]
+        +uint8 alive[N]
+        +uint32 species_id[N]
+        +uint32 entity_id[N]
+        +uint32 generation[N]
+        +int32 connection_from[N * max_connections]
+        +int32 connection_to[N * max_connections]
+        +float connection_weight[N * max_connections]
+        +uint32 connection_innovation[N * max_connections]
+        +uint8 connection_enabled[N * max_connections]
+        +uint8 node_types[N * (max_hidden + FIXED)]
+        +uint16 num_connections[N]
+        +uint16 num_nodes[N]
+        +uint8 birth_state[N]
+        +uint64 rng_state[N]
+    }
+
+    class PreyBuffer {
+        +float pos_x[N]
+        +float pos_y[N]
+        +float vel_x[N]
+        +float vel_y[N]
+        +float energy[N]
+        +float age[N]
+        +uint8 alive[N]
+        +uint32 species_id[N]
+        +uint32 entity_id[N]
+        +uint32 generation[N]
+        +int32 connection_from[N * max_connections]
+        +int32 connection_to[N * max_connections]
+        +float connection_weight[N * max_connections]
+        +uint32 connection_innovation[N * max_connections]
+        +uint8 connection_enabled[N * max_connections]
+        +uint8 node_types[N * (max_hidden + FIXED)]
+        +uint16 num_connections[N]
+        +uint16 num_nodes[N]
+        +uint8 birth_state[N]
+        +uint64 rng_state[N]
+    }
+
+    class FoodBuffer {
+        +float pos_x[N]
+        +float pos_y[N]
+        +uint8 active[N]
+    }
+
+    class UiStats {
+        +uint32 step
+        +uint32 predator_count
+        +uint32 prey_count
+        +uint32 predator_births
+        +uint32 prey_births
+        +uint32 predator_deaths
+        +uint32 prey_deaths
+        +uint32 kills
+        +uint32 food_eaten
+        +float avg_predator_energy
+        +float avg_prey_energy
+    }
+```
+
+### 1.4 CLI Interface
+
+**CLI flags:**
+
+| Flag | Description |
+|------|-------------|
+| `-c, --config <path>` | Path to Lua config file (default: `config.lua`) |
+| `-n, --steps <n>` | Override max steps (`0` = infinite) |
+| `--headless` | Run without visualization |
+| `-v, --verbose` | Enable debug logging |
+| `--experiment <name>` | Select one experiment by name |
+| `--all` | Run all experiments sequentially (headless only) |
+| `--list` | List experiment names and exit |
+| `--name <name>` | Override output directory name |
+| `--validate` | Load + validate config, print result, exit |
+| `-h, --help` | Show CLI help |
+
+**CLI routing:**
+
+```mermaid
+flowchart TB
+    Parse[parse CLI]
+    Load[load config.lua]
+    Route{Mode}
+    List[--list]
+    Validate[--validate]
+    RunOne[--experiment name]
+    RunAll[--all]
+    RunDefault[default]
+    Exit[exit]
+
+    Parse --> Load --> Route
+    Route -->|list| List --> Exit
+    Route -->|validate| Validate --> Exit
+    Route -->|experiment| RunOne --> Exit
+    Route -->|all| RunAll --> Exit
+    Route -->|default| RunDefault --> Exit
+```
+
+## 2. Design Principles
 
 1. **GPU owns all simulation state** — positions, velocities, energy, age, alive flags, genomes, innovation counters, all live in GPU memory.
 2. **CPU is orchestrator only** — never iterates the agent population except for initial population seeding and metrics export.
 3. **Tick-based cadence** — GPU runs N simulation steps per tick; CPU handles metrics logging between ticks.
-4. **GPU-native reproduction** — crossover, mutation, and network compilation happen entirely on GPU every step. No CPU thread pool needed.
+4. **GPU-native evolution** — crossover, mutation, and network compilation happen entirely on GPU via `moonai-evolution` CUDA kernels.
 5. **Buffer expansion** — buffers grow by 2x when capacity threshold is reached. No artificial ceiling.
+6. **No duplication** — evolution logic lives in `moonai-evolution` only; `moonai-simulation` calls those kernels.
 
-## Assumptions
+## 3. Assumptions
 
 - `config.lua` remains the config format.
+- `UiConfig` defaults are hardcoded in Rust; `config.lua` can override via an `ui` sub-table
+  (e.g., `ui = { predator_radius = 1.5 }`).
+- `UiState` (paused, speed_multiplier, step_requested, selected_agent_id) is **runtime state**,
+  lives in `moonai-ui/types.rs`. NOT in `moonai-config`.
 - Output schema stays unchanged so Python analysis keeps working.
 - Behavioral parity is the goal.
 - Predator and prey use separate GPU buffers; no `AgentType` enum needed.
 - `config.lua` is loaded via `mlua`. `moonai_defaults` is injected as a global table.
+- CLI `--experiment` flag is a string passthrough; experiment selection logic is in `moonai` crate.
 - Reproduction is **sexual** — two parent genomes crossover on GPU, mutation applied on GPU, network compiled on GPU.
 - FPS target: 120fps. Speed multiplier: 1x-1024x steps per frame. Every frame renders everything live.
 - UI needs fresh data every frame: population counts, positions, velocities, all of it.
 
-## Technology Choices
+## 4. Technology Choices
 
 | Concern | C++ | Rust/GPU-First |
 |---------|-----|----------------|
+| Language | C++17 | Rust 2024 |
+| CUDA binding | raw CUDA | `cxx` (supports CUDA natively) |
 | Logging | spdlog | `tracing` + `tracing-subscriber` |
 | JSON | nlohmann/json | `serde` + `serde_json` |
 | Lua binding | Lua C API | `mlua` crate |
@@ -39,42 +286,350 @@ Complete rewrite in Rust with GPU-first simulation design. The GPU runs all simu
 | Atomic counters | — | CUDA atomics for GPU-to-CPU events |
 | Genome compilation | CPU (rayon) | GPU (persistent kernel) |
 
-## Architecture
-
-### Tick Execution Model
+## 5. Crate Architecture
 
 ```
-CPU tick loop:
-  TICK N
-    GPU: simulation_kernel(N_STEPS_PER_TICK)
-      for each step 0..N-1:
-        grid_build
-        sensor_compute
-        neural_inference
-        update_vitals
-        resolve_food
-        resolve_combat
-        apply_movement
-        reproduction:
-          evaluate_reproduction_eligibility
-          find_mate (DenseReproductionGrid)
-          write (slot, parent_a, parent_b) to birth buffer
-          gpu_crossover_and_mutate(offspring)
-          gpu_compile_network(offspring)
-          activate_slot(offspring)
-        write_atomics(births, deaths, kills, food_eaten)
-        write_ui_stats(alive_pred, alive_prey, ...)
+Cargo.toml
+crates/
+  moonai-config/
+    Cargo.toml
+    src/
+      lib.rs            # re-exports Config, CliArgs, UiConfig, ConfigError
+      simulation.rs     # SimulationConfig (serde, with defaults)
+      cli.rs            # CliArgs struct + clap parsing
+      lua.rs            # Lua loading, moonai_defaults injection
+      ui.rs             # UiConfig (hardcoded defaults, Lua-overrideable)
+      error.rs         # ConfigError, validate_config
 
-    GPU signals completion
+  moonai-types/
+    Cargo.toml
+    src/lib.rs          # Vec2, INVALID_ENTITY, SENSOR_COUNT (35),
+                        # OUTPUT_COUNT (2), NodeType, NodeGene,
+                        # ConnectionGene, deterministic_respawn, tracing setup
 
-    CPU:
-      if report_interval: GPU_reduce_metrics -> log CSV/JSON
-      if headless: wgpu_render()
-      else: wgpu_render() + egui_overlay()
+  moonai-evolution/
+    Cargo.toml
+    build.rs            # Compiles .cu files via cxx
+    src/
+      lib.rs            # Genome, NeuralNetwork, Mutation, Crossover,
+                        # Species, InnovationTracker, EvolutionManager,
+                        # CompiledNetwork
+      genome.rs         # Genome struct, methods
+      network.rs        # NeuralNetwork, activate
+      innovation.rs     # InnovationTracker
+      mutation.rs       # Mutation operations
+      crossover.rs      # Crossover operations
+      species.rs        # Species, compatibility
+      evolution.rs      # EvolutionManager
+      compiled.rs       # CompiledNetwork
+      crossover.cu      # GPU kernel: genome crossover
+      mutation.cu       # GPU kernel: weight mutate, add_connection, add_node
+      network_compilation.cu  # GPU kernel: compile genome to inference format
 
+  moonai-simulation/
+    Cargo.toml
+    build.rs            # Compiles kernel.cu
+    src/
+      lib.rs            # SimulationState, GpuHandles, TickResult,
+                        # run_tick, read_metrics, read_selected_agent,
+                        # init_from_config, init_from_genomes
+      kernel.cu         # Persistent simulation kernel
+                        # NOTE: Calls evolution kernels from moonai-evolution.
+                        # Does NOT implement crossover/mutation/reproduction.
+      buffers.rs        # GPU SoA buffers (agents, food)
+      checks.rs         # CUDA_CHECK macro
+      inference.rs      # Neural inference kernel
+      reproduction.rs   # Mate finding, birth buffer management
+      metrics_reduce.rs # Metrics reduction kernel
+      compaction.rs     # GPU defragmentation
+
+  moonai-metrics/
+    Cargo.toml
+    src/lib.rs          # Logger, stats.csv, species.csv, genomes.json
+
+  moonai-ui/
+    Cargo.toml
+    src/
+      lib.rs            # App, winit event loop, egui overlay
+      render.rs         # wgpu world renderer
+      types.rs          # UiState (RUNTIME STATE), OverlayStats,
+                        # RenderFood, RenderAgent, RenderLine
+
+  moonai/
+    Cargo.toml
+    src/
+      main.rs           # binary entrypoint
+      signal.rs         # SIGINT/SIGTERM graceful shutdown
 ```
 
-### GPU-Side Innovation Tracking (Atomic Counter, NOT Hash Map)
+### Crate Responsibilities
+
+| Crate | Owns | Depends on |
+|-------|------|------------|
+| `moonai-config` | SimulationConfig, CliArgs, UiConfig, ConfigError, Lua loading | `moonai-types` |
+| `moonai-types` | Vec2, NodeType, NodeGene, ConnectionGene, SENSOR_COUNT, OUTPUT_COUNT, INVALID_ENTITY | — |
+| `moonai-evolution` | ALL NEAT evolution logic: CUDA kernels for crossover, mutation, network compilation, InnovationTracker, Species, EvolutionManager | `moonai-types` |
+| `moonai-simulation` | GPU SoA buffers, persistent simulation kernel (calls evolution kernels), spatial grid, inference, metrics reduce, UI stats write | `moonai-types`, `moonai-config`, `moonai-evolution` |
+| `moonai-metrics` | CSV/JSON file logging | `moonai-types`, `moonai-config` |
+| `moonai-ui` | winit, egui panels, wgpu world renderer, UiState (runtime) | `moonai-types`, `moonai-config`, `moonai-evolution`, `moonai-simulation` |
+| `moonai` | main.rs, signal handling | All above |
+
+## 6. Phase Specifications
+
+### Phase 1 — Workspace Skeleton [x]
+
+**Goal:** Empty but compilable workspace
+
+| # | Task | File Changes | Verification | Status |
+|---|------|-------------|--------------|--------|
+| 1 | Create `Cargo.toml` workspace | `Cargo.toml` | `cargo metadata` succeeds | [x] |
+| 2 | Create `moonai-config` stub | `moonai-config/Cargo.toml`, `moonai-config/src/lib.rs` | `cargo build -p moonai-config` | [x] |
+| 3 | Create `moonai-types` stub | `moonai-types/Cargo.toml`, `moonai-types/src/lib.rs` | `cargo build -p moonai-types` | [x] |
+| 4 | Create `moonai-evolution` stub | `moonai-evolution/Cargo.toml`, `moonai-evolution/src/lib.rs`, `moonai-evolution/build.rs` | `cargo build -p moonai-evolution` | [x] |
+| 5 | Create `moonai-simulation` stub | same pattern | `cargo build -p moonai-simulation` | [x] |
+| 6 | Create `moonai-metrics` stub | same pattern | `cargo build -p moonai-metrics` | [x] |
+| 7 | Create `moonai-ui` stub | same pattern | `cargo build -p moonai-ui` | [x] |
+| 8 | Create `moonai` binary stub | same pattern | `cargo build -p moonai` | [x] |
+| 9 | Verify workspace | — | `cargo build --workspace` | [x] |
+
+### Phase 2 — moonai-config
+
+**Goal:** `moonai-config` fully implemented — simulation params, CLI, UI config, Lua loading
+
+| # | Task | Verification |
+|---|------|--------------|
+| 1 | `SimulationConfig` with all fields + serde | `cargo test -p moonai-config` |
+| 2 | `CliArgs` + clap parsing (`--experiment`, `--all`, `--headless`, `-n`, etc.) | `cargo test -p moonai-config` |
+| 3 | `UiConfig` with **hardcoded defaults** (agent radii, colors, panel styles) | Unit tests |
+| 4 | Lua loading — inject `moonai_defaults`, parse experiment table, merge `ui` sub-table overrides | `cargo run -- validate config.lua` |
+| 5 | `ConfigError` + `validate_config` | Unit tests |
+| 6 | Set up `tracing` subscriber | `RUST_LOG=debug cargo test` shows trace output |
+
+### Phase 2b — moonai-types (Pure NEAT Types)
+
+**Goal:** `moonai-types` contains only genetic/simulation types — no config structs
+
+| # | Task | Verification |
+|---|------|--------------|
+| 1 | `Vec2`, constants (`SENSOR_COUNT` (35), `OUTPUT_COUNT` (2), `INVALID_ENTITY`) | Unit tests |
+| 2 | `NodeType`, `NodeGene`, `ConnectionGene` | Unit tests |
+| 3 | `deterministic_respawn` with `#[repr(C)]` | Deterministic output test |
+
+### Phase 3 — Evolution (GPU CUDA Kernels)
+
+**Goal:** `moonai-evolution` owns all NEAT logic as CUDA kernels — no duplication
+
+#### 3a. Data Structures
+
+| # | Task | Verification |
+|---|------|--------------|
+| 1 | Implement `Genome` struct with `Vec<NodeGene>`, `Vec<ConnectionGene>` | `cargo test -p moonai-evolution -- genome` |
+| 2 | Implement `Genome::add_node`, `add_connection`, `has_connection`, `has_node`, `max_node_id` | Unit tests |
+| 3 | Implement `Genome::complexity`, `compatibility_distance` | Unit tests |
+| 4 | Implement `InnovationTracker` with global counter | Unit tests |
+| 5 | Implement `NeuralNetwork::activate`, `activate_into` | Compare with C++ forward pass |
+
+#### 3b. CPU Reference Operations (for algorithm validation)
+
+| # | Task | Verification |
+|---|------|--------------|
+| 6 | Implement `crossover` function (sexual, matching by innovation) | Unit tests (property-based) |
+| 7 | Implement `mutate_weights`, `add_connection`, `add_node`, `delete_connection` | Unit tests |
+| 8 | Implement `Species` compatibility, add_member, refresh | Unit tests |
+| 9 | Implement `EvolutionManager::seed_initial_population`, `reproduce_population` | Integration test |
+
+#### 3c. CUDA Kernel Implementation
+
+| # | Task | Algorithm |
+|---|------|-----------|
+| 10 | `crossover.cu` — `gpu_crossover_kernel` | 1 thread per offspring. Sort parent connections by innovation (warp-level bitonic). Merge with 50%/50% inheritance rules. |
+| 11 | `mutation.cu` — `gpu_mutate_kernel` | Per-agent: weight perturbation (Gaussian), add_connection (atomic innovation counter + linear scan), add_node (disable connection + 2 new connections with atomic counters), delete_connection. |
+| 12 | `network_compilation.cu` — `gpu_compile_kernel` | Topological sort of nodes → eval_order[]. Build conn_ptr[] offsets. Copy weights to inference arrays. |
+
+### Phase 4 — GPU Simulation Kernel
+
+**Goal:** `moonai-simulation` persistent kernel calls `moonai-evolution` CUDA kernels
+
+#### 4a. GPU Buffers
+
+| # | Task | Notes |
+|---|------|-------|
+| 1 | `PredatorBuffer` SoA layout | All genome arrays in-place |
+| 2 | `PreyBuffer` SoA layout | Same as predator |
+| 3 | `FoodBuffer` | pos_x, pos_y, active |
+| 4 | `UiStats` pinned host-mapped | Written every step, CPU reads with memcpy |
+| 5 | Free list ring buffer | Push dead slots, pop for births |
+
+#### 4b. Persistent Kernel Phases
+
+| # | Phase | Calls | Algorithm |
+|---|-------|-------|-----------|
+| 1 | `grid_build` | — | Count-scan-scatter into spatial cells |
+| 2 | `sensor_compute` | — | Search 5 nearest predators/prey/food per agent |
+| 3 | `inference` | — | Forward pass tanh activation |
+| 4 | `update_vitals` | — | Energy drain, age++, death check |
+| 5 | `resolve_food` | — | Prey claim food in range |
+| 6 | `resolve_combat` | — | Predator claim prey in range |
+| 7 | `apply_movement` | — | NN output → position update |
+| 8 | `reproduction` | — | |
+| 8a | evaluate | — | Energy >= threshold, not used this step |
+| 8b | find_mate | — | DenseReproductionGrid search |
+| 8c | gpu_crossover | **moonai-evolution** | Calls crossover.cu kernel |
+| 8d | gpu_mutate | **moonai-evolution** | Calls mutation.cu kernel |
+| 8e | gpu_compile_network | **moonai-evolution** | Calls network_compilation.cu |
+| 8f | activate_slot | — | Mark birth_state=ACTIVE |
+| 9 | `write_ui_stats` | — | Pinned memory write |
+
+#### 4c. Metrics Reduce
+
+| # | Task | Notes |
+|---|------|-------|
+| 10 | Launch `metrics_reduce_kernel` at `report_interval` | Warp reduction → compact struct |
+
+#### 4d. Buffer Management
+
+| # | Task | Trigger |
+|---|------|--------|
+| 11 | Buffer expansion | `live_count > capacity * 0.9` |
+| 12 | Compaction (mark-scatter-swap) | `free_list empty && births pending` |
+
+### Phase 5 — Metrics
+
+**Goal:** Output files match C++ schema exactly
+
+| # | Task | Details |
+|---|------|---------|
+| 1 | `Logger` struct | `YYYYMMDD_HHMMSS_seedN` directory |
+| 2 | `stats.csv` | step, predator_count, prey_count, predator_births, prey_births, predator_deaths, prey_deaths, predator_species, prey_species, avg_predator_complexity, avg_prey_complexity, avg_predator_energy, avg_prey_energy, max_predator_generation, avg_predator_generation, max_prey_generation, avg_prey_generation |
+| 3 | `species.csv` | step, population, species_id, size, avg_complexity |
+| 4 | `genomes.json` | Representative genome snapshots |
+
+### Phase 6 — Headless Runtime (Milestone)
+
+**Verification Gates:**
+
+| Gate | Command | Success Criteria |
+|------|---------|------------------|
+| Evolution tests | `cargo test -p moonai-evolution` | All tests pass |
+| Build parity | `cargo build --workspace` | All crates compile, no CMake |
+| Config parity | `cargo run -- --validate config.lua` | Config loads |
+| Headless runtime | `./moonai config.lua --experiment baseline --headless --steps 1000` | Produces stats.csv, species.csv, genomes.json matching C++ output |
+
+### Phase 7 — UI
+
+**File structure:**
+```
+crates/moonai-ui/
+├── Cargo.toml
+└── src/
+    ├── lib.rs        # App, winit event loop, pause/step/speed controls
+    ├── render.rs     # wgpu instanced rendering (positions from GPU buffers)
+    └── types.rs      # UiState (RUNTIME STATE, not config), OverlayStats,
+                      # RenderFood, RenderAgent, RenderLine
+```
+
+**Note:** `UiState` (paused, speed_multiplier, step_requested, selected_agent_id) is **runtime
+state** — it is NOT config. It lives in `moonai-ui/types.rs` and is never serialized.
+
+**Render pipeline:**
+```
+GPU buffers → wgpu buffer → instanced draw predator/prey/food
+                                    ↓
+                            vision circle (on-click GPU kernel)
+                            sensor lines   (on-click GPU kernel)
+```
+
+**Controls:**
+
+| Key/Action | Behavior |
+|------------|----------|
+| Space | Pause / resume (stops GPU tick loop) |
+| ↑ / ↓ or + / - | Increase / decrease simulation speed (1x–1024x, 2x per press) |
+| . | Step one tick (while paused) |
+| S | Save screenshot |
+| Esc | Quit |
+| Home | Reset camera to default zoom and center |
+| Left-click | GPU computes agent features → read staging buffer → show stats + NN panel |
+| Middle-click drag | Pan camera |
+| Right-click drag | Pan camera |
+| Scroll wheel | Zoom |
+
+### Phase 8 — Cleanup
+
+Delete `legacy/` directory after Rust rewrite is complete and verified.
+
+```bash
+rm -rf legacy/
+```
+
+## 7. GPU Kernel Reference
+
+### 7.1 `crossover.cu` — High-Level Algorithm
+
+```
+gpu_crossover_kernel(parent_a_ptr, parent_b_ptr, offspring_ptr, rng_state_ptr):
+    tid = blockIdx.x * blockDim.x + threadIdx.x
+    if tid >= num_offspring: return
+
+    // 1. Read parent connection arrays into shared memory (32 threads cooperatively)
+    // 2. Warp-level bitonic sort by innovation number
+    // 3. Merge step:
+    //    for each innovation in union:
+    //      if in both parents:
+    //        inherit = (rand() < 0.50) ? parent_a : parent_b
+    //      elif in one parent:
+    //        inherit = (rand() < 0.50) ? parent_with_gene : DISABLED
+    // 4. Disable mismatched with 75% probability
+    // 5. Write child genome to offspring_ptr
+```
+
+### 7.2 `mutation.cu` — High-Level Algorithm
+
+```
+gpu_mutate_kernel(genome_ptr, innovation_counter, rng_state_ptr, config):
+    tid = blockIdx.x * blockDim.x + threadIdx.x
+    if tid >= num_agents: return
+
+    // Per-agent mutations (independent):
+
+    // Weight perturbation
+    if rand() < config.weight_mutation_rate:
+        for each connection:
+            if rand() < config.prob_mutate_weight:
+                weight += Gaussian(rand(), config.weight_perturb_strength)
+
+    // Add connection
+    if rand() < config.add_connection_rate:
+        for attempt in 0..max_attempts:
+            from, to = random_node_pair()
+            if not has_connection(genome, from, to):
+                new_innov = atomic_inc(innovation_counter)
+                add_connection(genome, from, to, new_innov)
+                break
+
+    // Add node
+    if rand() < config.add_node_rate:
+        conn = random_enabled_connection(genome)
+        if conn exists:
+            new_node = atomic_inc(next_node_id)
+            disable_connection(genome, conn)
+            i1 = atomic_inc(innovation_counter)
+            i2 = atomic_inc(innovation_counter)
+            add_connection(genome, conn.from, new_node, i1)
+            add_connection(genome, new_node, conn.to, i2)
+```
+
+### 7.3 `network_compilation.cu` — High-Level Algorithm
+
+```
+gpu_compile_network_kernel(slot_id, genome_ptr, inference_ptr):
+    // 1. Topological sort nodes → eval_order[]
+    // 2. Build conn_ptr[] — offset into conn_from[] for each node
+    // 3. Copy weights, enabled flags into inference arrays
+    // 4. Mark output node indices
+```
+
+## 8. GPU-Side Innovation Tracking
 
 NEAT innovation tracking requires assigning globally unique innovation IDs to new structural mutations. A GPU hash map (open addressing) suffers from bank conflicts under heavy concurrent insert from thousands of threads. Instead, use **atomic counter + direct assignment**:
 
@@ -104,42 +659,36 @@ Per-step innovation log (append-only):
 - Connection existence check is a simple linear scan -- O(C) is fine since most connections do not mutate
 - All other mutations (weight perturbation, enable/disable) are data movement, no atomics
 
-### GPU-Side Crossover
+## 9. UI Data Path
 
-Each offspring gets one GPU thread. No warp divergence since each thread handles one offspring independently.
-
-```
-gpu_crossover(parent_a, parent_b) -> child:
-  1. Read parent A and parent B connection arrays
-  2. Sort both by innovation number (warp-level bitonic sort, 32 threads cooperate)
-  3. Merge: for each innovation present in either parent:
-       - in both: 75% chance inherit from A, 25% from B (matching NEAT behavior)
-       - in one only: 50% chance inherit
-  4. Disable mismatched connections with 75% probability
-  5. Result = child genome (stored in offspring slot's genome arrays)
-```
-
-### GPU-Side Network Compilation
-
-After crossover, the child genome's connection arrays are ready. Compile to inference format within the same kernel:
+GPU writes a compact `UiStats` struct to a **pinned host-mapped buffer** every step. CPU reads it with a single `memcpy`. No kernel launch needed.
 
 ```
-gpu_compile_network(offspring_slot):
-  1. Topological sort of nodes -> eval_order[]
-  2. Build conn_ptr[] -- offset into conn_from[] for each node
-  3. Build output_indices[] -- indices of output nodes
-  4. Copy weights, enabled flags into inference arrays
+UiStats (pinned, written every step):
+  step, predator_count, prey_count
+  predator_births, prey_births
+  predator_deaths, prey_deaths
+  kills, food_eaten
+  avg_predator_energy, avg_prey_energy
+
+render pass (wgpu, no CPU readback):
+  predator positions -> GPU buffer -> instanced draw
+  prey positions -> GPU buffer -> instanced draw
+  food positions -> GPU buffer -> instanced draw
+  vision circle, sensor lines -> computed on GPU on-demand (click), read via staging buffer
 ```
 
-### GPU-Free Agent Slot Management
+**Selected Agent Readback (On Demand)**:
+```
+User clicks agent:
+  GPU: kernel_compute_selected_agent_features(slot_id, staging_buffer)
+    - sensor lines (5 nearest predators, prey, food)
+    - vision circle
+    - node activations (forward pass)
+  CPU: cudaMemcpy async -> read staging buffer -> update NN panel
+```
 
-GPU maintains a **free list** (ring buffer of dead slot indices).
-
-- When agent dies: push slot index onto free list
-- When offspring activates: pop from free list
-- If free list empty: **buffer expansion** (see below)
-
-### Buffer Expansion
+## 10. Buffer Expansion
 
 ```
 Trigger: when live_count > capacity * 0.9
@@ -153,7 +702,7 @@ Expansion:
 No artificial ceiling. Buffers grow as needed.
 ```
 
-### Compaction (GPU-Native, Two-Pass)
+## 11. Compaction
 
 Compaction is NOT for ceiling avoidance -- it is for reclaiming dead slots when expansion is undesirable (e.g., nearing max GPU memory). It runs lazily when free list is empty but births are pending.
 
@@ -175,226 +724,17 @@ Swap buffer pointers
 Reset free_list to dead slots at end of new buffer
 ```
 
-### UI Data Path (Every Frame)
+## 12. Risk Assessment
 
-GPU writes a compact `UiStats` struct to a **pinned host-mapped buffer** every step. CPU reads it with a single `memcpy`. No kernel launch needed.
+| Risk | Probability | Impact | Mitigation |
+|------|-------------|--------|------------|
+| cxx CUDA interop complexity | Medium | High | Start with simple kernel, iterate |
+| Persistent kernel register pressure | Medium | Medium | Template on N_STEPS; tune block size |
+| Buffer expansion copying large arrays | Low | Low | 2x doubling is infrequent |
+| Innovation counter atomics contention | Low | Low | Only 1-2 atomics per offspring |
+| wgpu rendering performance | Medium | Medium | Instanced rendering, no per-frame readback |
 
-```
-UiStats (pinned, written every step):
-  step, predator_count, prey_count
-  predator_births, prey_births
-  predator_deaths, prey_deaths
-  kills, food_eaten
-  avg_predator_energy, avg_prey_energy
-
-render pass (wgpu, no CPU readback):
-  predator positions -> GPU buffer -> instanced draw
-  prey positions -> GPU buffer -> instanced draw
-  food positions -> GPU buffer -> instanced draw
-  vision circle, sensor lines -> computed on GPU on-demand (click), read via staging buffer
-```
-
-### Selected Agent Readback (On Demand)
-
-```
-User clicks agent:
-  GPU: kernel_compute_selected_agent_features(slot_id, staging_buffer)
-    - sensor lines (5 nearest predators, prey, food)
-    - vision circle
-    - node activations (forward pass)
-  CPU: cudaMemcpy async -> read staging buffer -> update NN panel
-```
-
-## Crate Architecture
-
-```
-Cargo.toml
-crates/
-  moonai-types/
-    src/lib.rs              # Vec2, INVALID_ENTITY, SENSOR_COUNT (35),
-                            # OUTPUT_COUNT (2), NodeType, NodeGene,
-                            # ConnectionGene, SimulationConfig, ConfigError,
-                            # deterministic_respawn, tracing setup
-  moonai-evolution/
-    src/lib.rs              # Genome, NeuralNetwork, Mutation, Crossover,
-                            # Species, InnovationTracker, EvolutionManager,
-                            # CompiledNetwork
-    src/crossover.cu        # CUDA kernel: genome crossover
-    src/mutation.cu         # CUDA kernel: weight mutate, add_connection, add_node
-    src/network_compilation.cu  # CUDA kernel: compile genome to inference format
-    build.rs                # Compiles .cu files via cxx or raw nvcc
-  moonai-simulation/
-    src/lib.rs              # SimulationState, GpuHandles, TickResult,
-                            # run_tick, read_metrics, read_selected_agent,
-                            # init_from_config, init_from_genomes
-    src/kernel.cu           # Persistent simulation kernel
-                            # NOTE: Calls evolution kernels from moonai-evolution.
-                            # Does NOT implement crossover/mutation/reproduction.
-    src/buffers.rs          # GPU SoA buffers (agents, food)
-    src/checks.rs           # CUDA_CHECK macro
-    build.rs                # Compiles kernel.cu
-  moonai-metrics/
-    src/lib.rs              # Logger, stats.csv, species.csv, genomes.json
-  moonai-ui/
-    src/lib.rs              # App, winit event loop, egui overlay
-    src/render.rs           # wgpu world renderer
-    src/types.rs            # OverlayStats, RenderFood, RenderAgent, RenderLine
-  moonai/
-    src/main.rs             # binary entrypoint
-    src/cli.rs              # argument parsing
-    src/lua_config.rs        # mlua loading with moonai_defaults injection
-    src/signal.rs           # SIGINT/SIGTERM graceful shutdown
-```
-
-### Crate Responsibilities
-
-| Crate | Owns | Depends on |
-|-------|------|------------|
-| `moonai-types` | Shared types, config, deterministic respawn, tracing | -- |
-| `moonai-evolution` | ALL NEAT evolution logic: CUDA kernels for crossover, mutation, network compilation, InnovationTracker, Species, EvolutionManager | `moonai-types` |
-| `moonai-simulation` | GPU SoA buffers, persistent simulation kernel (calls evolution kernels), spatial grid, inference, metrics reduce, UI stats write | `moonai-types`, `moonai-evolution` |
-| `moonai-metrics` | CSV/JSON file logging | `moonai-types` |
-| `moonai-ui` | winit, egui panels, wgpu world renderer | `moonai-types`, `moonai-evolution`, `moonai-simulation` |
-| `moonai` | CLI, Lua config, signal handling | All above |
-
-## Execution Flow
-
-```
-main:
-  parse CLI -> load config via mlua -> init tracing -> init CUDA
-  init moonai-simulation (allocate buffers)
-  init moonai-metrics (open output files)
-  init moonai-ui (winit + wgpu) if not headless
-
-  // Seed initial population
-  for each initial agent:
-    compile_network(genome) -> upload to GPU buffer
-    activate_slot(agent)
-
-  // Tick loop
-  while running && (max_steps == 0 || step < max_steps):
-    tick_result = moonai_simulation.run_tick(steps_per_frame)
-
-    if step % report_interval == 0:
-      gpu_reduce_and_log()
-
-    wgpu_render_frame()
-    if not headless:
-      egui_overlay_draw(ui_stats_from_pinned_buffer)
-
-  flush logs -> output saved
-```
-
-## Phases
-
-### Phase 1 -- Workspace Skeleton
-
-1. Create `Cargo.toml` with workspace members.
-2. Create `moonai-types/src/lib.rs` with `Vec2`, constants only.
-3. Stub all other crates with empty `src/lib.rs` and `build.rs` so `cargo build --workspace` succeeds.
-4. Verify build.
-
-### Phase 2 -- Core Types and Infrastructure
-
-Build in dependency order (verify at each step):
-
-1. **`moonai-types`** -- Vec2, INVALID_ENTITY, SENSOR_COUNT (35), OUTPUT_COUNT (2), NodeType, NodeGene, ConnectionGene, SimulationConfig (all fields), ConfigError, validate_config, serde Serialize/Deserialize.
-2. **`moonai-types` / deterministic_respawn** -- hash-based food respawn. `#[repr(C)]`, `#[no_mangle]` for CUDA compatibility.
-3. **`moonai-types` / tracing** -- subscriber setup (fmt + env filter).
-4. **`moonai-evolution`** -- stub.
-5. **`moonai-simulation`** -- stub.
-6. **`moonai-metrics`** -- stub.
-7. **`moonai-ui`** -- stub.
-8. **`moonai` / cli** -- all current flags preserved.
-9. **`moonai` / signal** -- graceful shutdown (`ctrlc` crate).
-10. **`moonai` / lua_config** -- mlua loading, `moonai_defaults` injection, `table_to_config`.
-
-### Phase 3 -- Evolution (GPU CUDA Kernels)
-
-Implement evolution CUDA kernels in `moonai-evolution`. These are the production implementations — no CPU fallback, no duplication in `moonai-simulation`.
-
-1. **`moonai-evolution` / Genome** -- nodes, connections, add_node, add_connection, has_connection, has_node, max_node_id, complexity, compatibility_distance, serde JSON.
-2. **`moonai-evolution` / InnovationTracker** -- get_innovation, get_split_node_id, init_from_population.
-3. **`moonai-evolution` / NeuralNetwork** -- activate (CPU reference forward pass), `activate_into`.
-4. **`moonai-evolution` / Mutation** -- mutate_weights, add_connection, add_node, delete_connection.
-5. **`moonai-evolution` / Crossover** -- crossover (sexual, two parents, matching by innovation number).
-6. **`moonai-evolution` / Species** -- compatibility check, add_member, refresh_summary, average_complexity. Static species ID via `AtomicI32`.
-7. **`moonai-evolution` / EvolutionManager** -- initialize, seed_initial_population, create_initial_genome, create_child_genome, reproduce_population, refresh_species.
-8. **`moonai-evolution` / CompiledNetwork** -- struct that maps Genome -> GPU-uploadable arrays.
-9. **`moonai-evolution` / .cu files** -- `crossover.cu`, `mutation.cu`, `network_compilation.cu` in `src/`. Compiled via `build.rs` at crate root.
-10. GPU kernel tests deferred (per user request).
-
-### Phase 4 -- GPU Simulation Kernel
-
-1. **`moonai-simulation` / buffers** -- GPU SoA buffers for predator, prey, food. Genome arrays in-place (connection_from, connection_to, connection_weight, connection_innovation, connection_enabled, node_types, num_connections, num_nodes). Pinned host-mapped `UiStats` buffer. Free list ring buffer.
-2. **`moonai-simulation` / kernel** -- persistent simulation kernel. Each tick runs N steps with all phases fused:
-   - grid_build, sensor_compute, neural_inference, update_vitals, resolve_food, resolve_combat, apply_movement
-   - reproduction (evaluate -> find mate -> **calls moonai-evolution kernels** for crossover, mutate, compile -> activate)
-   - write_atomics, write_ui_stats
-3. **`moonai-simulation` / inference** -- neural inference kernel (forward pass from in-place genome arrays).
-4. **`moonai-simulation` / reproduction** -- evaluation, mate finding, birth buffer management. Calls `moonai-evolution` CUDA kernels for actual crossover/mutation/compilation.
-5. **`moonai-simulation` / metrics_reduce** -- launched at report_interval. One-pass reduction over agent arrays. Atomic counters + sums -> averages. Output compact struct.
-6. **`moonai-simulation` / lib** -- `SimulationState`, `run_tick(n_steps) -> TickResult`, `read_metrics() -> MetricsSnapshot`, `read_selected_agent(id) -> AgentState`, `init_from_config`, `init_from_genomes(Vec<Genome>)`.
-7. **`moonai-simulation` / compaction** -- two-pass GPU defragment (mark, scatter, swap). Buffer expansion (2x doubling).
-
-### Phase 5 -- Metrics
-
-1. **`moonai-metrics` / Logger** -- stats.csv, species.csv, genomes.json.
-   - Run directory: `YYYYMMDD_HHMMSS_seedN`, explicit name override, conflict suffix.
-   - stats.csv header: `step,predator_count,prey_count,predator_births,prey_births,predator_deaths,prey_deaths,predator_species,prey_species,avg_predator_complexity,avg_prey_complexity,avg_predator_energy,avg_prey_energy,max_predator_generation,avg_predator_generation,max_prey_generation,avg_prey_generation`.
-2. Wire `moonai-simulation` -> `moonai-metrics` at report intervals.
-
-### Phase 6 -- First Milestone: Headless Runtime
-
-Before touching GUI:
-
-1. `cargo test` -- evolution and config tests pass.
-2. `cargo build --workspace` -- all crates compile cleanly.
-3. `cargo run -- --validate config.lua` -- matches current behavior.
-4. Run small seeded headless experiment -> produce:
-   - `config.json`
-   - `stats.csv`
-   - `species.csv`
-   - `genomes.json`
-
-### Phase 7 -- UI
-
-1. **`moonai-ui` / types** -- OverlayStats (fps, step, alive counts, avg complexity/energy), RenderFood, RenderAgent, RenderLine.
-2. **`moonai-ui`** -- winit window, event loop, egui context.
-3. **`moonai-ui` / render** -- wgpu instanced rendering from GPU simulation buffers. Reads predator/prey/food positions directly from GPU -- no CPU readback. Vision circle and sensor lines computed in GPU kernel on demand (click).
-4. Input semantics:
-
-   | Key/Action | Behavior |
-   |------------|----------|
-   | Space | Pause / resume (stops GPU tick loop) |
-   | Up / Down or + / - | Increase / decrease simulation speed (steps per tick) |
-   | . | Step one tick (while paused) |
-   | S | Save screenshot |
-   | Esc | Quit |
-   | Left-click | GPU computes agent features -> read staging buffer -> show stats + NN panel |
-   | Right-click drag | Pan camera |
-   | Scroll wheel | Zoom |
-
-5. Rebuild overlay in egui. Preserve:
-   - Left/right panel layout
-   - Stats panel (step, population, births/deaths, species counts)
-   - Population / complexity / energy charts
-   - NN topology panel for selected agent (node/edge graph, blue-gray-orange edge coloring)
-   - Energy distribution bars
-
-### Phase 8 -- Cleanup
-
-Once headless and GUI both work:
-
-1. Delete `src/` directory (all C++ code).
-2. Delete `CMakeLists.txt`, `CMakePresets.json`, `vcpkg.json`, `src/*/CMakeLists.txt`.
-3. Delete `justfile` CMake-related recipes.
-4. Update `justfile` to pure Cargo commands.
-5. Remove `.clang-format`, `.clang-tidy`.
-
-## GPU Kernel Design
-
-### Sensor Layout (35 inputs, unchanged)
+## 13. Sensor Layout (35 inputs, unchanged)
 
 Same as current C++:
 - 5 nearest predators x 2 values (dx, dy)
@@ -403,88 +743,16 @@ Same as current C++:
 - Self energy, vel x, vel y (3 values)
 - Wall proximity x, y (2 values)
 
-### Simulation Kernel Phases (per step, inside persistent loop)
-
-1. **Grid build** -- count-scan-scatter or single-pass hash into spatial cells
-2. **Sensor build** -- for each agent, search neighboring cells, find 5 nearest of each type, encode
-3. **Inference** -- forward pass through NEAT network (tanh activation)
-4. **Vitals** -- energy drain, age increment, death check
-5. **Food resolution** -- prey within interaction range claim food, energy transfer
-6. **Combat resolution** -- predator within range claim prey kill, energy transfer
-7. **Movement** -- NN output (dx, dy) scaled by speed -> new position (with wall wrap/bounce)
-8. **Reproduction** -- evaluate eligibility -> find mate -> crossover -> mutate -> compile -> activate
-9. **UI stats write** -- write UiStats to pinned memory (no sync needed)
-
-### Atomic Counters
-
-Written every step to pinned UiStats buffer (no kernel launch, just global memory write):
-- `predator_count`, `prey_count`
-- `predator_births`, `prey_births` (cumulative)
-- `predator_deaths`, `prey_deaths` (cumulative)
-- `kills`, `food_eaten`
-- `avg_predator_energy`, `avg_prey_energy`
-
-### Metrics Reduce Kernel
-
-Launched once per `report_interval` steps. One-pass warp reduction -> compact struct -> CPU reads once.
-
-## GPU Memory Layout
-
-All agent data in SoA layout with genome data stored in-place:
+## 14. Summary: Implementation Order
 
 ```
-PredatorBuffer:
-  pos_x[N], pos_y[N], vel_x[N], vel_y[N]
-  energy[N], age[N], alive[N]
-  species_id[N], entity_id[N], generation[N]
-
-  // Genome data (variable-length, in-place)
-  connection_from[N * max_connections]
-  connection_to[N * max_connections]
-  connection_weight[N * max_connections]
-  connection_innovation[N * max_connections]
-  connection_enabled[N * max_connections]
-  node_types[N * (max_hidden_nodes + FIXED_NODES)]
-  num_connections[N], num_nodes[N]
-  birth_state[N]  // DEAD=0, ACTIVE=1
-  rng_state[N]     // per-agent RNG seed
-
-PreyBuffer: (same layout)
-
-FoodBuffer:
-  pos_x[N], pos_y[N], active[N]
-
-UiStats (pinned host-mapped):
-  step, predator_count, prey_count, births, deaths, kills, food_eaten,
-  avg_predator_energy, avg_prey_energy
+Phase 1: Workspace skeleton (1-2 days) [COMPLETED]
+Phase 2: moonai-config (1-2 days)
+Phase 2b: moonai-types (1-2 days)
+Phase 3: moonai-evolution + CUDA kernels (1-2 weeks)
+Phase 4: moonai-simulation + persistent kernel (2-3 weeks)
+Phase 5: moonai-metrics (2-3 days)
+Phase 6: Headless milestone (1 week)
+Phase 7: moonai-ui (2-3 weeks)
+Phase 8: Cleanup (1 day)
 ```
-
-## Verification Gates
-
-| Gate | Command | Success Criteria |
-|------|---------|------------------|
-| Core parity | `cargo test` | All evolution/config tests pass |
-| Build parity | `cargo build --workspace` | All crates compile, no CMake |
-| Config parity | `cargo run -- --validate config.lua` | Output matches current behavior |
-| Headless runtime parity | Run small seeded experiment | `stats.csv`/`species.csv` shape and trends match |
-| GUI smoke test | Open window, interact | Pause, step, speed, zoom, pan, select, charts all work |
-| Cleanup | `rg "C++\|#include" src/` | No matches |
-| Cleanup | `ls src/` | Directory does not exist |
-
-## Risks and Mitigations
-
-| Risk | Mitigation |
-|------|------------|
-| Persistent kernel register pressure | Template on N_STEPS; tune block size per GPU |
-| Innovation counter atomics contention | Only 1-2 atomics per offspring mutation; not per-agent-per-step |
-| Buffer expansion copying large arrays | Doubling is infrequent; add 20% headroom to delay next expansion |
-| Genome crossover memory access | Use shared memory for parent genomes; warp-level sort |
-| Large population defaults (24k+96k+240k) | wgpu instancing; no per-frame CPU iteration |
-
-## Implementation Order for Next Prompt
-
-1. Phase 1 -- Create workspace skeleton with all crate stubs.
-2. Phase 2 -- Build `moonai-types` (types, config, deterministic_respawn, tracing) and `moonai` (cli, signal, lua_config).
-3. Phase 3 -- Implement `moonai-evolution` with tests (CPU reference).
-
-This establishes the complete crate structure and CPU-side NEAT reference logic. Phase 4 implements the GPU kernels that mirror the CPU reference.

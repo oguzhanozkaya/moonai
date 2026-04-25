@@ -18,7 +18,6 @@ moonai/
 │   │   ├── extra.css
 │   │   └── extra.js
 │   ├── internals/              # Developer documentation
-│   │   ├── architecture.md
 │   │   ├── roadmap.md
 │   │   ├── standarts.md
 │   │   ├── structure.md
@@ -28,42 +27,57 @@ moonai/
 │   ├── about.md
 │   ├── installation.md
 │   └── index.md
-├── src/                        # C++ simulation core
-│   ├── main.cpp                # Entry point: CLI parsing and app startup
-│   ├── app/                    # Application orchestration layer
-│   ├── core/                   # Types, config, Lua runtime, seeded RNG
-│   ├── evolution/              # NEAT genome, neural network, speciation
-│   ├── metrics/                # CSV/JSON logging, aggregation
-│   ├── simulation/             # ECS-based simulation (agents, physics, grid)
-│   └── visualization/          # SFML rendering, UI overlay
+├── legacy/                     # Legacy C++ implementation (read-only, for reference)
+├── crates/                     # Rust workspace (moonai-*)
 ├── tests/                      # Google Test unit tests
-├── .clang-format               # LLVM code style configuration
-├── .clang-tidy                 # Static analysis configuration
 ├── .gitattributes              # Git attributes
 ├── .gitignore                  # Git ignore rules
-├── CMakeLists.txt              # Root CMake configuration
-├── CMakePresets.json           # Build presets for Linux/Windows
+├── Cargo.toml                  # Rust workspace manifest
 ├── README.md                   # Project readme
 ├── config.lua                  # Unified config: default run + experiment matrix
-├── justfile                    # Project commands
+├── justfile                    # Rust project commands
 ├── pyproject.toml              # Python package config (hatchling build)
 ├── uv.lock                     # Python dependency lock
-├── vcpkg.json                  # Dependency manifest
 └── zensical.toml               # Website configuration
 ```
 
-## Source Code (`src/`)
+## Legacy C++ Implementation (`legacy/`)
 
-The C++ simulation is organized into:
+The `legacy/` directory contains the **original C++ implementation** of MoonAI. This codebase is **frozen and read-only** — it serves as a reference for understanding the original design and can be consulted during the Rust rewrite but is no longer actively maintained.
 
-| Directory | Purpose |
-|-----------|---------|
-| `core/` | Types, config, Lua runtime, seeded RNG |
+### Legacy Contents
+
+| File/Directory | Purpose |
+|---------------|---------|
+| `CMakeLists.txt` | Root CMake configuration |
+| `CMakePresets.json` | Build presets for Linux/Windows |
+| `.clang-format` | LLVM code style configuration |
+| `.clang-tidy` | Static analysis configuration |
+| `vcpkg.json` | vcpkg dependency manifest |
+| `justfile-cpp` | C++ build commands (`just -f legacy/justfile-cpp`) |
+| `architecture.md` | System architecture diagrams and design notes |
+| `main.cpp` | C++ entry point |
 | `app/` | Application orchestration, main loop |
-| `simulation/` | ECS-based simulation (agents, physics, spatial grid) |
+| `core/` | Types, config, Lua runtime, seeded RNG |
 | `evolution/` | NEAT genome, neural network, speciation |
 | `metrics/` | CSV/JSON logging, aggregation |
+| `simulation/` | ECS-based simulation (agents, physics, spatial grid) |
 | `visualization/` | SFML rendering, UI overlay |
+
+## Rust Workspace (`crates/`)
+
+The Rust rewrite lives in `crates/` and implements a GPU-first architecture:
+
+```
+crates/
+├── moonai-types/               # Core types (Vec2, NodeGene, ConnectionGene, etc.)
+├── moonai-config/              # SimulationConfig, CLI args, Lua loading
+├── moonai-evolution/           # NEAT algorithm, CUDA kernels
+├── moonai-simulation/          # GPU simulation, persistent kernel
+├── moonai-metrics/            # CSV/JSON logging
+├── moonai-ui/                  # wgpu rendering, egui overlay
+└── moonai/                     # Binary crate, signal handling
+```
 
 ## `analysis/`
 
@@ -88,8 +102,7 @@ The C++ simulation is organized into:
 | `about.md` | Project overview and motivation |
 | `installation.md` | Build and installation instructions |
 | `reports.md` | Links to project reports |
-| `internals/architecture.md` | System architecture |
+| `internals/roadmap.md` | Tasks, bugs, and roadmap |
 | `internals/structure.md` | This file |
 | `internals/workflow.md` | Development workflow |
-| `internals/roadmap.md` | Tasks, bugs, and roadmap |
 | `internals/standarts.md` | Coding standards |
