@@ -45,23 +45,22 @@ just check
 
 ### Building
 
-| Command            | Purpose                        |
-| ------------------ | ------------------------------ |
-| `just build-debug` | Debug build (fast iteration)   |
-| `just build`       | Release build (optimized)      |
-| `just run`         | Run release binary with config |
-| `just run-debug`   | Run debug binary with config   |
+| Command | Purpose |
+|---------|---------|
+| `just build-debug` | Debug build (fast iteration) |
+| `just build` | Release build (optimized) |
+| `just run` | Run release binary with config |
+| `just run-debug` | Run debug binary with config |
 
 ### Code Quality
 
-| Command      | Purpose                                    |
-| ------------ | ------------------------------------------ |
-| `just fix`   | Auto-fix formatting and lint issues        |
+| Command | Purpose |
+|---------|---------|
+| `just fix` | Auto-fix formatting and lint issues |
 | `just check` | Verify code quality (format, clippy, ruff) |
-| `just gate`  | Full quality gate: `check` + `test`        |
+| `just gate` | Full quality gate: `check` + `test` |
 
 **`just check`** runs:
-
 1. Suppression grep (no `#[allow]` anywhere)
 2. `cargo fmt --all -- --check`
 3. `cargo clippy --workspace --all-targets --all-features`
@@ -69,7 +68,6 @@ just check
 5. `ruff check .`
 
 **`just fix`** runs:
-
 1. `cargo fmt --all`
 2. `cargo clippy --fix`
 3. `ruff format .`
@@ -77,28 +75,28 @@ just check
 
 ### Testing
 
-| Command                  | Purpose                    |
-| ------------------------ | -------------------------- |
-| `just test`              | Run all workspace tests    |
+| Command | Purpose |
+|---------|---------|
+| `just test` | Run all workspace tests |
 | `just test -- <pattern>` | Run tests matching pattern |
 
 ### Output Management
 
-| Command              | Purpose                               |
-| -------------------- | ------------------------------------- |
-| `just clean`         | Remove build artifacts (`target/`)    |
+| Command | Purpose |
+|---------|---------|
+| `just clean` | Remove build artifacts (`target/`) |
 | `just clean-outputs` | Remove simulation outputs (`output/`) |
 
 ### Analysis
 
-| Command        | Purpose                                      |
-| -------------- | -------------------------------------------- |
+| Command | Purpose |
+|---------|---------|
 | `just analyse` | Generate HTML analysis report from `output/` |
 
 ### Documentation
 
-| Command     | Purpose                          |
-| ----------- | -------------------------------- |
+| Command | Purpose |
+|---------|---------|
 | `just docs` | Serve documentation site locally |
 
 ---
