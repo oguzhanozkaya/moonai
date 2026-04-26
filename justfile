@@ -1,5 +1,3 @@
-set positional-arguments
-
 # MoonAI - Rust Project Commands
 # Usage: just <recipe>
 # Run `just --list` to see all available recipes.
@@ -14,23 +12,25 @@ setup-uv:
 [group('build')]
 build-debug:
   cargo build --workspace
+  cp -r runtime/* target/debug
 
 # Build in release mode
 [group('build')]
 build:
   cargo build --workspace --release
+  cp -r runtime/* target/release
 
 
 # Run the release build with default config (pass additional args after --)
 [default]
 [group('run')]
-run *args:
-  cargo run --release -- {{args}}
+run *args: build
+  cargo run --release {{args}}
 
 # Run the debug build with default config (pass additional args after --)
 [group('run')]
-run-debug *args:
-  cargo run -- {{args}}
+run-debug *args: build-debug
+  cargo run {{args}}
 
 # Generate the self-contained HTML analysis report from output/
 [group('run')]

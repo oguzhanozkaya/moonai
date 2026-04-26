@@ -10,11 +10,9 @@ description: Project structure, file organization, and tooling reference.
 moonai/
 ├── .github/                    # GitHub workflows
 ├── analysis/                   # Python simulation analysis package
-├── assets/                     # assets (fonts, logo)
-├── config/                     # Distribution config (config.lua, settings.json)
 ├── docs/                       # Documentation source
 ├── crates/                     # Rust workspace (moonai-*)
-├── tests/                      # Google Test unit tests
+├── runtime/                    # Runtime assets (config/, assets/)
 ├── .gitattributes              # Git attributes
 ├── .gitignore                  # Git ignore rules
 ├── Cargo.toml                  # Rust workspace manifest (workspace config, lints)
