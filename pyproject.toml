@@ -16,21 +16,11 @@ dependencies = [
     "jinja2>=3.1",
 ]
 
-# Ruff format and lint rules
 [project.scripts]
 analysis = "analysis.__main__:main"
 
+# Ruff format and lint rules
 [tool.ruff]
 line-length = 120
 target-version = "py314"
-indent-width = 4
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "UP"]
-ignore = []
-fixable = ["ALL"]
-unfixable = []
-
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
+lint.select = ["E", "F", "I", "UP"]

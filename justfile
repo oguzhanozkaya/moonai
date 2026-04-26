@@ -1,3 +1,5 @@
+set positional-arguments
+
 # MoonAI - Rust Project Commands
 # Usage: just <recipe>
 # Run `just --list` to see all available recipes.
@@ -39,21 +41,26 @@ analyse:
 # Fix: format and lint
 [group('dev')]
 fix:
+  ruff format .
+  ruff check . --fix
+
+  prettier --log-level=warn --write .
+
   cargo fmt --all
   cargo clippy --workspace --all-targets --all-features --fix --allow-dirty
 
-  ruff format .
-  ruff check . --fix
 
 # Check code: format, lint checks and manual supression command grep
 [group('dev')]
 check:
+  ruff format . --check
+  ruff check .
+
+  prettier --log-level warn --check .
+
   ! rg -n -F -e '#[allow' -e '#![allow' -g '*.rs' -g '!tests/**'
   cargo fmt --all -- --check
   cargo clippy --workspace --all-targets --all-features
-
-  ruff format . --check
-  ruff check .
 
 # Run tests
 [group('dev')]
