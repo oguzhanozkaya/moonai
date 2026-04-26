@@ -8,9 +8,16 @@ just run
 
 ## Configuration
 
-Configuration uses a single **`config.lua`** file at the project root. It returns a named table of experiments — every entry is a fully-specified run. The runtime injects C++ struct defaults as the `moonai_defaults` global (2000 agents on a 3000×3000 square world), so Lua only needs to override what it changes.
+MoonAI separates simulation configuration from UI configuration:
+
+- **`config/config.lua`** — simulation parameters (population, evolution, energy system, etc.)
+- **`config/settings.json`** — UI configuration (colors, sizes, panel layout, window settings)
+
+Both files live in the `config/` subdirectory of the binary. The runtime resolves them from `$(dirname $0)/config/`, or you can specify explicit paths via CLI flags.
 
 ### `config.lua`
+
+Simulation config uses a single **`config.lua`** file at the project root. It returns a named table of experiments — every entry is a fully-specified run. The runtime injects C++ struct defaults as the `moonai_defaults` global (24000 predators, 96000 prey on a 3600×3600 square world), so Lua only needs to override what it changes.
 
 ```lua
 -- moonai_defaults is injected by the runtime (mirrors C++ SimulationConfig defaults)
@@ -53,18 +60,19 @@ Set `seed` to `0` for random seed, or a fixed value for reproducible experiments
 
 ### CLI flags
 
-| Flag                  | Purpose                                          |
-| --------------------- | ------------------------------------------------ |
-| `-h, --help`          | Show CLI help                                    |
-| `-c, --config <path>` | Path to Lua config file (default: `config.lua`)  |
-| `-n, --steps <n>`     | Override max steps (`0` = infinite)              |
-| `--headless`          | Run without visualization                        |
-| `-v, --verbose`       | Enable debug logging                             |
-| `--experiment <name>` | Select one experiment by name                    |
-| `--all`               | Run all experiments sequentially (headless only) |
-| `--list`              | List experiment names and exit                   |
-| `--name <name>`       | Override output directory name                   |
-| `--validate`          | Load + validate config, print result, exit       |
+| Flag                   | Purpose                                          |
+| ---------------------- | ------------------------------------------------ |
+| `-h, --help`           | Show CLI help                                    |
+| `-c, --config <path>`  | Path to Lua config file (default: binary directory) |
+| `--settings <path>`     | Path to settings.json (default: binary directory)  |
+| `-n, --steps <n>`      | Override max steps (`0` = infinite)              |
+| `--headless`           | Run without visualization                        |
+| `-v, --verbose`        | Enable debug logging                             |
+| `--experiment <name>`   | Select one experiment by name                    |
+| `--all`                | Run all experiments sequentially (headless only) |
+| `--list`               | List experiment names and exit                   |
+| `--name <name>`        | Override output directory name                   |
+| `--validate`            | Load + validate config, print result, exit       |
 
 ## Running Simulation
 

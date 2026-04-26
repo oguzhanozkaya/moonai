@@ -44,4 +44,4 @@ NEAT (NeuroEvolution of Augmenting Topologies) is a genetic algorithm for evolvi
 
 ### Configuration
 
-All parameters are defined in the Lua-based `config.lua` experiment file. The default configuration includes adjustable fields covering population sizes, mutation rates, NEAT parameters, and visualization settings. Custom experiment sets can be specified at runtime without recompilation.
+Simulation parameters are defined in the Lua-based `config.lua` experiment file, covering population sizes, mutation rates, NEAT parameters, and energy system settings. UI configuration (colors, sizes, panel layout, window settings) is defined separately in `settings.json`. Custom experiment sets can be specified at runtime without recompilation.

@@ -212,18 +212,19 @@ classDiagram
 
 **CLI flags:**
 
-| Flag                  | Description                                      |
-| --------------------- | ------------------------------------------------ |
-| `-c, --config <path>` | Path to Lua config file (default: `config.lua`)  |
-| `-n, --steps <n>`     | Override max steps (`0` = infinite)              |
-| `--headless`          | Run without visualization                        |
-| `-v, --verbose`       | Enable debug logging                             |
-| `--experiment <name>` | Select one experiment by name                    |
-| `--all`               | Run all experiments sequentially (headless only) |
-| `--list`              | List experiment names and exit                   |
-| `--name <name>`       | Override output directory name                   |
-| `--validate`          | Load + validate config, print result, exit       |
-| `-h, --help`          | Show CLI help                                    |
+| Flag                   | Description                                          |
+| ---------------------- | --------------------------------------------------- |
+| `-c, --config <path>`  | Path to Lua config file (default: binary directory) |
+| `--settings <path>`     | Path to settings.json (default: binary directory)   |
+| `-n, --steps <n>`      | Override max steps (`0` = infinite)                 |
+| `--headless`           | Run without visualization                           |
+| `-v, --verbose`        | Enable debug logging                                |
+| `--experiment <name>`  | Select one experiment by name                       |
+| `--all`                | Run all experiments sequentially (headless only)    |
+| `--list`               | List experiment names and exit                      |
+| `--name <name>`        | Override output directory name                      |
+| `--validate`           | Load + validate config, print result, exit          |
+| `-h, --help`           | Show CLI help                                      |
 
 **CLI routing:**
 
@@ -258,9 +259,11 @@ flowchart TB
 
 ## 3. Assumptions
 
-- `config.lua` remains the config format.
-- `UiConfig` defaults are hardcoded in Rust; `config.lua` can override via an `ui` sub-table
-  (e.g., `ui = { predator_radius = 1.5 }`).
+- `config.lua` contains **simulation config only** (no UI overrides).
+- `settings.json` contains **UI config** — loaded from binary directory or explicit path.
+- File locations: `config.lua` and `settings.json` live next to the binary executable.
+  Lookup order: explicit path via CLI flag → binary directory → fallback to defaults.
+- `UiConfig` defaults are hardcoded in Rust; `settings.json` overrides them.
 - `UiState` (paused, speed_multiplier, step_requested, selected_agent_id) is **runtime state**,
   lives in `moonai-ui/types.rs`. NOT in `moonai-config`.
 - Output schema stays unchanged so Python analysis keeps working.
@@ -295,10 +298,11 @@ crates/
     Cargo.toml
     src/
       lib.rs            # re-exports Config, CliArgs, UiConfig, ConfigError
-      simulation.rs     # SimulationConfig (serde, with defaults)
+      config.rs         # SimulationConfig (serde, with defaults)
       cli.rs            # CliArgs struct + clap parsing
       lua.rs            # Lua loading, moonai_defaults injection
-      ui.rs             # UiConfig (hardcoded defaults, Lua-overrideable)
+      ui.rs             # UiConfig (hardcoded defaults)
+      settings.rs       # settings.json loading
       error.rs         # ConfigError, validate_config
 
   moonai-types/
@@ -392,18 +396,21 @@ crates/
 | 8   | Create `moonai` binary stub     | same pattern                                                                              | `cargo build -p moonai`            | [x]    |
 | 9   | Verify workspace                | —                                                                                         | `cargo build --workspace`          | [x]    |
 
-### Phase 2 — moonai-config
+### Phase 2 — moonai-config [x]
 
 **Goal:** `moonai-config` fully implemented — simulation params, CLI, UI config, Lua loading
 
-| #   | Task                                                                                           | Verification                                   |
-| --- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| 1   | `SimulationConfig` with all fields + serde                                                     | `cargo test -p moonai-config`                  |
-| 2   | `CliArgs` + clap parsing (`--experiment`, `--all`, `--headless`, `-n`, etc.)                   | `cargo test -p moonai-config`                  |
-| 3   | `UiConfig` with **hardcoded defaults** (agent radii, colors, panel styles)                     | Unit tests                                     |
-| 4   | Lua loading — inject `moonai_defaults`, parse experiment table, merge `ui` sub-table overrides | `cargo run -- validate config.lua`             |
-| 5   | `ConfigError` + `validate_config`                                                              | Unit tests                                     |
-| 6   | Set up `tracing` subscriber                                                                    | `RUST_LOG=debug cargo test` shows trace output |
+| #   | Task                                                                                           | Verification                                   | Status |
+| --- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------ |
+| 1   | `SimulationConfig` with all fields + serde (C++-aligned defaults)                              | `cargo check -p moonai-config`                 | [x]    |
+| 2   | `CliArgs` + clap parsing (`--experiment`, `--all`, `--headless`, `-n`, etc.)                   | `cargo run -- --list` works                    | [x]    |
+| 3   | `UiConfig` with **hardcoded defaults** (50+ fields from legacy constants.hpp)                  | Unit tests                                     | [x]    |
+| 4   | Lua loading — inject `moonai_defaults`, parse experiment table                                  | `cargo run -- --validate` works               | [x]    |
+| 5   | `ConfigError` + `validate_config` (all 24 legacy validation rules)                             | `cargo run -- --validate` passes defaults      | [x]    |
+| 6   | `settings.json` loading for UI config (separate from simulation config)                        | `load_settings` returns UiConfig               | [x]    |
+| 7   | Experiment routing in `moonai` binary (`--list`, `--validate`, `--experiment`, `--all`)         | All CLI flags work end-to-end                  | [x]    |
+
+**Note:** UI config comes exclusively from `settings.json` — Lua does not support UI overrides.
 
 ### Phase 2b — moonai-types (Pure NEAT Types)
 
@@ -754,7 +761,7 @@ Same as current C++:
 
 ```
 Phase 1: Workspace skeleton (1-2 days) [COMPLETED]
-Phase 2: moonai-config (1-2 days)
+Phase 2: moonai-config (1-2 days) [COMPLETED]
 Phase 2b: moonai-types (1-2 days)
 Phase 3: moonai-evolution + CUDA kernels (1-2 weeks)
 Phase 4: moonai-simulation + persistent kernel (2-3 weeks)

@@ -3,10 +3,12 @@ use clap::Parser;
 #[derive(Debug, Parser)]
 #[command(author, version, about)]
 pub struct CliArgs {
-    #[arg(short, long, default_value = "config.lua")]
-    pub config: String,
+    #[arg(short, long)]
+    pub config: Option<String>,
+    #[arg(long)]
+    pub settings: Option<String>,
     #[arg(short = 'n', long)]
-    pub steps: Option<u64>,
+    pub steps: Option<i32>,
     #[arg(long)]
     pub headless: bool,
     #[arg(short, long)]

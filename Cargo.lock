@@ -296,6 +296,7 @@ name = "moonai"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap",
  "ctrlc",
  "moonai-config",
  "moonai-evolution",

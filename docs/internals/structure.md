@@ -11,6 +11,7 @@ moonai/
 ├── .github/                    # GitHub workflows
 ├── analysis/                   # Python simulation analysis package
 ├── assets/                     # assets (fonts, logo)
+├── config/                     # Distribution config (config.lua, settings.json)
 ├── docs/                       # Documentation source
 ├── crates/                     # Rust workspace (moonai-*)
 ├── tests/                      # Google Test unit tests
@@ -23,7 +24,6 @@ moonai/
 ├── rust-toolchain.toml        # Rust toolchain specification
 ├── ruff.toml                  # Ruff linter configuration for Python
 ├── README.md                   # Project readme
-├── config.lua                  # Unified config: default run + experiment matrix
 ├── justfile                    # Rust project commands
 ├── pyproject.toml             # Python package config (hatchling build)
 ├── uv.lock                     # Python dependency lock
