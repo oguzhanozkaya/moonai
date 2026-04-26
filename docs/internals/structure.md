@@ -4,7 +4,7 @@ description: Project structure, file organization, and tooling reference.
 
 # Structure
 
-## Repository Structure
+## Repository Map
 
 ```
 moonai/
@@ -12,7 +12,6 @@ moonai/
 ├── analysis/                   # Python simulation analysis package
 ├── assets/                     # assets (fonts, logo)
 ├── docs/                       # Documentation source
-├── legacy/                     # Legacy C++ implementation (read-only, for reference)
 ├── crates/                     # Rust workspace (moonai-*)
 ├── tests/                      # Google Test unit tests
 ├── .gitattributes              # Git attributes
@@ -30,29 +29,6 @@ moonai/
 ├── uv.lock                     # Python dependency lock
 └── zensical.toml               # Website configuration
 ```
-
-## Legacy C++ Implementation (`legacy/`)
-
-The `legacy/` directory contains the **original C++ implementation** of MoonAI. This codebase is **frozen and read-only** — it serves as a reference for understanding the original design and can be consulted during the Rust rewrite but is no longer actively maintained.
-
-### Legacy Contents
-
-| File/Directory      | Purpose                                              |
-| ------------------- | ---------------------------------------------------- |
-| `CMakeLists.txt`    | Root CMake configuration                             |
-| `CMakePresets.json` | Build presets for Linux/Windows                      |
-| `.clang-format`     | LLVM code style configuration                        |
-| `.clang-tidy`       | Static analysis configuration                        |
-| `vcpkg.json`        | vcpkg dependency manifest                            |
-| `justfile-cpp`      | C++ build commands (`just -f legacy/justfile-cpp`)   |
-| `architecture.md`   | System architecture diagrams and design notes        |
-| `main.cpp`          | C++ entry point                                      |
-| `app/`              | Application orchestration, main loop                 |
-| `core/`             | Types, config, Lua runtime, seeded RNG               |
-| `evolution/`        | NEAT genome, neural network, speciation              |
-| `metrics/`          | CSV/JSON logging, aggregation                        |
-| `simulation/`       | ECS-based simulation (agents, physics, spatial grid) |
-| `visualization/`    | SFML rendering, UI overlay                           |
 
 ## Rust Workspace (`crates/`)
 

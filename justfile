@@ -5,7 +5,7 @@ set positional-arguments
 # Run `just --list` to see all available recipes.
 
 
-# Set up Python environments for simulation and analysis
+# Set up Python environment
 [group('build')]
 setup-uv:
   uv sync
@@ -39,7 +39,7 @@ analyse:
 
 
 # Fix: format and lint
-[group('dev')]
+[group('quality')]
 fix:
   ruff format .
   ruff check . --fix
@@ -51,7 +51,7 @@ fix:
 
 
 # Check code: format, lint checks and manual supression command grep
-[group('dev')]
+[group('quality')]
 check:
   ruff format . --check
   ruff check .
@@ -63,14 +63,17 @@ check:
   cargo clippy --workspace --all-targets --all-features
 
 # Run tests
-[group('dev')]
+[group('quality')]
 test *args:
   cargo test --workspace --all-targets --all-features --locked -- --nocapture {{args}}
 
-# Full check + test gate
-[group('dev')]
+# Full check + test gate (github ci runs this command)
+[group('quality')]
 gate: check test
 
+
+# Update dependencies
+[group('dev')]
 update:
   cargo update
 
@@ -87,7 +90,7 @@ clean-outputs:
   rm -rf output/
 
 
-# Clean and start website at localhost
+# Clean and start docs website at localhost
 [group('docs')]
 docs:
   rm -rf site/
