@@ -416,11 +416,11 @@ crates/
 
 **Goal:** `moonai-types` contains only genetic/simulation types — no config structs
 
-| #   | Task                                                                          | Verification              |
-| --- | ----------------------------------------------------------------------------- | ------------------------- |
-| 1   | `Vec2`, constants (`SENSOR_COUNT` (35), `OUTPUT_COUNT` (2), `INVALID_ENTITY`) | Unit tests                |
-| 2   | `NodeType`, `NodeGene`, `ConnectionGene`                                      | Unit tests                |
-| 3   | `deterministic_respawn` with `#[repr(C)]`                                     | Deterministic output test |
+| #   | Task                                                                          | Verification              | Status |
+| --- | ----------------------------------------------------------------------------- | ------------------------- | ------ |
+| 1   | `Vec2`, constants (`SENSOR_COUNT` (35), `OUTPUT_COUNT` (2), `INVALID_ENTITY`) | Unit tests                | [x]    |
+| 2   | `NodeType`, `NodeGene`, `ConnectionGene`                                      | Unit tests                | [x]    |
+| 3   | `deterministic_respawn`                                                       | Deterministic output test | [x]    |
 
 ### Phase 3 — Evolution (GPU CUDA Kernels)
 
@@ -762,7 +762,7 @@ Same as current C++:
 ```
 Phase 1: Workspace skeleton (1-2 days) [COMPLETED]
 Phase 2: moonai-config (1-2 days) [COMPLETED]
-Phase 2b: moonai-types (1-2 days)
+Phase 2b: moonai-types (1-2 days) [COMPLETED]
 Phase 3: moonai-evolution + CUDA kernels (1-2 weeks)
 Phase 4: moonai-simulation + persistent kernel (2-3 weeks)
 Phase 5: moonai-metrics (2-3 days)
