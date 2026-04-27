@@ -412,7 +412,7 @@ crates/
 
 **Note:** UI config comes exclusively from `settings.json` — Lua does not support UI overrides.
 
-### Phase 2b — moonai-types (Pure NEAT Types)
+### Phase 2b — moonai-types (Pure NEAT Types) [x]
 
 **Goal:** `moonai-types` contains only genetic/simulation types — no config structs
 
