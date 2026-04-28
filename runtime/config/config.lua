@@ -35,7 +35,7 @@ end
 
 -- ── Experiments ───────────────────────────────────────────────────────────────
 -- All experiments start from moonai_defaults (3000x3000, 500 predators, 1500 prey,
--- 1500-step report windows) and override exactly the variable(s) under study.
+-- 1500-tick report windows) and override exactly the variable(s) under study.
 -- 55 conditions × 5 seeds = 275 seeded runs, plus the unseeded default entry.
 
 -- Pre-compute scale bases for commonly used population sizes
@@ -94,20 +94,20 @@ local conditions = {
                     grid_size = 11225, food_count = 6250 }),   -- ~126M area (was 15000x8400)
 
     -- ── Group F: Run length ──────────────────────────────────────────────
-    steps_500_2k  = extend(moonai_defaults, { max_steps = 500 }),
-    steps_2000_2k = extend(moonai_defaults, { max_steps = 2000 }),
-    steps_3000_2k = extend(moonai_defaults, { max_steps = 3000 }),
-    steps_500_5k  = extend(moonai_defaults, base_5k, { max_steps = 500 }),
-    steps_2000_5k = extend(moonai_defaults, base_5k, { max_steps = 2000 }),
-    steps_3000_5k = extend(moonai_defaults, base_5k, { max_steps = 3000 }),
+    ticks_500_2k  = extend(moonai_defaults, { max_ticks = 500 }),
+    ticks_2000_2k = extend(moonai_defaults, { max_ticks = 2000 }),
+    ticks_3000_2k = extend(moonai_defaults, { max_ticks = 3000 }),
+    ticks_500_5k  = extend(moonai_defaults, base_5k, { max_ticks = 500 }),
+    ticks_2000_5k = extend(moonai_defaults, base_5k, { max_ticks = 2000 }),
+    ticks_3000_5k = extend(moonai_defaults, base_5k, { max_ticks = 3000 }),
 
     -- ── Group G: Energy / resource dynamics ──────────────────────────────
     energy_scarce_2k   = extend(moonai_defaults, { initial_energy = 75.0, max_energy = 75.0, food_respawn_rate = 0.01 }),
     energy_abundant_2k = extend(moonai_defaults, { initial_energy = 300.0, max_energy = 300.0, food_respawn_rate = 0.05 }),
     energy_scarce_5k   = extend(moonai_defaults, base_5k, { initial_energy = 75.0, max_energy = 75.0, food_respawn_rate = 0.01 }),
     energy_abundant_5k = extend(moonai_defaults, base_5k, { initial_energy = 300.0, max_energy = 300.0, food_respawn_rate = 0.05 }),
-    energy_extreme_5k  = extend(moonai_defaults, base_5k, { initial_energy = 50.0, max_energy = 50.0, food_respawn_rate = 0.005, energy_drain_per_step = 0.15 }),
-    energy_rich_5k     = extend(moonai_defaults, base_5k, { initial_energy = 500.0, max_energy = 500.0, food_respawn_rate = 0.08, energy_drain_per_step = 0.03 }),
+    energy_extreme_5k  = extend(moonai_defaults, base_5k, { initial_energy = 50.0, max_energy = 50.0, food_respawn_rate = 0.005, energy_drain_per_tick = 0.15 }),
+    energy_rich_5k     = extend(moonai_defaults, base_5k, { initial_energy = 500.0, max_energy = 500.0, food_respawn_rate = 0.08, energy_drain_per_tick = 0.03 }),
 
     -- ── Group H: Agent speed / interaction range (5K) ────────────────────
     fast_agents_5k   = extend(moonai_defaults, base_5k, { predator_speed = 6.0, prey_speed = 7.0 }),
@@ -133,7 +133,7 @@ for name, cfg in pairs(conditions) do
     for _, seed in ipairs(seeds) do
         experiments[name .. "_seed" .. seed] = extend(cfg, {
             seed            = seed,
-            max_steps       = 200 * 1500,
+            max_ticks       = 200 * 1500,
         })
     end
 end

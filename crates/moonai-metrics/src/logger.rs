@@ -7,7 +7,7 @@ impl Logger {
         Ok(Self)
     }
 
-    pub fn log_stats(&mut self, _step: u64) {}
-    pub fn log_species(&mut self, _step: u64) {}
-    pub fn log_genomes(&mut self, _step: u64) {}
+    pub fn log_stats(&mut self, _tick: u64) {}
+    pub fn log_species(&mut self, _tick: u64) {}
+    pub fn log_genomes(&mut self, _tick: u64) {}
 }

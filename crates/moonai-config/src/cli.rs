@@ -8,7 +8,7 @@ pub struct CliArgs {
     #[arg(long)]
     pub settings: Option<String>,
     #[arg(short = 'n', long)]
-    pub steps: Option<i32>,
+    pub ticks: Option<i32>,
     #[arg(long)]
     pub headless: bool,
     #[arg(short, long)]

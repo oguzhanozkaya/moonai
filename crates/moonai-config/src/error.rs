@@ -31,10 +31,7 @@ pub fn validate_config(config: &SimulationConfig) -> Result<(), ConfigError> {
         errors.push(format!("prey_count must be >= 1, got {}", config.prey_count));
     }
     if config.predator_count + config.prey_count > 1_000_000 {
-        errors.push(format!(
-            "total population must be <= 1000000, got {}",
-            config.predator_count + config.prey_count
-        ));
+        errors.push(format!("total population must be <= 1000000, got {}", config.predator_count + config.prey_count));
     }
 
     if config.predator_speed <= 0.0 {
@@ -47,8 +44,7 @@ pub fn validate_config(config: &SimulationConfig) -> Result<(), ConfigError> {
         errors.push(format!("vision_range must be > 0, got {}", config.vision_range));
     }
     if config.interaction_range <= 0.0 {
-        errors
-            .push(format!("interaction_range must be > 0, got {}", config.interaction_range));
+        errors.push(format!("interaction_range must be > 0, got {}", config.interaction_range));
     }
     if config.interaction_range >= config.vision_range {
         errors.push(format!(
@@ -57,8 +53,7 @@ pub fn validate_config(config: &SimulationConfig) -> Result<(), ConfigError> {
         ));
     }
     if config.initial_energy <= 0.0 {
-        errors
-            .push(format!("initial_energy must be > 0, got {}", config.initial_energy));
+        errors.push(format!("initial_energy must be > 0, got {}", config.initial_energy));
     }
     if config.max_energy <= 0.0 {
         errors.push(format!("max_energy must be > 0, got {}", config.max_energy));
@@ -69,21 +64,15 @@ pub fn validate_config(config: &SimulationConfig) -> Result<(), ConfigError> {
             config.initial_energy, config.max_energy
         ));
     }
-    if config.energy_drain_per_step < 0.0 {
-        errors.push(format!(
-            "energy_drain_per_step must be >= 0, got {}",
-            config.energy_drain_per_step
-        ));
+    if config.energy_drain_per_tick < 0.0 {
+        errors.push(format!("energy_drain_per_tick must be >= 0, got {}", config.energy_drain_per_tick));
     }
 
     if config.food_count < 0 {
         errors.push(format!("food_count must be >= 0, got {}", config.food_count));
     }
     if !(0.0..=1.0).contains(&config.food_respawn_rate) {
-        errors.push(format!(
-            "food_respawn_rate must be in [0, 1], got {}",
-            config.food_respawn_rate
-        ));
+        errors.push(format!("food_respawn_rate must be in [0, 1], got {}", config.food_respawn_rate));
     }
 
     if !(0.0..=1.0).contains(&config.mutation_rate) {
@@ -93,35 +82,23 @@ pub fn validate_config(config: &SimulationConfig) -> Result<(), ConfigError> {
         errors.push(format!("add_node_rate must be in [0, 1], got {}", config.add_node_rate));
     }
     if !(0.0..=1.0).contains(&config.add_connection_rate) {
-        errors.push(format!(
-            "add_connection_rate must be in [0, 1], got {}",
-            config.add_connection_rate
-        ));
+        errors.push(format!("add_connection_rate must be in [0, 1], got {}", config.add_connection_rate));
     }
     if !(0.0..=1.0).contains(&config.delete_connection_rate) {
-        errors.push(format!(
-            "delete_connection_rate must be in [0, 1], got {}",
-            config.delete_connection_rate
-        ));
+        errors.push(format!("delete_connection_rate must be in [0, 1], got {}", config.delete_connection_rate));
     }
     if config.weight_mutation_power <= 0.0 {
-        errors.push(format!(
-            "weight_mutation_power must be > 0, got {}",
-            config.weight_mutation_power
-        ));
+        errors.push(format!("weight_mutation_power must be > 0, got {}", config.weight_mutation_power));
     }
     if config.max_age < 0 {
         errors.push(format!("max_age must be >= 0 (0 = infinite), got {}", config.max_age));
     }
-    if config.max_steps < 0 {
-        errors.push(format!("max_steps must be >= 0 (0 = infinite), got {}", config.max_steps));
+    if config.max_ticks < 0 {
+        errors.push(format!("max_ticks must be >= 0 (0 = infinite), got {}", config.max_ticks));
     }
 
     if config.compatibility_threshold <= 0.0 {
-        errors.push(format!(
-            "compatibility_threshold must be > 0, got {}",
-            config.compatibility_threshold
-        ));
+        errors.push(format!("compatibility_threshold must be > 0, got {}", config.compatibility_threshold));
     }
     if config.compatibility_min_normalization < 1.0 {
         errors.push(format!(
@@ -130,20 +107,14 @@ pub fn validate_config(config: &SimulationConfig) -> Result<(), ConfigError> {
         ));
     }
 
-    if config.report_interval_steps < 1 {
-        errors.push(format!(
-            "report_interval_steps must be >= 1, got {}",
-            config.report_interval_steps
-        ));
+    if config.report_interval_ticks < 1 {
+        errors.push(format!("report_interval_ticks must be >= 1, got {}", config.report_interval_ticks));
     }
     if config.mate_range <= 0.0 {
         errors.push(format!("mate_range must be > 0, got {}", config.mate_range));
     }
     if config.reproduction_energy_threshold <= 0.0 {
-        errors.push(format!(
-            "reproduction_energy_threshold must be > 0, got {}",
-            config.reproduction_energy_threshold
-        ));
+        errors.push(format!("reproduction_energy_threshold must be > 0, got {}", config.reproduction_energy_threshold));
     }
     if config.reproduction_energy_threshold > config.max_energy {
         errors.push(format!(
@@ -152,16 +123,10 @@ pub fn validate_config(config: &SimulationConfig) -> Result<(), ConfigError> {
         ));
     }
     if config.reproduction_energy_cost <= 0.0 {
-        errors.push(format!(
-            "reproduction_energy_cost must be > 0, got {}",
-            config.reproduction_energy_cost
-        ));
+        errors.push(format!("reproduction_energy_cost must be > 0, got {}", config.reproduction_energy_cost));
     }
     if config.offspring_initial_energy <= 0.0 {
-        errors.push(format!(
-            "offspring_initial_energy must be > 0, got {}",
-            config.offspring_initial_energy
-        ));
+        errors.push(format!("offspring_initial_energy must be > 0, got {}", config.offspring_initial_energy));
     }
     if config.offspring_initial_energy > config.max_energy {
         errors.push(format!(
@@ -170,9 +135,5 @@ pub fn validate_config(config: &SimulationConfig) -> Result<(), ConfigError> {
         ));
     }
 
-    if errors.is_empty() {
-        Ok(())
-    } else {
-        Err(ConfigError::InvalidConfig(errors.join("; ")))
-    }
+    if errors.is_empty() { Ok(()) } else { Err(ConfigError::InvalidConfig(errors.join("; "))) }
 }

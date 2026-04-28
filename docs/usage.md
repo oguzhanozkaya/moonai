@@ -21,7 +21,7 @@ Simulation config uses a single **`config.lua`** file at the project root. It re
 
 ```lua
 -- moonai_defaults is injected by the runtime (mirrors C++ SimulationConfig defaults)
--- Defaults: 500 predators, 1500 prey (2000 total), 3000×3000 square world, 1500 steps per report window
+-- Defaults: 500 predators, 1500 prey (2000 total), 3000×3000 square world, 1500 ticks per report window
 local function extend(t, overrides) ... end
 
 -- Helper: scale world and food proportionally to population
@@ -60,19 +60,19 @@ Set `seed` to `0` for random seed, or a fixed value for reproducible experiments
 
 ### CLI flags
 
-| Flag                   | Purpose                                          |
-| ---------------------- | ------------------------------------------------ |
-| `-h, --help`           | Show CLI help                                    |
-| `-c, --config <path>`  | Path to Lua config file (default: binary directory) |
-| `--settings <path>`     | Path to settings.json (default: binary directory)  |
-| `-n, --steps <n>`      | Override max steps (`0` = infinite)              |
-| `--headless`           | Run without visualization                        |
-| `-v, --verbose`        | Enable debug logging                             |
-| `--experiment <name>`   | Select one experiment by name                    |
-| `--all`                | Run all experiments sequentially (headless only) |
-| `--list`               | List experiment names and exit                   |
-| `--name <name>`        | Override output directory name                   |
-| `--validate`            | Load + validate config, print result, exit       |
+| Flag                  | Purpose                                             |
+| --------------------- | --------------------------------------------------- |
+| `-h, --help`          | Show CLI help                                       |
+| `-c, --config <path>` | Path to Lua config file (default: binary directory) |
+| `--settings <path>`   | Path to settings.json (default: binary directory)   |
+| `-n, --ticks <n>`     | Override max ticks (`0` = infinite)                 |
+| `--headless`          | Run without visualization                           |
+| `-v, --verbose`       | Enable debug logging                                |
+| `--experiment <name>` | Select one experiment by name                       |
+| `--all`               | Run all experiments sequentially (headless only)    |
+| `--list`              | List experiment names and exit                      |
+| `--name <name>`       | Override output directory name                      |
+| `--validate`          | Load + validate config, print result, exit          |
 
 ## Running Simulation
 
@@ -107,7 +107,7 @@ just experiment-run
 | ---------------------- | --------------------------------------------- |
 | `Space`                | Pause / resume                                |
 | `↑` / `↓` or `+` / `-` | Increase / decrease simulation speed          |
-| `.`                    | Step one step (while paused)                  |
+| `.`                    | Step one tick (while paused)                  |
 | `S`                    | Save screenshot                               |
 | `Esc`                  | Quit                                          |
 | Left-click             | Select an agent (shows stats + live NN panel) |
@@ -145,8 +145,8 @@ Each run writes to `output/experiments/{experiment_name}/` (named experiments) o
 | File           | Contents                                                                                                                                                                                                                                                                                                                                                                                           |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `config.json`  | Full config snapshot for this run                                                                                                                                                                                                                                                                                                                                                                  |
-| `stats.csv`    | One row per report interval sample with current state plus cumulative event totals: `step, predator_count, prey_count, predator_births, prey_births, predator_deaths, prey_deaths, predator_species, prey_species, avg_predator_complexity, avg_prey_complexity, avg_predator_energy, avg_prey_energy, max_predator_generation, avg_predator_generation, max_prey_generation, avg_prey_generation` |
-| `species.csv`  | One row per species per generation: `step, population, species_id, size, avg_complexity`                                                                                                                                                                                                                                                                                                           |
+| `stats.csv`    | One row per report interval sample with current state plus cumulative event totals: `tick, predator_count, prey_count, predator_births, prey_births, predator_deaths, prey_deaths, predator_species, prey_species, avg_predator_complexity, avg_prey_complexity, avg_predator_energy, avg_prey_energy, max_predator_generation, avg_predator_generation, max_prey_generation, avg_prey_generation` |
+| `species.csv`  | One row per species per generation: `tick, population, species_id, size, avg_complexity`                                                                                                                                                                                                                                                                                                           |
 | `genomes.json` | Representative genome snapshots (nodes + connections JSON)                                                                                                                                                                                                                                                                                                                                         |
 
 ## Analysis

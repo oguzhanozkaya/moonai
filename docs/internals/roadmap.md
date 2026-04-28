@@ -12,56 +12,13 @@ description: Tasks, priorities, known bugs, and the project roadmap.
 
 ```mermaid
 graph TD
-    moonai["
     moonai
-    ─ main.rs
-    ─ signal.rs
-    "]
-
-    moonai_config["
-    moonai-config
-    ─ SimulationConfig
-    ─ CliArgs
-    ─ UiConfig
-    ─ Lua loading
-    "]
-
-    moonai_types["
-    moonai-types
-    "]
-
-    moonai_evolution["
-    moonai-evolution
-    ─ lib.rs
-    ─ Genome, NeuralNetwork
-    ─ Mutation, Crossover
-    ─ Species, EvolutionManager
-    ─ crossover.cu
-    ─ mutation.cu
-    ─ network_compilation.cu
-    "]
-
-    moonai_simulation["
-    moonai-simulation
-    ─ lib.rs
-    ─ kernel.cu
-    ─ buffers.rs
-    ─ inference.rs
-    ─ reproduction.rs
-    ─ metrics_reduce.rs
-    ─ compaction.rs
-    "]
-
-    moonai_metrics["
-    moonai-metrics
-    "]
-
-    moonai_ui["
-    moonai-ui
-    ─ lib.rs
-    ─ render.rs
-    ─ types.rs
-    "]
+    moonai_config
+    moonai_types
+    moonai_evolution
+    moonai_simulation
+    moonai_metrics
+    moonai_ui
 
     moonai_config --> moonai_types
     moonai_evolution --> moonai_types
@@ -126,7 +83,7 @@ flowchart TD
     ROUTE -->|validate| EXIT
     ROUTE -->|run| INIT_SIM
     INIT_SIM --> INIT_LOG --> INIT_UI --> SEED --> TICK_LOOP
-    TICK_LOOP -->|run N steps| GPU
+    TICK_LOOP -->|run N ticks| GPU
     GPU --> GRID --> SENSOR --> INFERENCE --> VITALS --> FOOD --> COMBAT --> MOVE
     MOVE --> REPRO
     REPRO --> EVAL --> FIND --> CROSS --> MUT --> COMPILE --> ACTIVATE
@@ -194,7 +151,7 @@ classDiagram
     }
 
     class UiStats {
-        +uint32 step
+        +uint32 tick
         +uint32 predator_count
         +uint32 prey_count
         +uint32 predator_births
@@ -212,19 +169,19 @@ classDiagram
 
 **CLI flags:**
 
-| Flag                   | Description                                          |
-| ---------------------- | --------------------------------------------------- |
-| `-c, --config <path>`  | Path to Lua config file (default: binary directory) |
-| `--settings <path>`     | Path to settings.json (default: binary directory)   |
-| `-n, --steps <n>`      | Override max steps (`0` = infinite)                 |
-| `--headless`           | Run without visualization                           |
-| `-v, --verbose`        | Enable debug logging                                |
-| `--experiment <name>`  | Select one experiment by name                       |
-| `--all`                | Run all experiments sequentially (headless only)    |
-| `--list`               | List experiment names and exit                      |
-| `--name <name>`        | Override output directory name                      |
-| `--validate`           | Load + validate config, print result, exit          |
-| `-h, --help`           | Show CLI help                                      |
+| Flag                  | Description                                         |
+| --------------------- | --------------------------------------------------- |
+| `-c, --config <path>` | Path to Lua config file (default: binary directory) |
+| `--settings <path>`   | Path to settings.json (default: binary directory)   |
+| `-n, --ticks <n>`     | Override max ticks (`0` = infinite)                 |
+| `--headless`          | Run without visualization                           |
+| `-v, --verbose`       | Enable debug logging                                |
+| `--experiment <name>` | Select one experiment by name                       |
+| `--all`               | Run all experiments sequentially (headless only)    |
+| `--list`              | List experiment names and exit                      |
+| `--name <name>`       | Override output directory name                      |
+| `--validate`          | Load + validate config, print result, exit          |
+| `-h, --help`          | Show CLI help                                       |
 
 **CLI routing:**
 
@@ -252,7 +209,7 @@ flowchart TB
 
 1. **GPU owns all simulation state** — positions, velocities, energy, age, alive flags, genomes, innovation counters, all live in GPU memory.
 2. **CPU is orchestrator only** — never iterates the agent population except for initial population seeding and metrics export.
-3. **Tick-based cadence** — GPU runs N simulation steps per tick; CPU handles metrics logging between ticks.
+3. **Tick-based cadence** — GPU runs N simulation ticks per tick; CPU handles metrics logging between ticks.
 4. **GPU-native evolution** — crossover, mutation, and network compilation happen entirely on GPU via `moonai-evolution` CUDA kernels.
 5. **Buffer expansion** — buffers grow by 2x when capacity threshold is reached. No artificial ceiling.
 6. **No duplication** — evolution logic lives in `moonai-evolution` only; `moonai-simulation` calls those kernels.
@@ -264,7 +221,7 @@ flowchart TB
 - File locations: `config.lua` and `settings.json` live next to the binary executable.
   Lookup order: explicit path via CLI flag → binary directory → fallback to defaults.
 - `UiConfig` defaults are hardcoded in Rust; `settings.json` overrides them.
-- `UiState` (paused, speed_multiplier, step_requested, selected_agent_id) is **runtime state**,
+- `UiState` (paused, speed_multiplier, tick_requested, selected_agent_id) is **runtime state**,
   lives in `moonai-ui/types.rs`. NOT in `moonai-config`.
 - Output schema stays unchanged so Python analysis keeps working.
 - Behavioral parity is the goal.
@@ -272,7 +229,7 @@ flowchart TB
 - `config.lua` is loaded via `mlua`. `moonai_defaults` is injected as a global table.
 - CLI `--experiment` flag is a string passthrough; experiment selection logic is in `moonai` crate.
 - Reproduction is **sexual** — two parent genomes crossover on GPU, mutation applied on GPU, network compiled on GPU.
-- FPS target: 120fps. Speed multiplier: 1x-1024x steps per frame. Every frame renders everything live.
+- FPS target: 120fps. Speed multiplier: 1x-1024x ticks per frame. Every frame renders everything live.
 - UI needs fresh data every frame: population counts, positions, velocities, all of it.
 
 ## 4. Technology Choices
@@ -400,15 +357,15 @@ crates/
 
 **Goal:** `moonai-config` fully implemented — simulation params, CLI, UI config, Lua loading
 
-| #   | Task                                                                                           | Verification                                   | Status |
-| --- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------ |
-| 1   | `SimulationConfig` with all fields + serde (C++-aligned defaults)                              | `cargo check -p moonai-config`                 | [x]    |
-| 2   | `CliArgs` + clap parsing (`--experiment`, `--all`, `--headless`, `-n`, etc.)                   | `cargo run -- --list` works                    | [x]    |
-| 3   | `UiConfig` with **hardcoded defaults** (50+ fields from legacy constants.hpp)                  | Unit tests                                     | [x]    |
-| 4   | Lua loading — inject `moonai_defaults`, parse experiment table                                  | `cargo run -- --validate` works               | [x]    |
-| 5   | `ConfigError` + `validate_config` (all 24 legacy validation rules)                             | `cargo run -- --validate` passes defaults      | [x]    |
-| 6   | `settings.json` loading for UI config (separate from simulation config)                        | `load_settings` returns UiConfig               | [x]    |
-| 7   | Experiment routing in `moonai` binary (`--list`, `--validate`, `--experiment`, `--all`)         | All CLI flags work end-to-end                  | [x]    |
+| #   | Task                                                                                    | Verification                              | Status |
+| --- | --------------------------------------------------------------------------------------- | ----------------------------------------- | ------ |
+| 1   | `SimulationConfig` with all fields + serde (C++-aligned defaults)                       | `cargo check -p moonai-config`            | [x]    |
+| 2   | `CliArgs` + clap parsing (`--experiment`, `--all`, `--headless`, `-n`, etc.)            | `cargo run -- --list` works               | [x]    |
+| 3   | `UiConfig` with **hardcoded defaults** (50+ fields from legacy constants.hpp)           | Unit tests                                | [x]    |
+| 4   | Lua loading — inject `moonai_defaults`, parse experiment table                          | `cargo run -- --validate` works           | [x]    |
+| 5   | `ConfigError` + `validate_config` (all 24 legacy validation rules)                      | `cargo run -- --validate` passes defaults | [x]    |
+| 6   | `settings.json` loading for UI config (separate from simulation config)                 | `load_settings` returns UiConfig          | [x]    |
+| 7   | Experiment routing in `moonai` binary (`--list`, `--validate`, `--experiment`, `--all`) | All CLI flags work end-to-end             | [x]    |
 
 **Note:** UI config comes exclusively from `settings.json` — Lua does not support UI overrides.
 
@@ -464,7 +421,7 @@ crates/
 | 1   | `PredatorBuffer` SoA layout  | All genome arrays in-place                |
 | 2   | `PreyBuffer` SoA layout      | Same as predator                          |
 | 3   | `FoodBuffer`                 | pos_x, pos_y, active                      |
-| 4   | `UiStats` pinned host-mapped | Written every step, CPU reads with memcpy |
+| 4   | `UiStats` pinned host-mapped | Written every tick, CPU reads with memcpy |
 | 5   | Free list ring buffer        | Push dead slots, pop for births           |
 
 #### 4b. Persistent Kernel Phases
@@ -479,7 +436,7 @@ crates/
 | 6   | `resolve_combat`    | —                    | Predator claim prey in range                   |
 | 7   | `apply_movement`    | —                    | NN output → position update                    |
 | 8   | `reproduction`      | —                    |                                                |
-| 8a  | evaluate            | —                    | Energy >= threshold, not used this step        |
+| 8a  | evaluate            | —                    | Energy >= threshold, not used this tick        |
 | 8b  | find_mate           | —                    | DenseReproductionGrid search                   |
 | 8c  | gpu_crossover       | **moonai-evolution** | Calls crossover.cu kernel                      |
 | 8d  | gpu_mutate          | **moonai-evolution** | Calls mutation.cu kernel                       |
@@ -507,8 +464,8 @@ crates/
 | #   | Task            | Details                                                                                                                                                                                                                                                                                                      |
 | --- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 1   | `Logger` struct | `YYYYMMDD_HHMMSS_seedN` directory                                                                                                                                                                                                                                                                            |
-| 2   | `stats.csv`     | step, predator_count, prey_count, predator_births, prey_births, predator_deaths, prey_deaths, predator_species, prey_species, avg_predator_complexity, avg_prey_complexity, avg_predator_energy, avg_prey_energy, max_predator_generation, avg_predator_generation, max_prey_generation, avg_prey_generation |
-| 3   | `species.csv`   | step, population, species_id, size, avg_complexity                                                                                                                                                                                                                                                           |
+| 2   | `stats.csv`     | tick, predator_count, prey_count, predator_births, prey_births, predator_deaths, prey_deaths, predator_species, prey_species, avg_predator_complexity, avg_prey_complexity, avg_predator_energy, avg_prey_energy, max_predator_generation, avg_predator_generation, max_prey_generation, avg_prey_generation |
+| 3   | `species.csv`   | tick, population, species_id, size, avg_complexity                                                                                                                                                                                                                                                           |
 | 4   | `genomes.json`  | Representative genome snapshots                                                                                                                                                                                                                                                                              |
 
 ### Phase 6 — Headless Runtime (Milestone)
@@ -520,7 +477,7 @@ crates/
 | Evolution tests  | `cargo test -p moonai-evolution`                                    | All tests pass                                                    |
 | Build parity     | `cargo build --workspace`                                           | All crates compile, no CMake                                      |
 | Config parity    | `cargo run -- --validate config.lua`                                | Config loads                                                      |
-| Headless runtime | `./moonai config.lua --experiment baseline --headless --steps 1000` | Produces stats.csv, species.csv, genomes.json matching C++ output |
+| Headless runtime | `./moonai config.lua --experiment baseline --headless --ticks 1000` | Produces stats.csv, species.csv, genomes.json matching C++ output |
 
 ### Phase 7 — UI
 
@@ -530,13 +487,13 @@ crates/
 crates/moonai-ui/
 ├── Cargo.toml
 └── src/
-    ├── lib.rs        # App, winit event loop, pause/step/speed controls
+    ├── lib.rs        # App, winit event loop, pause/tick/speed controls
     ├── render.rs     # wgpu instanced rendering (positions from GPU buffers)
     └── types.rs      # UiState (RUNTIME STATE, not config), OverlayStats,
                       # RenderFood, RenderAgent, RenderLine
 ```
 
-**Note:** `UiState` (paused, speed_multiplier, step_requested, selected_agent_id) is **runtime
+**Note:** `UiState` (paused, speed_multiplier, tick_requested, selected_agent_id) is **runtime
 state** — it is NOT config. It lives in `moonai-ui/types.rs` and is never serialized.
 
 **Render pipeline:**
@@ -582,7 +539,7 @@ gpu_crossover_kernel(parent_a_ptr, parent_b_ptr, offspring_ptr, rng_state_ptr):
 
     // 1. Read parent connection arrays into shared memory (32 threads cooperatively)
     // 2. Warp-level bitonic sort by innovation number
-    // 3. Merge step:
+    // 3. Merge phase:
     //    for each innovation in union:
     //      if in both parents:
     //        inherit = (rand() < 0.50) ? parent_a : parent_b
@@ -647,8 +604,8 @@ Global GPU state:
   innovation_counter: atomic<uint32>   // monotonic, starts at (num_inputs + num_outputs + 1)
   next_node_id: atomic<uint32>        // monotonic for hidden nodes
 
-Per-step innovation log (append-only):
-  innovation_log[step][innovation_id] = {from_node, to_node, innovation_type}
+Per-tick innovation log (append-only):
+  innovation_log[tick][innovation_id] = {from_node, to_node, innovation_type}
   // Used for matching homologues during crossover
 ```
 
@@ -673,11 +630,11 @@ Per-step innovation log (append-only):
 
 ## 9. UI Data Path
 
-GPU writes a compact `UiStats` struct to a **pinned host-mapped buffer** every step. CPU reads it with a single `memcpy`. No kernel launch needed.
+GPU writes a compact `UiStats` struct to a **pinned host-mapped buffer** every tick. CPU reads it with a single `memcpy`. No kernel launch needed.
 
 ```
-UiStats (pinned, written every step):
-  step, predator_count, prey_count
+UiStats (pinned, written every tick):
+  tick, predator_count, prey_count
   predator_births, prey_births
   predator_deaths, prey_deaths
   kills, food_eaten

@@ -49,12 +49,12 @@ description: Conventions, rules and policies for MoonAI development.
 ### Rules
 
 - **Suppression comments are forbidden**
-    * Do NOT use: `#[allow(...)]`, `#![allow(...)]`, `#[expect(...)]`
-    * Enforced by ripgrep in the quality gate
+  - Do NOT use: `#[allow(...)]`, `#![allow(...)]`, `#[expect(...)]`
+  - Enforced by ripgrep in the quality gate
 - **`unwrap`/`expect` are forbidden**
-    * only permitted in test functions via `clippy.toml` settings (`allow-expect-in-tests`, `allow-unwrap-in-tests`)
-    * use `?`, `Option::ok()`, or `anyhow::Context`
-    * Propagate errors with `?` — never swallow errors silently
+  - only permitted in test functions via `clippy.toml` settings (`allow-expect-in-tests`, `allow-unwrap-in-tests`)
+  - use `?`, `Option::ok()`, or `anyhow::Context`
+  - Propagate errors with `?` — never swallow errors silently
 - **No `panic!()`/`todo!()`/`dbg!()`**
 - **No print to stdout/stderr** - use `tracing::info!`, `tracing::warn!`, etc.
 - **Clone explicitly on smart pointers** — `Arc::clone(&x)` not `x.clone()` (`clone_on_ref_ptr`)

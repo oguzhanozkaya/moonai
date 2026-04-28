@@ -22,8 +22,8 @@ pub struct SimulationConfig {
     pub mate_range: f32,
     #[serde(default = "food_respawn_rate_default")]
     pub food_respawn_rate: f32,
-    #[serde(default = "energy_drain_per_step_default")]
-    pub energy_drain_per_step: f32,
+    #[serde(default = "energy_drain_per_tick_default")]
+    pub energy_drain_per_tick: f32,
     #[serde(default = "energy_gain_from_kill_default")]
     pub energy_gain_from_kill: f32,
     #[serde(default = "energy_gain_from_food_default")]
@@ -52,8 +52,8 @@ pub struct SimulationConfig {
     pub delete_connection_rate: f32,
     #[serde(default = "max_hidden_nodes_default")]
     pub max_hidden_nodes: i32,
-    #[serde(default = "max_steps_default")]
-    pub max_steps: i32,
+    #[serde(default = "max_ticks_default")]
+    pub max_ticks: i32,
     #[serde(default = "compatibility_threshold_default")]
     pub compatibility_threshold: f32,
     #[serde(default = "compatibility_min_normalization_default")]
@@ -68,8 +68,8 @@ pub struct SimulationConfig {
     pub seed: i32,
     #[serde(default = "output_dir_default")]
     pub output_dir: String,
-    #[serde(default = "report_interval_steps_default")]
-    pub report_interval_steps: i32,
+    #[serde(default = "report_interval_ticks_default")]
+    pub report_interval_ticks: i32,
 }
 
 impl Default for SimulationConfig {
@@ -85,7 +85,7 @@ impl Default for SimulationConfig {
             interaction_range: interaction_range_default(),
             mate_range: mate_range_default(),
             food_respawn_rate: food_respawn_rate_default(),
-            energy_drain_per_step: energy_drain_per_step_default(),
+            energy_drain_per_tick: energy_drain_per_tick_default(),
             energy_gain_from_kill: energy_gain_from_kill_default(),
             energy_gain_from_food: energy_gain_from_food_default(),
             initial_energy: initial_energy_default(),
@@ -100,7 +100,7 @@ impl Default for SimulationConfig {
             add_connection_rate: add_connection_rate_default(),
             delete_connection_rate: delete_connection_rate_default(),
             max_hidden_nodes: max_hidden_nodes_default(),
-            max_steps: max_steps_default(),
+            max_ticks: max_ticks_default(),
             compatibility_threshold: compatibility_threshold_default(),
             compatibility_min_normalization: compatibility_min_normalization_default(),
             c1_excess: c1_excess_default(),
@@ -108,7 +108,7 @@ impl Default for SimulationConfig {
             c3_weight: c3_weight_default(),
             seed: seed_default(),
             output_dir: output_dir_default(),
-            report_interval_steps: report_interval_steps_default(),
+            report_interval_ticks: report_interval_ticks_default(),
         }
     }
 }
@@ -143,7 +143,7 @@ fn mate_range_default() -> f32 {
 fn food_respawn_rate_default() -> f32 {
     0.006
 }
-fn energy_drain_per_step_default() -> f32 {
+fn energy_drain_per_tick_default() -> f32 {
     0.001
 }
 fn energy_gain_from_kill_default() -> f32 {
@@ -188,7 +188,7 @@ fn delete_connection_rate_default() -> f32 {
 fn max_hidden_nodes_default() -> i32 {
     1200
 }
-fn max_steps_default() -> i32 {
+fn max_ticks_default() -> i32 {
     0
 }
 fn compatibility_threshold_default() -> f32 {
@@ -212,6 +212,6 @@ fn seed_default() -> i32 {
 fn output_dir_default() -> String {
     String::from("output/experiments")
 }
-fn report_interval_steps_default() -> i32 {
+fn report_interval_ticks_default() -> i32 {
     1000
 }

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use clap::Parser as _;
-use moonai_config::{validate_config, CliArgs, ConfigError, SimulationConfig};
+use moonai_config::{CliArgs, ConfigError, SimulationConfig, validate_config};
 
 fn resolve_config_path(args: &CliArgs) -> Option<String> {
     if let Some(ref path) = args.config {
@@ -78,8 +78,7 @@ fn select_experiment(
                 return Ok(experiments.values().next().unwrap().clone());
             }
             Err(ConfigError::InvalidConfig(
-                "no 'default' experiment found and multiple experiments exist without --experiment flag"
-                    .to_string(),
+                "no 'default' experiment found and multiple experiments exist without --experiment flag".to_string(),
             ))
         }
     }
@@ -114,9 +113,9 @@ fn main() -> Result<()> {
         names.sort();
         for name in names {
             let config = experiments.get(name).unwrap();
-            let config = if let Some(steps) = args.steps {
+            let config = if let Some(ticks) = args.ticks {
                 let mut cfg = config.clone();
-                cfg.max_steps = steps;
+                cfg.max_ticks = ticks;
                 cfg
             } else {
                 config.clone()
@@ -130,15 +129,12 @@ fn main() -> Result<()> {
 
     let config = select_experiment(&experiments, args.experiment.as_deref())?;
     let mut config = config;
-    if let Some(steps) = args.steps {
-        config.max_steps = steps;
+    if let Some(ticks) = args.ticks {
+        config.max_ticks = ticks;
     }
 
     println!("MoonAI - GPU-first predator-prey evolution simulation");
-    println!(
-        "Loaded experiment: {:?}",
-        args.experiment.as_deref().unwrap_or("default")
-    );
+    println!("Loaded experiment: {:?}", args.experiment.as_deref().unwrap_or("default"));
     println!("Config: {:?}", config);
 
     Ok(())

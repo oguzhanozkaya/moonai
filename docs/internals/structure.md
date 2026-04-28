@@ -10,20 +10,21 @@ description: Project structure, file organization, and tooling reference.
 moonai/
 ├── .github/                    # GitHub workflows
 ├── analysis/                   # Python simulation analysis package
+├── assets/                     # Static assets
 ├── docs/                       # Documentation source
 ├── crates/                     # Rust workspace (moonai-*)
 ├── runtime/                    # Runtime assets (config/, assets/)
 ├── .gitattributes              # Git attributes
 ├── .gitignore                  # Git ignore rules
-├── Cargo.toml                  # Rust workspace manifest (workspace config, lints)
+├── Cargo.toml                  # Rust workspace manifest
 ├── Cargo.lock                  # Locked dependency versions
-├── clippy.toml                # Clippy linter configuration
-├── rustfmt.toml               # Rust formatter configuration
-├── rust-toolchain.toml        # Rust toolchain specification
-├── ruff.toml                  # Ruff linter configuration for Python
+├── clippy.toml                 # Clippy linter configuration
+├── rustfmt.toml                # Rust formatter configuration
+├── rust-toolchain.toml         # Rust toolchain specification
+├── ruff.toml                   # Ruff linter configuration for Python
 ├── README.md                   # Project readme
 ├── justfile                    # Rust project commands
-├── pyproject.toml             # Python package config (hatchling build)
+├── pyproject.toml              # Python package config
 ├── uv.lock                     # Python dependency lock
 └── zensical.toml               # Website configuration
 ```
